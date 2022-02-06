@@ -18,14 +18,29 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#pragma once
-#include <Piper/Core/RefCount.hpp>
+#include <Piper/Core/StaticFactory.hpp>
+#include <Piper/Render/PipelineNode.hpp>
 
 PIPER_NAMESPACE_BEGIN
 
-class Pipeline : public RefCountBase {
+class EXROutput final : public PipelineNode {
+    std::pmr::string mOutputPath;
+
 public:
-    virtual void execute(const std::pmr::string& outputDir) = 0;
+    explicit EXROutput(const Ref<ConfigNode>& node) {}
+    ChannelRequirement setup(const std::pmr::string& path, const ChannelRequirement req) override {
+        if(!req.empty())
+            fatal("EXROutput is a sink node");
+        mOutputPath = path;
+        return { { { Channel::Full, false } }, context().globalAllocator };
+    }
+
+    FrameGroup transform(FrameGroup group) override {
+        PIPER_NOT_IMPLEMENTED();
+        return {};
+    }
 };
+
+PIPER_REGISTER_CLASS(EXROutput, PipelineNode);
 
 PIPER_NAMESPACE_END

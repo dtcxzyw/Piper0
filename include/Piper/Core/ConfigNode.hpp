@@ -27,15 +27,27 @@
 PIPER_NAMESPACE_BEGIN
 
 class ConfigAttr final : public RefCountBase {
-    std::variant<uint32_t, double, std::string_view, std::pmr::vector<Ref<ConfigAttr>>, Ref<ConfigNode>> mValue;
+public:
+    using AttrArray = std::pmr::vector<Ref<ConfigAttr>>;
+
+private:
+    std::variant<bool, uint32_t, double, std::string_view, std::pmr::string, AttrArray, Ref<ConfigNode>> mValue;
 
 public:
     template <typename T>
-    ConfigAttr(T&& x) : mValue{ std::forward<T>(x) } {}
+    explicit ConfigAttr(T&& x) : mValue{ std::forward<T>(x) } {}
 
     template <typename T>
-    const T& as() const {
+    requires(!std::is_same_v<std::string_view, T>) const T& as() const {
         return std::get<T>(mValue);
+    }
+
+    template <typename T>
+    requires(std::is_same_v<std::string_view, T>) std::string_view as()
+    const {
+        if(const auto ptr = std::get_if<std::string_view>(&mValue))
+            return *ptr;
+        return std::get<std::pmr::string>(mValue);
     }
 };
 
@@ -47,9 +59,11 @@ private:
     std::string_view mName;
     std::string_view mType;
     AttrMap mValue;
+    Ref<RefCountBase> mHolder;
 
 public:
-    ConfigNode(std::string_view name, std::string_view type, AttrMap value) : mName{ name }, mType{ type }, mValue{ std::move(value) } {}
+    ConfigNode(std::string_view name, std::string_view type, AttrMap value, Ref<RefCountBase> holder)
+        : mName{ name }, mType{ type }, mValue{ std::move(value) }, mHolder{ std::move(holder) } {}
 
     auto type() const noexcept {
         return mType;
@@ -57,8 +71,22 @@ public:
     auto name() const noexcept {
         return mName;
     }
+
+    const Ref<ConfigAttr>* tryGet(const std::string_view attr) const {
+        if(const auto iter = mValue.find(attr); iter != mValue.cend())
+            return &iter->second;
+        return nullptr;
+    }
+
+    const Ref<ConfigAttr>& get(const std::string_view attr) const {
+        return mValue.find(attr)->second;
+    }
 };
 
-Ref<ConfigNode> parseConfigNode(const BinaryData& data);
+using LoadConfiguration = std::pmr::unordered_map<std::string_view, std::string_view>;
+
+Ref<ConfigNode> parseJSONConfigNode(const std::string_view& path, const LoadConfiguration& config);
+Ref<ConfigNode> parseYAMLConfigNode(const std::string_view& path, const LoadConfiguration& config);
+Ref<ConfigNode> parseXMLConfigNode(const std::string_view& path, const LoadConfiguration& config);
 
 PIPER_NAMESPACE_END

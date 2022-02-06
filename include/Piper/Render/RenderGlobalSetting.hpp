@@ -19,13 +19,15 @@
 */
 
 #pragma once
-#include <Piper/Core/RefCount.hpp>
+#include <Piper/Render/Spectrum.hpp>
 
 PIPER_NAMESPACE_BEGIN
 
-class Pipeline : public RefCountBase {
-public:
-    virtual void execute(const std::pmr::string& outputDir) = 0;
+template <SpectrumLike Spectrum, bool polarized>
+struct RenderStaticSetting final {
+    using SpectrumType = Spectrum;
 };
+
+#define PIPER_IMPORT_SETTING() using Spectrum = typename Setting::SpectrumType
 
 PIPER_NAMESPACE_END

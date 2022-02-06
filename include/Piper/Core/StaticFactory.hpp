@@ -27,22 +27,23 @@
 PIPER_NAMESPACE_BEGIN
 
 class StaticFactory final {
-    tbb::concurrent_unordered_map<uint64_t, std::function<Ref<RefCountBase>(const ConfigNode&)>> mLUT{};
+    tbb::concurrent_unordered_map<uint64_t, std::function<Ref<RefCountBase>(const Ref<ConfigNode>&)>> mLUT{};
 
 public:
     template <typename T, typename Base>
-    void registerClass(std::string_view name) {
+    void registerClass(const std::string_view name) {
         const auto hashValue = std::hash<std::string_view>{}(name) ^ typeid(Base).hash_code();
-        mLUT.insert({ hashValue, [](const ConfigNode& node) { return makeRefCount<T, RefCountBase>(node); } });
+        mLUT.insert({ hashValue, [](const Ref<ConfigNode>& node) { return makeRefCount<T, RefCountBase>(node); } });
     }
 
     template <typename Base>
-    Ref<Base> make(const ConfigNode& node) {
-        const auto hashValue = std::hash<std::string_view>{}(node.type()) ^ typeid(Base).hash_code();
+    Ref<Base> make(const Ref<ConfigNode>& node) {
+        const auto hashValue = std::hash<std::string_view>{}(node->type()) ^ typeid(Base).hash_code();
 
         const auto iter = mLUT.find(hashValue);
         if(iter == mLUT.cend())
-            fatal(fmt::format("Failed to instantiate object \"{}\" [class = {}] ", node.type(), typeid(Base).name()));
+            fatal(fmt::format("Failed to instantiate object \"{}\" [class = {}, interface = {}] ", node->name(), node->type(),
+                              typeid(Base).name()));
 
         const auto ptr = dynamic_cast<Base*>(iter->second(node).release());
         return Ref<Base>{ ptr, owns };
@@ -50,5 +51,17 @@ public:
 };
 
 StaticFactory& getStaticFactory();
+
+template <typename T, typename Base>
+requires(std::is_base_of_v<Base, T>) struct RegisterHelper final {
+    explicit RegisterHelper(const std::string_view name) {
+        getStaticFactory().registerClass<T, Base>(name);
+    }
+};
+
+#define PIPER_REGISTER_CLASS(CLASS, BASE)                      \
+    static RegisterHelper<CLASS, BASE> CLASS##RegisterHelper { \
+#CLASS                                                 \
+    }
 
 PIPER_NAMESPACE_END

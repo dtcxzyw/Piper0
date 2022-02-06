@@ -43,6 +43,17 @@
 #include <xmmintrin.h>
 using namespace Piper;
 
+template <typename Callable>
+void guard(Callable&& callable) noexcept {
+    try {
+        std::invoke(std::forward<Callable>(callable));
+    } catch(const std::exception& ex) {
+        fatal(fmt::format("{}: {}", typeid(ex).name(), ex.what()));
+    } catch(...) {
+        fatal("Unknown error"s);
+    }
+}
+
 void mainGuarded(int argc, char** argv) {
     _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
     _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
@@ -91,10 +102,12 @@ void mainGuarded(int argc, char** argv) {
         info("Loading scene");
         const auto pipelineDesc = makeRefCount<ConfigNode>(
             "pipeline"sv, getPipelineType(inputFilePath.extension().string()),
-            ConfigNode::AttrMap{ { { "inputFile"sv, makeRefCount<ConfigAttr>(inputFile) } }, context().globalAllocator });
-        const auto pipeline = getStaticFactory().make<Pipeline>(*pipelineDesc);
+            ConfigNode::AttrMap{ { { "InputFile"sv, makeRefCount<ConfigAttr>(inputFile) } }, context().globalAllocator },
+            Ref<RefCountBase>{});
+        // TODO: load configuration from CLI
+        const auto pipeline = getStaticFactory().make<Pipeline>(pipelineDesc);
         info("Rendering scene");
-        pipeline->execute(outputBase);
+        pipeline->execute(std::pmr::string{ outputDir, context().globalAllocator });
 
         printStats();
     };
@@ -107,7 +120,7 @@ void mainGuarded(int argc, char** argv) {
         tbb::task_group tg;
         bool running = true;
         tg.run([&] {
-            render();
+            guard(render);
             running = false;
         });
 
@@ -252,13 +265,7 @@ void mainGuarded(int argc, char** argv) {
 }
 
 int main(const int argc, char** argv) {
-    try {
-        mainGuarded(argc, argv);
-    } catch(const std::exception& ex) {
-        fatal(fmt::format("{}: {}", typeid(ex).name(), ex.what()));
-    } catch(...) {
-        fatal("Unknown error"s);
-    }
+    guard([&] { mainGuarded(argc, argv); });
 
     return EXIT_SUCCESS;
 }

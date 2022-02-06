@@ -18,14 +18,29 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#pragma once
-#include <Piper/Core/RefCount.hpp>
+#include <Piper/Core/StaticFactory.hpp>
+#include <Piper/Core/Sync.hpp>
+#include <Piper/Render/PipelineNode.hpp>
 
 PIPER_NAMESPACE_BEGIN
 
-class Pipeline : public RefCountBase {
+class Preview final : public PipelineNode {
 public:
-    virtual void execute(const std::pmr::string& outputDir) = 0;
+    explicit Preview(const Ref<ConfigNode>& node) {
+        PIPER_NOT_IMPLEMENTED();
+    }
+    ChannelRequirement setup(const std::pmr::string&, const ChannelRequirement req) override {
+        if(!req.empty())
+            fatal("Preview is a sink node");
+        return { { { Channel::Full, false } }, context().globalAllocator };
+    }
+
+    FrameGroup transform(FrameGroup group) override {
+        PIPER_NOT_IMPLEMENTED();
+        return {};
+    }
 };
+
+PIPER_REGISTER_CLASS(Preview, PipelineNode);
 
 PIPER_NAMESPACE_END

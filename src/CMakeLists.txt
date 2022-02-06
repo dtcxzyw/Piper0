@@ -8,7 +8,11 @@ find_package(Boost REQUIRED system)
 find_package(ftxui CONFIG REQUIRED)
 find_package(fmt CONFIG REQUIRED)
 find_package(magic_enum CONFIG REQUIRED)
-    
+find_package(OpenImageDenoise CONFIG REQUIRED)
+find_package(embree 3.13.2 CONFIG REQUIRED)
+find_package(OpenVKL CONFIG REQUIRED)
+find_package(OpenColorIO CONFIG REQUIRED)
+find_package(simdjson CONFIG REQUIRED)
     
 file(GLOB PIPER_CLI_SRC "*/*.cpp")
 add_executable(PiperCLI ${PIPER_CLI_SRC})
@@ -20,4 +24,10 @@ target_link_libraries(PiperCLI PRIVATE cxxopts::cxxopts)
 target_link_libraries(PiperCLI PRIVATE ftxui::dom ftxui::screen ftxui::component)
 target_link_libraries(PiperCLI PRIVATE fmt::fmt)
 target_link_libraries(PiperCLI PRIVATE magic_enum::magic_enum)
-   
+target_link_libraries(PiperCLI PRIVATE OpenColorIO::OpenColorIO)
+target_link_libraries(PiperCLI PRIVATE OpenImageDenoise embree)
+target_link_libraries(PiperCLI PRIVATE simdjson::simdjson)
+
+add_custom_command(TARGET PiperCLI POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:OpenImageDenoise> $<TARGET_FILE_DIR:PiperCLI>
+)

@@ -45,10 +45,18 @@
 #define PIPER_NAMESPACE_END }
 
 #ifdef _MSC_VER
-#define PIPER_UNREACHABLE() __assume(false)
+[[noreturn]] __forceinline void unreachable() {
+#ifdef _DEBUG
+    __debugbreak();
+#endif
+    __assume(false);
+}
+#define PIPER_UNREACHABLE() unreachable()
 #else
 #define PIPER_UNREACHABLE() __builtin__unreachable()
 #endif
+
+#define PIPER_NOT_IMPLEMENTED() PIPER_UNREACHABLE()
 
 #include <Piper/PiperFwd.hpp>
 

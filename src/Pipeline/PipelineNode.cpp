@@ -18,14 +18,18 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#pragma once
-#include <Piper/Core/RefCount.hpp>
+#include <Piper/Render/PipelineNode.hpp>
 
 PIPER_NAMESPACE_BEGIN
 
-class Pipeline : public RefCountBase {
-public:
-    virtual void execute(const std::pmr::string& outputDir) = 0;
-};
+void mergeRequirement(PipelineNode::ChannelRequirement& lhs, PipelineNode::ChannelRequirement rhs) {
+    if(lhs.empty()) {
+        lhs = std::move(rhs);
+        return;
+    }
+    for(auto [channel, required] : rhs)
+        if(!lhs.count(channel) || required)
+            lhs[channel] = required;
+}
 
 PIPER_NAMESPACE_END

@@ -19,13 +19,23 @@
 */
 
 #pragma once
-#include <Piper/Core/RefCount.hpp>
+#include <Piper/Render/Frame.hpp>
 
 PIPER_NAMESPACE_BEGIN
 
-class Pipeline : public RefCountBase {
+class PipelineNode : public RefCountBase {
 public:
-    virtual void execute(const std::pmr::string& outputDir) = 0;
+    using ChannelRequirement = std::pmr::unordered_map<Channel, bool>;
+
+    virtual ChannelRequirement setup(const std::pmr::string& path, ChannelRequirement req) = 0;
+    virtual FrameGroup transform(FrameGroup group) = 0;
+};
+
+void mergeRequirement(PipelineNode::ChannelRequirement& lhs, PipelineNode::ChannelRequirement rhs);
+
+class SourceNode : public PipelineNode {
+public:
+    virtual uint32_t frameCount() = 0;
 };
 
 PIPER_NAMESPACE_END
