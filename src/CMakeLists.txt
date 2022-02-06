@@ -1,0 +1,23 @@
+cmake_minimum_required (VERSION 3.20)
+
+find_package(range-v3 CONFIG REQUIRED)
+find_package(TBB CONFIG REQUIRED)
+find_package(glm CONFIG REQUIRED)
+find_package(cxxopts CONFIG REQUIRED)
+find_package(Boost REQUIRED system)
+find_package(ftxui CONFIG REQUIRED)
+find_package(fmt CONFIG REQUIRED)
+find_package(magic_enum CONFIG REQUIRED)
+    
+    
+file(GLOB PIPER_CLI_SRC "*/*.cpp")
+add_executable(PiperCLI ${PIPER_CLI_SRC})
+target_link_libraries(PiperCLI PRIVATE range-v3 range-v3-meta range-v3::meta range-v3-concepts)
+target_link_libraries(PiperCLI PRIVATE TBB::tbb TBB::tbbmalloc TBB::tbbmalloc_proxy)
+target_include_directories(PiperCLI PRIVATE ${RANG_INCLUDE_DIRS})
+target_link_libraries(PiperCLI PRIVATE glm::glm)
+target_link_libraries(PiperCLI PRIVATE cxxopts::cxxopts)
+target_link_libraries(PiperCLI PRIVATE ftxui::dom ftxui::screen ftxui::component)
+target_link_libraries(PiperCLI PRIVATE fmt::fmt)
+target_link_libraries(PiperCLI PRIVATE magic_enum::magic_enum)
+   
