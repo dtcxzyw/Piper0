@@ -19,11 +19,13 @@
 */
 
 #pragma once
-#include <OpenColorIO/OpenColorIO.h>
-#include <Piper/Core/Context.hpp>
+#include <Piper/Core/RefCount.hpp>
 
 PIPER_NAMESPACE_BEGIN
 
+class SceneObject : public RefCountBase {
+public:
 
+};
 
 PIPER_NAMESPACE_END

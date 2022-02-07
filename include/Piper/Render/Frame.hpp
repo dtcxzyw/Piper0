@@ -25,7 +25,23 @@
 
 PIPER_NAMESPACE_BEGIN
 
-enum class Channel : uint16_t { Full, Direct, Indirect, Albedo, ShadingNormal, Position, Depth };
+enum class Channel : uint16_t {
+    Full = 1 << 0,
+    Direct = 1 << 1,
+    Indirect = 1 << 2,
+    Albedo = 1 << 3,
+    ShadingNormal = 1 << 4,
+    Position = 1 << 5,
+    Depth = 1 << 6
+};
+
+constexpr Channel operator|(Channel a, Channel b) {
+    return static_cast<Channel>(static_cast<uint16_t>(a) | static_cast<uint16_t>(b));
+}
+
+constexpr Channel operator&(Channel a, Channel b) {
+    return static_cast<Channel>(static_cast<uint16_t>(a) & static_cast<uint16_t>(b));
+}
 
 struct FrameMetadata final {
     uint32_t width;

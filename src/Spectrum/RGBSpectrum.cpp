@@ -18,12 +18,12 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#pragma once
-#include <OpenColorIO/OpenColorIO.h>
-#include <Piper/Core/Context.hpp>
+#include <Piper/Render/Spectrum.hpp>
 
 PIPER_NAMESPACE_BEGIN
 
-
+Float luminance(const RGBSpectrum& x) noexcept {
+    return glm::dot(RGBSpectrum::matRGB2XYZ[1], x.mVec);
+}
 
 PIPER_NAMESPACE_END

@@ -20,22 +20,67 @@
 
 #include <Piper/Core/StaticFactory.hpp>
 #include <Piper/Render/PipelineNode.hpp>
+#include <Piper/Render/RenderGlobalSetting.hpp>
+#include <Piper/Render/SceneObject.hpp>
+#include <magic_enum.hpp>
+#include <unordered_set>
 
 PIPER_NAMESPACE_BEGIN
+
+struct FrameAction final {
+    uint32_t width = 0;
+    uint32_t height = 0;
+    uint32_t frameCount = 0;
+    double begin = 0.0;
+    double fps = 0.0;
+    double shutterOpen = 0.0;
+    double shutterClose = 0.0;
+    Channel channels;
+
+    SpectrumType spectrumType = SpectrumType::Mono;
+};
 
 class Renderer final : public SourceNode {
     ChannelRequirement mRequirement;
     std::pmr::string mCachePath;
+    std::pmr::vector<Ref<SceneObject>> mSceneObjects;
+    std::pmr::vector<FrameAction> mActions;
 
 public:
     explicit Renderer(const Ref<ConfigNode>& node) {
-        PIPER_NOT_IMPLEMENTED();
+
+        for(auto& object : node->get("Scene"sv)->as<ConfigAttr::AttrArray>()) {
+        }
+
+        for(auto& action : node->get("Action"sv)->as<ConfigAttr::AttrArray>()) {
+            const auto& attrs = action->as<Ref<ConfigNode>>();
+            FrameAction res;
+            res.width = attrs->get("Width"sv)->as<uint32_t>();
+            res.height = attrs->get("Height"sv)->as<uint32_t>();
+            res.frameCount = attrs->get("FrameCount"sv)->as<uint32_t>();
+            res.begin = attrs->get("Begin"sv)->as<double>();
+            res.fps = attrs->get("Height"sv)->as<double>();
+            res.shutterOpen = attrs->get("ShutterOpen"sv)->as<uint32_t>();
+            res.shutterClose = attrs->get("ShutterClose"sv)->as<uint32_t>();
+            for(auto& channel : attrs->get("Channels"sv)->as<ConfigAttr::AttrArray>())
+                res.channels = res.channels | magic_enum::enum_cast<Channel>(channel->as<std::string_view>()).value();
+
+            if(static_cast<bool>(res.channels & (Channel::Full | Channel::Direct | Channel::Indirect | Channel::Albedo))) {
+                res.spectrumType = magic_enum::enum_cast<SpectrumType>(attrs->get("SpectrumType")->as<std::string_view>()).value();
+                // TODO: other render global settings
+            }
+
+            mActions.push_back(res);
+        }
     }
     FrameGroup transform(FrameGroup) override {
         PIPER_NOT_IMPLEMENTED();
     }
     uint32_t frameCount() override {
-        return 0;
+        uint32_t sum = 0;
+        for(const auto& action : mActions)
+            sum += action.frameCount;
+        return sum;
     }
     ChannelRequirement setup(const std::pmr::string& path, ChannelRequirement req) override {
         mCachePath = path + "/cache/render";
