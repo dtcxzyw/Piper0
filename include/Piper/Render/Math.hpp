@@ -19,16 +19,27 @@
 */
 
 #pragma once
-#include <Piper/Render/RenderGlobalSetting.hpp>
+
+#include <Piper/Config.hpp>
+#include <glm/glm.hpp>
+#include <glm/gtc/constants.hpp>
+#include <numbers>
 
 PIPER_NAMESPACE_BEGIN
 
-using TexCoord = glm::vec2;
+using Float = float;
+constexpr auto infinity = std::numeric_limits<Float>::infinity();
+constexpr auto epsilon = 1e-4f;
+constexpr auto e = std::numbers::e_v<Float>;
+constexpr auto pi = std::numbers::pi_v<Float>;
+constexpr auto sqrtTwo = std::numbers::sqrt2_v<Float>;
+constexpr auto twoPi = glm::two_pi<Float>;
+constexpr auto invPi = std::numbers::inv_pi_v<Float>;
+constexpr auto invSqrtPi = std::numbers::inv_sqrtpi_v<Float>;
+constexpr auto invSqrt2 = static_cast<Float>(1.0 / std::numbers::sqrt2);
+constexpr auto oneMinusEpsilon = static_cast<Float>(0x1.fffffep-1);
 
-template <typename Setting>
-class Texture2D : public RenderVariantBase<Setting> {
-public:
-    virtual Spectrum sample(TexCoord texCoord) const noexcept = 0;
-};
+glm::vec3 parseVec3(const Ref<ConfigAttr>& node);
+glm::quat parseQuat(const Ref<ConfigAttr>& node);
 
 PIPER_NAMESPACE_END

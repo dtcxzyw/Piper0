@@ -19,12 +19,9 @@
 */
 
 #pragma once
-#include <Piper/Render/ColorSpace.hpp>
-#include <glm/glm.hpp>
+#include <Piper/Render/Math.hpp>
 
 PIPER_NAMESPACE_BEGIN
-
-using Float = float;
 
 enum class SpectrumType : uint16_t { NotSpectrum, Mono, LinearRGB, Spectral };
 

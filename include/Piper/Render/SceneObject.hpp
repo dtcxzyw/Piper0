@@ -20,12 +20,16 @@
 
 #pragma once
 #include <Piper/Core/RefCount.hpp>
+#include <Piper/Render/KeyFrames.hpp>
 
 PIPER_NAMESPACE_BEGIN
 
 class SceneObject : public RefCountBase {
-public:
+    KeyFrames mKeyFrames;
 
+public:
+    virtual void update(TimeInterval timeInterval) = 0;
+    virtual Ref<PrimitiveGroup> primitiveGroup() const = 0;
 };
 
 PIPER_NAMESPACE_END

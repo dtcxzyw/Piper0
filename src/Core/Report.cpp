@@ -72,6 +72,7 @@ void error(std::string message) {
 ProgressReporter::ProgressReporter() : mStart{ Clock::now() }, mProgress{ 0.0 } {}
 void ProgressReporter::update(const double progress) noexcept {
     mProgress = progress;
+
     if(mProgress > 0.001) {
         const auto delta = Clock::now() - mStart;
         mEstimatedEnd = mStart + Clock::duration{ static_cast<Clock::rep>(std::ceil(static_cast<double>(delta.count()) / mProgress)) };

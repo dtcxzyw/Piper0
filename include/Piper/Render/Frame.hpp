@@ -32,7 +32,8 @@ enum class Channel : uint16_t {
     Albedo = 1 << 3,
     ShadingNormal = 1 << 4,
     Position = 1 << 5,
-    Depth = 1 << 6
+    Depth = 1 << 6,
+    Variance = 1 << 7
 };
 
 constexpr Channel operator|(Channel a, Channel b) {

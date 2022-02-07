@@ -19,16 +19,14 @@
 */
 
 #pragma once
-#include <Piper/Render/RenderGlobalSetting.hpp>
+#include <Piper/Core/RefCount.hpp>
+#include <Piper/Render/Transform.hpp>
 
 PIPER_NAMESPACE_BEGIN
 
-using TexCoord = glm::vec2;
-
-template <typename Setting>
-class Texture2D : public RenderVariantBase<Setting> {
-public:
-    virtual Spectrum sample(TexCoord texCoord) const noexcept = 0;
+struct Intersection final {
+    Point<FrameOfReference::World> hit;
+    Normal<FrameOfReference::World> geometryNormal;
 };
 
 PIPER_NAMESPACE_END

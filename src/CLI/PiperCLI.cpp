@@ -152,6 +152,8 @@ void mainGuarded(int argc, char** argv) {
             const auto coresPerLine = std::min(4U, static_cast<uint32_t>(std::sqrt(static_cast<double>(ref.cores.size()))));
 
             ui::Elements lines;
+            lines.reserve(ref.cores.size() / coresPerLine + 8 + ref.customStatus.size());
+
             for(uint32_t idx = 0; idx < ref.cores.size(); idx += coresPerLine) {
                 const auto end = idx + coresPerLine;
                 const auto realEnd = std::min(end, static_cast<uint32_t>(ref.cores.size()));
@@ -178,6 +180,8 @@ void mainGuarded(int argc, char** argv) {
             lines.push_back(ui::text(fmt::format(" Read   Speed: {:>5.1f} MB/s", ref.readSpeed * 1e-6)));
             lines.push_back(ui::text(fmt::format(" Write  Speed: {:>5.1f} MB/s", ref.writeSpeed * 1e-6)));
             lines.push_back(ui::text(fmt::format(" Active I/O  : {:>5}", ref.activeIOThread)));
+            for(auto& msg : ref.customStatus)
+                lines.push_back(ui::text(msg));
 
             return ui::vbox(std::move(lines));
         });

@@ -19,16 +19,25 @@
 */
 
 #pragma once
-#include <Piper/Render/RenderGlobalSetting.hpp>
+
+#include <Piper/Render/Math.hpp>
+#include <pcg_random.hpp>
+#include <random>
 
 PIPER_NAMESPACE_BEGIN
 
-using TexCoord = glm::vec2;
+using RandomEngine = pcg32_fast;
 
-template <typename Setting>
-class Texture2D : public RenderVariantBase<Setting> {
-public:
-    virtual Spectrum sample(TexCoord texCoord) const noexcept = 0;
-};
+inline Float sample(RandomEngine& eng) {
+    return std::fmin(oneMinusEpsilon, std::generate_canonical<Float, std::numeric_limits<size_t>::max()>(eng));
+}
+
+// Please refer to https://prng.di.unimi.it/splitmix64.c
+constexpr uint64_t seeding(const uint64_t x) {
+    uint64_t z = (x + 0x9e3779b97f4a7c15);
+    z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9;
+    z = (z ^ (z >> 27)) * 0x94d049bb133111eb;
+    return z ^ (z >> 31);
+}
 
 PIPER_NAMESPACE_END

@@ -20,7 +20,12 @@
 
 #pragma once
 namespace Piper {
+    class ConfigAttr;
     class ConfigNode;
+    class PrimitiveGroup;
+    template <typename T>
+    class Ref;
     class RefCountBase;
+    class SampleProvider;
     class StaticFactory;
 }  // namespace Piper

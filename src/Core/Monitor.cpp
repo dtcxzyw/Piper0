@@ -21,6 +21,7 @@
 #include <Piper/Core/Context.hpp>
 #include <Piper/Core/Monitor.hpp>
 #include <memory_resource>
+#include <tbb/concurrent_unordered_map.h>
 #include <vector>
 
 #ifdef PIPER_WINDOWS
@@ -143,7 +144,9 @@ class MonitorImpl final : public Monitor {
     }
 #endif
 
-    static CurrentStatus diff(const CurrentCheckpoint& last, const CurrentCheckpoint& now) {
+    tbb::concurrent_unordered_map<void*, std::string> mCustomStatus;
+
+    CurrentStatus diff(const CurrentCheckpoint& last, const CurrentCheckpoint& now) {
         CurrentStatus res;
         const auto dt = static_cast<double>(now.recordTime - last.recordTime);
         const uint32_t cores = now.cores.size();
@@ -163,13 +166,20 @@ class MonitorImpl final : public Monitor {
         res.readSpeed = static_cast<double>(now.readCount - last.readCount) / (1e-9 * dt);
         res.writeSpeed = static_cast<double>(now.writeCount - last.writeCount) / (1e-9 * dt);
         res.activeIOThread = last.activeIOThread;
+
+        const auto range = views::values(mCustomStatus);
+        res.customStatus = { range.begin(), range.end(), context().globalAllocator };
+
         return res;
     }
 
     std::optional<CurrentCheckpoint> mLastCheckpoint;
+    uint32_t mUpdateCount = 0;
 
 public:
     std::optional<CurrentStatus> update() override {
+        ++mUpdateCount;
+
         auto current = checkpoint();
         std::optional<CurrentStatus> res;
         if(mLastCheckpoint)
@@ -177,6 +187,12 @@ public:
 
         mLastCheckpoint = std::move(current);
         return res;
+    }
+    void updateCustomStatus(void* key, std::string message) override {
+        mCustomStatus.emplace(key, std::move(message));
+    }
+    uint32_t updateCount() const noexcept override {
+        return mUpdateCount;
     }
 };
 

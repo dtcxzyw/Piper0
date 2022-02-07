@@ -19,16 +19,40 @@
 */
 
 #pragma once
-#include <Piper/Render/RenderGlobalSetting.hpp>
+#include <Piper/Render/Transform.hpp>
+#include <vector>
 
 PIPER_NAMESPACE_BEGIN
 
-using TexCoord = glm::vec2;
+enum class InterpolationCurve final { Hold, Linear };
 
-template <typename Setting>
-class Texture2D : public RenderVariantBase<Setting> {
-public:
-    virtual Spectrum sample(TexCoord texCoord) const noexcept = 0;
+struct KeyFrame final {
+    Float t;
+    InterpolationCurve curve;
+
+    SRTTransform transform;
+    Float precision;
 };
+
+using KeyFrames = std::pmr::vector<KeyFrame>;
+
+struct TimeInterval final {
+    Float begin;
+    Float end;
+};
+
+using ShutterKeyFrames = std::pmr::vector<SRTTransform>;
+
+ShutterKeyFrames generateTransform(const KeyFrames& keyFrames, TimeInterval interval, uint32_t maxCount);
+struct ResolvedTransform final {
+    SRTTransform transformBegin;
+    SRTTransform transformEnd;
+    InterpolationCurve curve;
+
+    SRTTransform operator()(Float t) const noexcept;
+};
+
+ResolvedTransform resolveTransform(const KeyFrames& keyFrames, TimeInterval interval);
+KeyFrames parseKeyframes(const Ref<ConfigAttr>& node);
 
 PIPER_NAMESPACE_END

@@ -13,6 +13,8 @@ find_package(embree 3.13.2 CONFIG REQUIRED)
 find_package(OpenVKL CONFIG REQUIRED)
 find_package(OpenColorIO CONFIG REQUIRED)
 find_package(simdjson CONFIG REQUIRED)
+find_path(PCG_INCLUDE_DIRS "pcg_extras.hpp")
+    
     
 file(GLOB PIPER_CLI_SRC "*/*.cpp")
 add_executable(PiperCLI ${PIPER_CLI_SRC})
@@ -27,6 +29,7 @@ target_link_libraries(PiperCLI PRIVATE magic_enum::magic_enum)
 target_link_libraries(PiperCLI PRIVATE OpenColorIO::OpenColorIO)
 target_link_libraries(PiperCLI PRIVATE OpenImageDenoise embree)
 target_link_libraries(PiperCLI PRIVATE simdjson::simdjson)
+target_include_directories(PiperCLI PRIVATE ${PCG_INCLUDE_DIRS})
 
 add_custom_command(TARGET PiperCLI POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:OpenImageDenoise> $<TARGET_FILE_DIR:PiperCLI>

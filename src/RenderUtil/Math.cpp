@@ -18,17 +18,29 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#pragma once
-#include <Piper/Render/RenderGlobalSetting.hpp>
+#include <Piper/Core/ConfigNode.hpp>
+#include <Piper/Core/Report.hpp>
+#include <Piper/Render/Math.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 PIPER_NAMESPACE_BEGIN
+glm::vec3 parseVec3(const Ref<ConfigAttr>& node) {
+    const auto& arr = node->as<ConfigAttr::AttrArray>();
+    if(arr.size() != 3)
+        fatal("Bad vector3");
 
-using TexCoord = glm::vec2;
+    return {
+        static_cast<Float>(arr[0]->as<double>()), static_cast<Float>(arr[1]->as<double>()), static_cast<Float>(arr[2]->as<double>())
+    };
+}
 
-template <typename Setting>
-class Texture2D : public RenderVariantBase<Setting> {
-public:
-    virtual Spectrum sample(TexCoord texCoord) const noexcept = 0;
-};
+glm::quat parseQuat(const Ref<ConfigAttr>& node) {
+    const auto& arr = node->as<ConfigAttr::AttrArray>();
+    if(arr.size() != 4)
+        fatal("Bad quaternion");
+    return glm::quat{
+        static_cast<Float>(arr[0]->as<double>()), static_cast<Float>(arr[1]->as<double>()), static_cast<Float>(arr[2]->as<double>()), static_cast<Float>(arr[3]->as<double>())
+    };
+}
 
 PIPER_NAMESPACE_END

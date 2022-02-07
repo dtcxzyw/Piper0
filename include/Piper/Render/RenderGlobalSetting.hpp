@@ -20,29 +20,62 @@
 
 #pragma once
 #include <Piper/Core/StaticFactory.hpp>
+#include <Piper/Render/MuellerMatrix.hpp>
 #include <Piper/Render/Spectrum.hpp>
 #include <type_traits>
 
 PIPER_NAMESPACE_BEGIN
 
-template <SpectrumLike Spectrum, bool Polarized>
+template <SpectrumLike Spectrum>
 struct RenderStaticSetting final {
     using SpectrumType = Spectrum;
+    using Unpolarized = Spectrum;
+    static constexpr auto isPolarized = false;
 };
 
-#define PIPER_IMPORT_SETTING() using Spectrum = typename Setting::SpectrumType
+template <SpectrumLike Spectrum>
+struct RenderStaticSetting<MuellerMatrix<Spectrum>> final {
+    using SpectrumType = MuellerMatrix<Spectrum>;
+    using Unpolarized = Spectrum;
+    static constexpr auto isPolarized = true;
+};
 
-using RSSMono = RenderStaticSetting<MonoSpectrum, false>;
-using RSSRGB = RenderStaticSetting<RGBSpectrum, false>;
-using RSSSpectral = RenderStaticSetting<SpectralSpectrum, false>;
+template <typename Setting>
+class RenderVariantBase : public RefCountBase {
+public:
+    using Spectrum = typename Setting::SpectrumType;
+    using Unpolarized = typename Setting::UnpolarizedType;
+    static constexpr auto isPolarized = Setting::isPolarized;
+};
 
-using InstantiatedRenderGlobalSettings = std::void_t<RSSMono, RSSRGB, RSSSpectral>;
+using RSSMono = RenderStaticSetting<MonoSpectrum>;
+using RSSRGB = RenderStaticSetting<RGBSpectrum>;
+using RSSSpectral = RenderStaticSetting<SpectralSpectrum>;
+using RSSMonoPolarized = RenderStaticSetting<MuellerMatrix<MonoSpectrum>>;
+using RSSRGBPolarized = RenderStaticSetting<MuellerMatrix<RGBSpectrum>>;
+using RSSSpectralPolarized = RenderStaticSetting<MuellerMatrix<SpectralSpectrum>>;
 
 struct RenderGlobalSetting final {
+    std::pmr::string variant;
+    Ref<AccelerationBuilder> accelerationBuilder;
+
     static RenderGlobalSetting& get() noexcept {
         static RenderGlobalSetting inst;
         return inst;
     }
 };
+
+#define PIPER_REGISTER_VARIANT_IMPL(CLASS, BASE, RSS)                         \
+    static RegisterHelper<CLASS<RSS>, BASE<RSS>> CLASS##RSS##RegisterHelper { \
+#CLASS                                                                \
+    }
+
+#define PIPER_REGISTER_VARIANT(CLASS, BASE)                     \
+    PIPER_REGISTER_VARIANT_IMPL(CLASS, BASE, RSSMono);          \
+    PIPER_REGISTER_VARIANT_IMPL(CLASS, BASE, RSSRGB);           \
+    PIPER_REGISTER_VARIANT_IMPL(CLASS, BASE, RSSSpectral);      \
+    PIPER_REGISTER_VARIANT_IMPL(CLASS, BASE, RSSMonoPolarized); \
+    PIPER_REGISTER_VARIANT_IMPL(CLASS, BASE, RSSRGBPolarized);  \
+    PIPER_REGISTER_VARIANT_IMPL(CLASS, BASE, RSSSpectralPolarized)
 
 PIPER_NAMESPACE_END

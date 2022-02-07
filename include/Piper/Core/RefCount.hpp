@@ -151,4 +151,13 @@ template <RefCountable T, RefCountable U = T, typename... Args>
     return Ref<U>{ typedPtr };
 }
 
+template <typename T, typename U>
+Ref<T> dynamicCast(Ref<U> ptr) {
+    if(const auto newPtr = dynamic_cast<T*>(ptr.get())) {
+        ptr.release();
+        return Ref<T>{ newPtr, owns };
+    }
+    return Ref<T>{};
+}
+
 PIPER_NAMESPACE_END

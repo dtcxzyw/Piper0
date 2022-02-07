@@ -19,7 +19,7 @@
 */
 
 #pragma once
-#include <Piper/Config.hpp>
+#include <Piper/Core/Context.hpp>
 
 PIPER_NAMESPACE_BEGIN
 
@@ -32,11 +32,14 @@ struct CurrentStatus final {
     double readSpeed = 0.0;
     double writeSpeed = 0.0;
     uint64_t activeIOThread = 0;
+    std::pmr::vector<std::string> customStatus;
 };
 
 class Monitor {
 public:
     virtual std::optional<CurrentStatus> update() = 0;
+    virtual void updateCustomStatus(void*, std::string message) = 0;
+    [[nodiscard]] virtual uint32_t updateCount() const noexcept = 0;
     virtual ~Monitor() = default;
 };
 
