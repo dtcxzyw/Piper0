@@ -241,12 +241,8 @@ void mainGuarded(int argc, char** argv) {
                 if(static_cast<int32_t>(msg.size()) + 10 < ui::Terminal::Size().dimx) {
                     lines.push_back(ui::hbox({ headerText, ui::text(msg) }));
                 } else {
-                    auto elements = ui::paragraph(msg);
-                    {
-                        lines.push_back(headerText);
-                        for(auto&& x : elements)
-                            lines.push_back(std::move(x));
-                    }
+                    lines.push_back(headerText);
+                    lines.push_back(ui::paragraph(msg));
                 }
             }
 

@@ -28,12 +28,15 @@
 PIPER_NAMESPACE_BEGIN
 
 using Float = float;
+using TexCoord = glm::vec2;
+
 constexpr auto infinity = std::numeric_limits<Float>::infinity();
 constexpr auto epsilon = 1e-4f;
 constexpr auto e = std::numbers::e_v<Float>;
 constexpr auto pi = std::numbers::pi_v<Float>;
 constexpr auto sqrtTwo = std::numbers::sqrt2_v<Float>;
-constexpr auto twoPi = glm::two_pi<Float>;
+constexpr auto twoPi = glm::two_pi<Float>();
+constexpr auto fourPi = static_cast<Float>(4.0 * std::numbers::pi);
 constexpr auto invPi = std::numbers::inv_pi_v<Float>;
 constexpr auto invSqrtPi = std::numbers::inv_sqrtpi_v<Float>;
 constexpr auto invSqrt2 = static_cast<Float>(1.0 / std::numbers::sqrt2);

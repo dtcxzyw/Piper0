@@ -23,7 +23,7 @@
 
 PIPER_NAMESPACE_BEGIN
 
-enum class SpectrumType : uint16_t { NotSpectrum, Mono, LinearRGB, Spectral };
+enum class SpectrumType : uint16_t { Mono, LinearRGB, Spectral };
 
 class RGBSpectrum;
 
@@ -134,8 +134,10 @@ constexpr auto sampleWavelengthMin = 360.0f;
 constexpr auto sampleWavelengthMax = 830.0f;
 
 class SpectralSpectrum final {
+public:
     static constexpr auto nSamples = 4;
 
+private:
     glm::vec<nSamples, Float> mVec;
 
     explicit constexpr SpectralSpectrum(const glm::vec<nSamples, Float>& x) noexcept : mVec{ x } {}
@@ -168,6 +170,19 @@ constexpr SpectralSpectrum zero<SpectralSpectrum>() noexcept {
 template <>
 constexpr SpectralSpectrum one<SpectralSpectrum>() noexcept {
     return SpectralSpectrum{ 1.0f };
+}
+
+constexpr uint32_t spectrumSize(const SpectrumType type) noexcept {
+    switch(type) {
+        case SpectrumType::Mono:
+            return 1;
+        case SpectrumType::LinearRGB:
+            return 3;
+        case SpectrumType::Spectral:
+            return SpectralSpectrum::nSamples;
+        default:
+            return 0;
+    }
 }
 
 PIPER_NAMESPACE_END

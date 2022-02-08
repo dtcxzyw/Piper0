@@ -22,31 +22,66 @@
 #include <Piper/Core/StaticFactory.hpp>
 #include <Piper/Render/MuellerMatrix.hpp>
 #include <Piper/Render/Spectrum.hpp>
-#include <type_traits>
 
 PIPER_NAMESPACE_BEGIN
 
 template <SpectrumLike Spectrum>
 struct RenderStaticSetting final {
     using SpectrumType = Spectrum;
-    using Unpolarized = Spectrum;
+    using UnpolarizedType = Spectrum;
     static constexpr auto isPolarized = false;
 };
 
 template <SpectrumLike Spectrum>
 struct RenderStaticSetting<MuellerMatrix<Spectrum>> final {
     using SpectrumType = MuellerMatrix<Spectrum>;
-    using Unpolarized = Spectrum;
+    using UnpolarizedType = Spectrum;
     static constexpr auto isPolarized = true;
 };
 
-template <typename Setting>
+// Helper base class
 class RenderVariantBase : public RefCountBase {
 public:
-    using Spectrum = typename Setting::SpectrumType;
-    using Unpolarized = typename Setting::UnpolarizedType;
-    static constexpr auto isPolarized = Setting::isPolarized;
 };
+
+template <template <typename> typename T>
+class Handle final {
+    const RenderVariantBase* mPtr;
+
+public:
+    Handle() : mPtr{ nullptr } {}
+    explicit Handle(const RenderVariantBase* ptr) noexcept : mPtr{ ptr } {}
+    template <typename Settings>
+    Handle(const Ref<T<Settings>>& ref) noexcept : mPtr{ ref.get() } {}
+
+    template <typename Settings>
+    auto as() const noexcept -> const T<Settings>& {
+        return *reinterpret_cast<T<Settings>*>(mPtr);
+    }
+
+    [[nodiscard]] auto get() const noexcept {
+        return mPtr;
+    }
+};
+
+template <typename Settings, typename Base = RenderVariantBase>
+class TypedRenderVariantBase : public Base {
+public:
+    template <template <typename> typename T>
+    static auto& view(Handle<T> x) {
+        return x.template as<Settings>();
+    }
+
+    template <template <typename> typename T>
+    static auto make(const Ref<ConfigNode>& node) {
+        return getStaticFactory().make<T<Settings>>(node);
+    }
+};
+
+#define PIPER_IMPORT_SETTINGS()                            \
+    using Spectrum = typename Setting::SpectrumType;       \
+    using Unpolarized = typename Setting::UnpolarizedType; \
+    static constexpr auto isPolarized = Setting::isPolarized
 
 using RSSMono = RenderStaticSetting<MonoSpectrum>;
 using RSSRGB = RenderStaticSetting<RGBSpectrum>;
@@ -57,6 +92,7 @@ using RSSSpectralPolarized = RenderStaticSetting<MuellerMatrix<SpectralSpectrum>
 
 struct RenderGlobalSetting final {
     std::pmr::string variant;
+    SpectrumType spectrumType;
     Ref<AccelerationBuilder> accelerationBuilder;
 
     static RenderGlobalSetting& get() noexcept {
@@ -64,6 +100,27 @@ struct RenderGlobalSetting final {
         return inst;
     }
 };
+
+template <typename Base, template <typename> typename T>
+auto makeVariant(const Ref<ConfigNode>& node) {
+    const auto& variant = RenderGlobalSetting::get().variant;
+    auto& factory = getStaticFactory();
+
+#define PIPER_PATTERN_MATCH(VARIANT) \
+    if(variant == #VARIANT##sv)      \
+    return Ref<Base>{ factory.make<T<VARIANT>>(node) }
+
+    PIPER_PATTERN_MATCH(RSSMono);
+    PIPER_PATTERN_MATCH(RSSRGB);
+    PIPER_PATTERN_MATCH(RSSSpectral);
+    PIPER_PATTERN_MATCH(RSSMonoPolarized);
+    PIPER_PATTERN_MATCH(RSSRGBPolarized);
+    PIPER_PATTERN_MATCH(RSSSpectralPolarized);
+
+#undef PIPER_PATTERN_MATCH
+
+    fatal(fmt::format("Unrecognized variant {}", variant));
+}
 
 #define PIPER_REGISTER_VARIANT_IMPL(CLASS, BASE, RSS)                         \
     static RegisterHelper<CLASS<RSS>, BASE<RSS>> CLASS##RSS##RegisterHelper { \

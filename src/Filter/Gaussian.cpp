@@ -18,20 +18,28 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#pragma once
-#include <Piper/Render/Transform.hpp>
+#include <Piper/Core/StaticFactory.hpp>
+#include <Piper/Render/Filter.hpp>
 
 PIPER_NAMESPACE_BEGIN
 
-struct Ray final {
-    Point<FrameOfReference::World> origin;
-    Normal<FrameOfReference::World> direction;
+class GaussianFilter final : public Filter {
+    Float mAlpha;
+    Float mDiff;
 
-    Float t;
-
-    Ray() : origin{ Point<FrameOfReference::World>::fromRaw({}) }, direction{ Normal<FrameOfReference::World>::fromRaw({}) }, t{ 0.0f } {};
+public:
+    explicit GaussianFilter(const Ref<ConfigNode>& node) : mAlpha{ static_cast<Float>(node->get("Alpha"sv)->as<double>()) } {
+        Float radius = 1.0f;
+        if(const auto ptr = node->tryGet("Radius"sv))
+            radius = static_cast<Float>((*ptr)->as<double>());
+        mDiff = std::exp(-mAlpha * radius * radius);
+    }
+    Float evaluate(const Float dx, const Float dy) const noexcept override {
+        const auto eval = [&](const Float d) noexcept { return std::fmax(0.0f, exp(-mAlpha * d * d) - mDiff); };
+        return eval(dx) * eval(dy);
+    }
 };
 
-using RayStream = std::pmr::vector<Ray>;
+PIPER_REGISTER_CLASS(GaussianFilter, Filter);
 
 PIPER_NAMESPACE_END

@@ -23,11 +23,11 @@
 
 PIPER_NAMESPACE_BEGIN
 
-using TexCoord = glm::vec2;
-
 template <typename Setting>
-class Texture2D : public RenderVariantBase<Setting> {
+class Texture2D : public TypedRenderVariantBase<Setting> {
 public:
+    PIPER_IMPORT_SETTINGS();
+
     virtual Spectrum sample(TexCoord texCoord) const noexcept = 0;
 };
 

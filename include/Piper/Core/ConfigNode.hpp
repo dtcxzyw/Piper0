@@ -81,6 +81,9 @@ public:
     const Ref<ConfigAttr>& get(const std::string_view attr) const {
         return mValue.find(attr)->second;
     }
+
+    const Ref<ConfigAttr>& get(const char*) const = delete;
+    const Ref<ConfigAttr>* tryGet(const char*) const = delete;
 };
 
 using LoadConfiguration = std::pmr::unordered_map<std::string_view, std::string_view>;

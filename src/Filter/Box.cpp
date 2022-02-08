@@ -18,20 +18,19 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#pragma once
-#include <Piper/Render/Transform.hpp>
+#include <Piper/Core/StaticFactory.hpp>
+#include <Piper/Render/Filter.hpp>
 
 PIPER_NAMESPACE_BEGIN
 
-struct Ray final {
-    Point<FrameOfReference::World> origin;
-    Normal<FrameOfReference::World> direction;
-
-    Float t;
-
-    Ray() : origin{ Point<FrameOfReference::World>::fromRaw({}) }, direction{ Normal<FrameOfReference::World>::fromRaw({}) }, t{ 0.0f } {};
+class BoxFilter final : public Filter {
+public:
+    explicit BoxFilter(const Ref<ConfigNode>&) {}
+    Float evaluate(Float, Float) const noexcept override {
+        return 1.0f;
+    }
 };
 
-using RayStream = std::pmr::vector<Ray>;
+PIPER_REGISTER_CLASS(BoxFilter, Filter);
 
 PIPER_NAMESPACE_END

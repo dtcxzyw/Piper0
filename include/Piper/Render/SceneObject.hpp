@@ -25,6 +25,7 @@
 PIPER_NAMESPACE_BEGIN
 
 class SceneObject : public RefCountBase {
+protected:
     KeyFrames mKeyFrames;
 
 public:

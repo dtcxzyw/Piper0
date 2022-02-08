@@ -23,7 +23,6 @@
 #include <Piper/Render/Intersection.hpp>
 #include <Piper/Render/KeyFrames.hpp>
 #include <Piper/Render/Ray.hpp>
-#include <optional>
 
 PIPER_NAMESPACE_BEGIN
 
@@ -37,16 +36,17 @@ class Acceleration : public RefCountBase {
 public:
     virtual void commit() = 0;
 
-    virtual std::optional<Intersection> trace(const Ray& ray) const = 0;
-    virtual std::pmr::vector<std::optional<Intersection>> tracePrimary(const RayStream& rayStream) const = 0;
+    virtual Intersection trace(const Ray& ray) const = 0;
+    virtual std::pmr::vector<Intersection> tracePrimary(const RayStream& rayStream) const = 0;
 };
 
 class AccelerationBuilder : public RefCountBase {
 public:
-    virtual uint32_t maxStepsCount() const noexcept = 0;
-    virtual Ref<PrimitiveGroup> buildFromTriangleMesh(
-        uint32_t vertices, uint32_t faces, const std::function<void(void*, void*)>& writeCallback  // verticesBuffer,indicesBuffer
-    ) const noexcept = 0;
+    virtual uint32_t maxStepCount() const noexcept = 0;
+    virtual Ref<PrimitiveGroup>
+    buildFromTriangleMesh(uint32_t vertices, uint32_t faces,
+                          const std::function<void(void*, void*)>& writeCallback,  // verticesBuffer,indicesBuffer
+                          const Shape& shape) const noexcept = 0;
     virtual Ref<Acceleration> buildScene(const std::pmr::vector<Ref<PrimitiveGroup>>& primitiveGroups) const noexcept = 0;
 };
 

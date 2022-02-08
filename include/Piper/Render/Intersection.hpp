@@ -19,14 +19,22 @@
 */
 
 #pragma once
-#include <Piper/Core/RefCount.hpp>
+#include <Piper/Render/RenderGlobalSetting.hpp>
 #include <Piper/Render/Transform.hpp>
 
 PIPER_NAMESPACE_BEGIN
 
-struct Intersection final {
+struct SurfaceHit final {
     Point<FrameOfReference::World> hit;
+    Float distance;
     Normal<FrameOfReference::World> geometryNormal;
+    Normal<FrameOfReference::World> lerpGeometryNormal;
+    uint32_t primitiveIdx;
+    TexCoord texCoord;
+
+    Handle<Material> surface;
 };
+
+using Intersection = std::variant<std::monostate, SurfaceHit>;
 
 PIPER_NAMESPACE_END

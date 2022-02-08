@@ -104,6 +104,56 @@ public:
     Counter& operator=(Counter&&) = delete;
 };
 
+class BoolCounterBase final : public StatsBase {
+    uint64_t mCount = 0, mPositiveCount = 0;
+
+public:
+    explicit BoolCounterBase(const StatsType type) : StatsBase{ type } {}
+    void add(const uint64_t count, const uint64_t positiveCount) noexcept {
+        mCount += count;
+        mPositiveCount += positiveCount;
+    }
+    void print() override;
+};
+
+class LocalBoolCounterBase final : public LocalStatsBase {
+    BoolCounterBase& mBase;
+    uint64_t mCount = 0, mPositiveCount = 0;
+
+public:
+    explicit LocalBoolCounterBase(BoolCounterBase& base) : mBase{ base } {}
+    void count(const bool res) noexcept {
+        ++mCount;
+        mPositiveCount += res;
+    }
+    void accumulate() override {
+        mBase.add(mCount, mPositiveCount);
+    }
+};
+
+template <StatsType T>
+class BoolCounter final {
+    static BoolCounterBase& base() {
+        static BoolCounterBase base{ T };
+        return base;
+    }
+    static LocalBoolCounterBase& localBase() {
+        thread_local static LocalBoolCounterBase base{ BoolCounter::base() };
+        return base;
+    }
+
+public:
+    BoolCounter() = default;
+    void count(const bool res) noexcept {
+        localBase().count(res);
+    }
+
+    BoolCounter(const BoolCounter&) = delete;
+    BoolCounter(BoolCounter&&) = delete;
+    BoolCounter& operator=(const BoolCounter&) = delete;
+    BoolCounter& operator=(BoolCounter&&) = delete;
+};
+
 class HistogramBase final : public StatsBase {
     std::array<uint64_t, 64> mCount = {};
 

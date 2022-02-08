@@ -29,23 +29,29 @@ enum class FrameOfReference { Camera, World, Object, Shading };
 template <FrameOfReference F>
 class Vector;
 
+template <FrameOfReference A, FrameOfReference B>
+class AffineTransform;
+
 template <FrameOfReference F>
 class Point final {
     glm::vec3 mVec;
 
     explicit constexpr Point(const glm::vec3& x) noexcept : mVec{ x } {}
 
+    template <FrameOfReference A, FrameOfReference B>
+    friend class AffineTransform;
+
 public:
     static constexpr Point fromRaw(const glm::vec3& x) noexcept {
         return Point{ x };
     }
-    constexpr Float x() const noexcept {
+    [[nodiscard]] constexpr Float x() const noexcept {
         return mVec.x;
     }
-    constexpr Float y() const noexcept {
+    [[nodiscard]] constexpr Float y() const noexcept {
         return mVec.y;
     }
-    constexpr Float z() const noexcept {
+    [[nodiscard]] constexpr Float z() const noexcept {
         return mVec.z;
     }
     friend constexpr Point operator+(const Point& lhs, const Vector<F>& rhs) noexcept;
@@ -59,17 +65,20 @@ class Vector final {
 
     explicit constexpr Vector(const glm::vec3& x) noexcept : mVec{ x } {}
 
+    template <FrameOfReference A, FrameOfReference B>
+    friend class AffineTransform;
+
 public:
     static constexpr Vector fromRaw(const glm::vec3& x) noexcept {
         return Vector{ x };
     }
-    constexpr Float x() const noexcept {
+    [[nodiscard]] constexpr Float x() const noexcept {
         return mVec.x;
     }
-    constexpr Float y() const noexcept {
+    [[nodiscard]] constexpr Float y() const noexcept {
         return mVec.y;
     }
-    constexpr Float z() const noexcept {
+    [[nodiscard]] constexpr Float z() const noexcept {
         return mVec.z;
     }
     friend constexpr Float dot(const Vector& lhs, const Vector& rhs) noexcept {
@@ -97,20 +106,29 @@ class Normal final {
 
     explicit constexpr Normal(const glm::vec3& x) noexcept : mVec{ x } {}
 
+    template <FrameOfReference A, FrameOfReference B>
+    friend class AffineTransform;
+
 public:
+    Normal() = default;
+
     static constexpr Normal fromRaw(const glm::vec3& x) noexcept {
         return Normal{ x };
     }
-    constexpr Float x() const noexcept {
+    glm::vec3 raw() const noexcept {
+        return mVec;
+    }
+
+    [[nodiscard]] constexpr Float x() const noexcept {
         return mVec.x;
     }
-    constexpr Float y() const noexcept {
+    [[nodiscard]] constexpr Float y() const noexcept {
         return mVec.y;
     }
-    constexpr Float z() const noexcept {
+    [[nodiscard]] constexpr Float z() const noexcept {
         return mVec.z;
     }
-    constexpr Vector<F> operator()(const Float x) const noexcept {
+    constexpr Vector<F> operator*(const Float x) const noexcept {
         return Vector<F>::fromRaw(mVec * x);
     }
     friend constexpr Float dot(const Normal& lhs, const Normal& rhs) noexcept {
@@ -118,6 +136,51 @@ public:
     }
     friend constexpr Normal cross(const Normal& lhs, const Normal& rhs) noexcept {
         return Vector{ glm::cross(lhs.mVec, rhs.mVec) };
+    }
+};
+
+template <FrameOfReference A, FrameOfReference B>
+class AffineTransform final {
+    glm::mat3x4 mA2B, mB2A;
+
+public:
+    explicit constexpr AffineTransform(glm::mat3x4 matA2B) noexcept : mA2B{ matA2B }, mB2A{ glm::inverse(glm::mat4{ mB2A }) } {}
+    constexpr AffineTransform(glm::mat3x4 matA2B, glm::mat3x4 matB2A) noexcept : mA2B{ matA2B }, mB2A{ matB2A } {}
+
+    [[nodiscard]] constexpr AffineTransform<B, A> inverse() const noexcept {
+        return { mB2A, mA2B };
+    }
+
+    template <FrameOfReference C, FrameOfReference D>
+    friend class AffineTransform;
+
+    template <FrameOfReference C>
+    AffineTransform<A, C> operator*(const AffineTransform<B, C>& rhs) const noexcept {
+        return { rhs.mA2B * mA2B, mB2A * rhs.mB2A };
+    }
+
+    Vector<B> operator()(const Vector<A>& x) const noexcept {
+        return Vector<B>::fromRaw(glm::mat3{ mA2B } * x.mVec);
+    }
+
+    Vector<A> operator()(const Vector<B>& x) const noexcept {
+        return Vector<B>::fromRaw(glm::mat3{ mB2A } * x.mVec);
+    }
+
+    Point<B> operator()(const Point<A>& x) const noexcept {
+        return Point<B>::fromRaw(mA2B * glm::vec4{ x.mVec, 1.0f });
+    }
+
+    Point<A> operator()(const Point<B>& x) const noexcept {
+        return Point<A>::fromRaw(mB2A * glm::vec4{ x.mVec, 1.0f });
+    }
+
+    Normal<B> operator()(const Normal<A>& x) const noexcept {
+        return Normal<B>::fromRaw(glm::transpose(glm::mat3(mB2A)) * x.mVec);
+    }
+
+    Normal<A> operator()(const Normal<B>& x) const noexcept {
+        return Normal<A>::fromRaw(glm::transpose(glm::mat3(mA2B)) * x.mVec);
     }
 };
 

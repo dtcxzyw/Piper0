@@ -19,19 +19,13 @@
 */
 
 #pragma once
-#include <Piper/Render/Transform.hpp>
+#include <Piper/Render/Math.hpp>
 
 PIPER_NAMESPACE_BEGIN
 
-struct Ray final {
-    Point<FrameOfReference::World> origin;
-    Normal<FrameOfReference::World> direction;
-
-    Float t;
-
-    Ray() : origin{ Point<FrameOfReference::World>::fromRaw({}) }, direction{ Normal<FrameOfReference::World>::fromRaw({}) }, t{ 0.0f } {};
+class Filter : public RefCountBase {
+public:
+    virtual Float evaluate(Float dx, Float dy) const noexcept = 0;
 };
-
-using RayStream = std::pmr::vector<Ray>;
 
 PIPER_NAMESPACE_END

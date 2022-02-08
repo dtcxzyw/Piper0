@@ -65,12 +65,16 @@ public:
     }
 };
 
-class Sampler : public RefCountBase {
+class TileSampler : public RefCountBase {
 public:
     virtual uint32_t samples() const noexcept = 0;
+    virtual std::pair<glm::vec2, SampleProvider> generate(uint32_t filmX, uint32_t filmY, uint32_t sampleIdx) const = 0;
+    virtual Ref<TileSampler> clone() const = 0;
+};
 
-    virtual std::pair<glm::vec2, SampleProvider> generate(uint32_t frameIdx, uint32_t filmX, uint32_t filmY, uint32_t sampleIdx,
-                                                          uint32_t width, uint32_t height, uint32_t frameCount) = 0;
+class Sampler : public RefCountBase {
+public:
+    virtual Ref<TileSampler> prepare(uint32_t frameIdx, uint32_t width, uint32_t height, uint32_t frameCount) = 0;
 };
 
 PIPER_NAMESPACE_END

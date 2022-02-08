@@ -57,25 +57,25 @@ KeyFrames parseKeyframes(const Ref<ConfigAttr>& node) {
 
     for(auto& item : arr) {
         auto& attr = item->as<Ref<ConfigNode>>();
-        const auto t = static_cast<Float>(attr->get("Time")->as<double>());
+        const auto t = static_cast<Float>(attr->get("Time"sv)->as<double>());
         auto curveType = InterpolationCurve::Linear;
-        if(const auto ptr = attr->tryGet("InterpolationCurve"))
+        if(const auto ptr = attr->tryGet("InterpolationCurve"sv))
             curveType = magic_enum::enum_cast<InterpolationCurve>((*ptr)->as<std::string_view>()).value();
 
         glm::vec3 scale{ 1.0f };
-        if(const auto ptr = attr->tryGet("Scale"))
+        if(const auto ptr = attr->tryGet("Scale"sv))
             scale = parseVec3(*ptr);
 
         auto rotation = glm::identity<glm::quat>();
-        if(const auto ptr = attr->tryGet("Rotation"))
+        if(const auto ptr = attr->tryGet("Rotation"sv))
             rotation = parseQuat(*ptr);
 
         glm::vec3 translation{ 0.0f };
-        if(const auto ptr = attr->tryGet("Translation"))
+        if(const auto ptr = attr->tryGet("Translation"sv))
             translation = parseVec3(*ptr);
 
         auto precision = 0.0f;
-        if(const auto ptr = attr->tryGet("InterpolationPrecision"))
+        if(const auto ptr = attr->tryGet("InterpolationPrecision"sv))
             precision = static_cast<Float>((*ptr)->as<double>());
 
         frames.push_back({ t, curveType, SRTTransform{ scale, rotation, translation }, precision });

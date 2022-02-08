@@ -26,22 +26,34 @@
 PIPER_NAMESPACE_BEGIN
 
 enum class Channel : uint16_t {
-    Full = 1 << 0,
-    Direct = 1 << 1,
-    Indirect = 1 << 2,
-    Albedo = 1 << 3,
-    ShadingNormal = 1 << 4,
-    Position = 1 << 5,
-    Depth = 1 << 6,
-    Variance = 1 << 7
+    Full,
+    Direct,
+    Indirect,
+    Albedo,
+    ShadingNormal,
+    Position,
+    Depth,
 };
 
-constexpr Channel operator|(Channel a, Channel b) {
-    return static_cast<Channel>(static_cast<uint16_t>(a) | static_cast<uint16_t>(b));
-}
+constexpr size_t channelSize(const Channel x, const SpectrumType spectrumType) {
+    switch(x) {
+        case Channel::Full:
+            [[fallthrough]];
+        case Channel::Direct:
+            [[fallthrough]];
+        case Channel::Indirect:
+            return spectrumSize(spectrumType);
 
-constexpr Channel operator&(Channel a, Channel b) {
-    return static_cast<Channel>(static_cast<uint16_t>(a) & static_cast<uint16_t>(b));
+        case Channel::Albedo:
+            [[fallthrough]];
+        case Channel::ShadingNormal:
+            [[fallthrough]];
+        case Channel::Position:
+            return 3;
+
+        default:
+            return 1;
+    }
 }
 
 struct FrameMetadata final {
@@ -57,7 +69,7 @@ class Frame final : public RefCountBase {
     FrameMetadata mMetadata;
     uint32_t mChannelStride;
 
-    std::pmr::vector<float> mData;
+    std::pmr::vector<Float> mData;
 
 public:
     Frame(const FrameMetadata& metadata, const uint32_t channelStride, std::pmr::vector<float> data)

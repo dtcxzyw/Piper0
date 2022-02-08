@@ -112,4 +112,10 @@ void TickTimerBase::print() {
     info(fmt::format("{}: {} cycles/op", magic_enum::enum_name(mType), mValue));
 }
 
+void BoolCounterBase::print() {
+    const auto percent = static_cast<double>(mPositiveCount) / static_cast<double>(mCount) * 100.0;
+    info(fmt::format("{}: positive {:.2f}% ({} count) | negative {:.2f}% ({} count) | total {}", magic_enum::enum_name(mType), percent,
+                     mPositiveCount, 100.0 - percent, mCount - mPositiveCount, mCount));
+}
+
 PIPER_NAMESPACE_END

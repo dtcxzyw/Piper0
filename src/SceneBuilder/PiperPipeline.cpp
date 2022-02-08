@@ -34,7 +34,7 @@ public:
     explicit PiperPipeline(const Ref<ConfigNode>& config) {
         MemoryArena arena;
 
-        const auto path = config->get("InputFile")->as<std::string_view>();
+        const auto path = config->get("InputFile"sv)->as<std::string_view>();
         // TODO: load configuration from CLI
         LoadConfiguration cfg{ context().globalAllocator };
         const auto base = fs::path{ path }.parent_path().string();

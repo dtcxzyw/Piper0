@@ -21,8 +21,12 @@
 #include <Piper/Core/Monitor.hpp>
 #include <Piper/Core/Report.hpp>
 #include <Piper/Core/StaticFactory.hpp>
+#include <Piper/Core/Stats.hpp>
 #include <Piper/Render/Acceleration.hpp>
+#include <Piper/Render/Material.hpp>
+#include <Piper/Render/Shape.hpp>
 #include <embree3/rtcore.h>
+#include <glm/gtc/type_ptr.hpp>
 
 PIPER_NAMESPACE_BEGIN
 
@@ -78,13 +82,16 @@ class EmbreeGeometry final : public PrimitiveGroup {
     RTCGeometry mMotionBlurGeometry;
 
 public:
-    explicit EmbreeGeometry(const RTCGeometry geometry) : mGeometry{ geometry } {
+    explicit EmbreeGeometry(const RTCGeometry geometry, const Shape* shape) : mGeometry{ geometry } {
         const auto dev = device();
         mInstancedScene = rtcNewScene(dev);
         rtcAttachGeometry(mInstancedScene, mGeometry);
+        rtcSetSceneProgressMonitorFunction(
+            mInstancedScene, [](void* ptr, double progress) { return true; }, this);
 
         mMotionBlurGeometry = rtcNewGeometry(dev, RTC_GEOMETRY_TYPE_INSTANCE);
-        rtcSetGeometryInstancedScene(mGeometry, mInstancedScene);
+        rtcSetGeometryInstancedScene(mMotionBlurGeometry, mInstancedScene);
+        rtcSetGeometryUserData(mMotionBlurGeometry, const_cast<Shape*>(shape));
     }
 
     ~EmbreeGeometry() override {
@@ -94,7 +101,7 @@ public:
     }
 
     RTCGeometry getGeometry() const noexcept {
-        return mMotionBlurGeometry ? mMotionBlurGeometry : mGeometry;
+        return mMotionBlurGeometry;
     }
 
     void updateTransform(const ShutterKeyFrames& transform) override {
@@ -117,7 +124,7 @@ public:
     void commit() override {
         rtcCommitGeometry(mGeometry);
         rtcCommitScene(mInstancedScene);
-        rtcCommitGeometry(mGeometry);
+        rtcCommitGeometry(mMotionBlurGeometry);
     }
 };
 
@@ -138,32 +145,83 @@ public:
         rtcCommitScene(mScene);
     }
 
-    std::optional<Intersection> trace(const Ray& ray) const override {
+    Intersection processHitInfo(const Ray& ray, const RTCHit& hitInfo, const Float distance) const {
+        BoolCounter<StatsType::Intersection> counter;
+        if(hitInfo.geomID != RTC_INVALID_GEOMETRY_ID) {
+            // surface
+            counter.count(true);
 
-        return std::nullopt;
+            const auto geo = rtcGetGeometry(mScene, hitInfo.instID[0]);
+            const auto& shape = *static_cast<const Shape*>(rtcGetGeometryUserData(geo));
+
+            glm::mat3x4 mat;
+            rtcGetGeometryTransform(geo, ray.t, RTC_FORMAT_FLOAT3X4_ROW_MAJOR, glm::value_ptr(mat));
+            const AffineTransform<FrameOfReference::Object, FrameOfReference::World> trans{ mat };
+            const auto geometryNormal = Normal<FrameOfReference::World>::fromRaw(glm::vec3{ hitInfo.Ng_x, hitInfo.Ng_y, hitInfo.Ng_z });
+
+            return shape.generateIntersection(ray, distance, trans, geometryNormal, { hitInfo.u, hitInfo.v }, hitInfo.primID);
+        }
+
+        // missing
+        counter.count(false);
+        return std::monostate{};
     }
-    std::pmr::vector<std::optional<Intersection>> tracePrimary(const RayStream& rayStream) const override {
-        std::pmr::vector<std::optional<Intersection>> res{ context().scopedAllocator };
 
-        return {};
+    Intersection trace(const Ray& ray) const override {
+        RTCIntersectContext ctx{};  // TODO: filter
+        rtcInitIntersectContext(&ctx);
+
+        RTCRayHit hit = { { ray.origin.x(), ray.origin.y(), ray.origin.z(), epsilon, ray.direction.x(), ray.direction.y(),
+                            ray.direction.z(), ray.t, infinity, 0, 0, 0 },
+                          {} };
+
+        rtcIntersect1(mScene, &ctx, &hit);
+
+        return processHitInfo(ray, hit.hit, hit.ray.tfar);
+    }
+
+    std::pmr::vector<Intersection> tracePrimary(const RayStream& rayStream) const override {
+        RTCIntersectContext ctx{};  // TODO: filter
+        rtcInitIntersectContext(&ctx);
+        ctx.flags = RTC_INTERSECT_CONTEXT_FLAG_COHERENT;
+
+        std::pmr::vector<RTCRayHit> hit{ rayStream.size(), context().scopedAllocator };
+        for(uint32_t idx = 0; idx < hit.size(); ++idx) {
+            const auto& [origin, direction, t] = rayStream[idx];
+            hit[idx].ray = {
+                origin.x(), origin.y(), origin.z(), epsilon, direction.x(), direction.y(), direction.z(), t, infinity, 0, 0, 0
+            };
+        }
+
+        rtcIntersect1M(mScene, &ctx, hit.data(), static_cast<uint32_t>(hit.size()), sizeof(RTCRayHit));
+
+        std::pmr::vector<Intersection> res{ rayStream.size(), context().scopedAllocator };
+
+        for(uint32_t idx = 0; idx < hit.size(); ++idx) {
+            const auto& ray = rayStream[idx];
+            res[idx] = processHitInfo(ray, hit[idx].hit, hit[idx].ray.tfar);
+        }
+
+        return res;
     }
 };
 
 class EmbreeBuilder final : public AccelerationBuilder {
 public:
-    uint32_t maxStepsCount() const noexcept override {
+    uint32_t maxStepCount() const noexcept override {
         return 129u;
     }
 
     Ref<PrimitiveGroup> buildFromTriangleMesh(const uint32_t vertices, const uint32_t faces,
-                                              const std::function<void(void*, void*)>& writeCallback) const noexcept override {
+                                              const std::function<void(void*, void*)>& writeCallback,
+                                              const Shape& shape) const noexcept override {
         const auto dev = device();
         const auto geometry = rtcNewGeometry(dev, RTC_GEOMETRY_TYPE_TRIANGLE);
         const auto verticesBuffer =
             rtcSetNewGeometryBuffer(geometry, RTC_BUFFER_TYPE_VERTEX, 0, RTC_FORMAT_FLOAT3, sizeof(glm::vec3), vertices);
         const auto indicesBuffer = rtcSetNewGeometryBuffer(geometry, RTC_BUFFER_TYPE_INDEX, 0, RTC_FORMAT_UINT3, sizeof(glm::uvec3), faces);
         writeCallback(verticesBuffer, indicesBuffer);
-        return makeRefCount<EmbreeGeometry>(geometry);
+        return makeRefCount<EmbreeGeometry>(geometry, &shape);
     }
 
     Ref<Acceleration> buildScene(const std::pmr::vector<Ref<PrimitiveGroup>>& primitiveGroups) const noexcept override {
@@ -172,7 +230,6 @@ public:
 
         for(auto& group : primitiveGroups) {
             const auto geometry = dynamic_cast<EmbreeGeometry*>(group.get())->getGeometry();
-
             rtcAttachGeometry(scene, geometry);
         }
 

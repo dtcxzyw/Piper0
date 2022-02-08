@@ -23,12 +23,16 @@
 
 PIPER_NAMESPACE_BEGIN
 
-template <typename Setting>
-class Integrator : public RenderVariantBase<Setting> {
+class IntegratorBase : public RenderVariantBase {
 public:
-    using RenderVariantBase<Setting>::Spectrum;
+    virtual void preprocess() const noexcept = 0;
+    virtual void estimate(const Ray& ray, const Intersection& intersection, Float* output) const noexcept = 0;
+};
 
-    virtual Spectrum estimate(const std::variant<Intersection>& intersection) const noexcept = 0;
+template <typename Setting>
+class Integrator : public TypedRenderVariantBase<Setting, IntegratorBase> {
+public:
+    PIPER_IMPORT_SETTINGS();
 };
 
 PIPER_NAMESPACE_END
