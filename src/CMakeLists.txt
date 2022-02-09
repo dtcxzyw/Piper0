@@ -15,12 +15,15 @@ find_package(OpenColorIO CONFIG REQUIRED)
 find_package(simdjson CONFIG REQUIRED)
 find_path(PCG_INCLUDE_DIRS "pcg_extras.hpp")
 find_package(tinyobjloader CONFIG REQUIRED)
+find_package(IlmBase CONFIG REQUIRED)
+find_package(OpenEXR CONFIG REQUIRED)
     
 file(GLOB PIPER_CLI_SRC "*/*.cpp")
 add_executable(PiperCLI ${PIPER_CLI_SRC})
+target_include_directories(PiperCLI PRIVATE ${RANG_INCLUDE_DIRS})
+target_include_directories(PiperCLI PRIVATE ${PCG_INCLUDE_DIRS})
 target_link_libraries(PiperCLI PRIVATE range-v3 range-v3-meta range-v3::meta range-v3-concepts)
 target_link_libraries(PiperCLI PRIVATE TBB::tbb TBB::tbbmalloc TBB::tbbmalloc_proxy)
-target_include_directories(PiperCLI PRIVATE ${RANG_INCLUDE_DIRS})
 target_link_libraries(PiperCLI PRIVATE glm::glm)
 target_link_libraries(PiperCLI PRIVATE cxxopts::cxxopts)
 target_link_libraries(PiperCLI PRIVATE ftxui::dom ftxui::screen ftxui::component)
@@ -29,9 +32,22 @@ target_link_libraries(PiperCLI PRIVATE magic_enum::magic_enum)
 target_link_libraries(PiperCLI PRIVATE OpenColorIO::OpenColorIO)
 target_link_libraries(PiperCLI PRIVATE OpenImageDenoise embree)
 target_link_libraries(PiperCLI PRIVATE simdjson::simdjson)
-target_include_directories(PiperCLI PRIVATE ${PCG_INCLUDE_DIRS})
 target_link_libraries(PiperCLI PRIVATE tinyobjloader::tinyobjloader)
+target_link_libraries(PiperCLI PRIVATE IlmBase::Iex IlmBase::Half IlmBase::Imath IlmBase::IexMath)
+target_link_libraries(PiperCLI PRIVATE OpenEXR::IlmImf OpenEXR::IlmImfUtil OpenEXR::IlmImfConfig)
 
 add_custom_command(TARGET PiperCLI POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:OpenImageDenoise> $<TARGET_FILE_DIR:PiperCLI>
+)
+add_custom_command(TARGET PiperCLI POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:embree> $<TARGET_FILE_DIR:PiperCLI>
+)
+add_custom_command(TARGET PiperCLI POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:TBB::tbb> $<TARGET_FILE_DIR:PiperCLI>
+)
+add_custom_command(TARGET PiperCLI POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:TBB::tbbmalloc> $<TARGET_FILE_DIR:PiperCLI>
+)
+add_custom_command(TARGET PiperCLI POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:TBB::tbbmalloc_proxy> $<TARGET_FILE_DIR:PiperCLI>
 )

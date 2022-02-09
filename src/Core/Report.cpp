@@ -66,7 +66,7 @@ void error(std::string message) {
 }
 [[noreturn]] void fatal(std::string message) {
     report(LogType::Fatal, std::move(message), true);
-    std::terminate();
+    std::abort();
 }
 
 ProgressReporter::ProgressReporter() : mStart{ Clock::now() }, mProgress{ 0.0 } {}
@@ -106,6 +106,7 @@ tbb::concurrent_unordered_map<std::string, Ref<ProgressReporter>>& getProgressRe
 ProgressReporterHandle::ProgressReporterHandle(std::string name) : mReporter{ makeRefCount<ProgressReporter>() } {
     getProgressReports().insert({ std::move(name), mReporter });
 }
+// ReSharper disable once CppMemberFunctionMayBeConst
 void ProgressReporterHandle::update(const double progress) noexcept {
     mReporter->update(progress);
 }

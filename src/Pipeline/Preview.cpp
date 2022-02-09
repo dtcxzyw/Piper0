@@ -29,7 +29,7 @@ public:
     explicit Preview(const Ref<ConfigNode>& node) {
         PIPER_NOT_IMPLEMENTED();
     }
-    ChannelRequirement setup(const std::pmr::string&, const ChannelRequirement req) override {
+    ChannelRequirement setup(const ChannelRequirement req) override {
         if(!req.empty())
             fatal("Preview is a sink node");
         return { { { Channel::Full, false } }, context().globalAllocator };

@@ -237,10 +237,10 @@ constexpr Float lerp(const Float a, const Float b, const Float u) noexcept {
     return a * (1.0f - u) + b * u;
 }
 
-constexpr glm::vec3 wavelength2XYZ(const Float wavelength) noexcept {
-    const auto offset = wavelength - cmfWavelengthMin;
+constexpr glm::vec3 wavelength2XYZ(const Float lambda) noexcept {
+    const auto offset = lambda - cmfWavelengthMin;
 
-    const auto idx0 = std::min(cmfLUTSize - 2, std::max(static_cast<int32_t>(wavelength) - cmfWavelengthMin, 0));
+    const auto idx0 = std::min(cmfLUTSize - 2, std::max(static_cast<int32_t>(lambda) - cmfWavelengthMin, 0));
     const auto idx1 = idx0 + 1;
 
     const auto u = offset - static_cast<float>(idx0);
@@ -252,41 +252,65 @@ constexpr glm::vec3 wavelength2XYZ(const Float wavelength) noexcept {
     return { x, y, z };
 }
 
-constexpr Float wavelength2Y(const Float wavelength) noexcept {
-    const auto offset = wavelength - cmfWavelengthMin;
+constexpr Float wavelength2Y(const Float lambda) noexcept {
+    const auto offset = lambda - cmfWavelengthMin;
 
-    const auto idx0 = std::min(cmfLUTSize - 2, std::max(static_cast<int32_t>(wavelength) - cmfWavelengthMin, 0));
+    const auto idx0 = std::min(cmfLUTSize - 2, std::max(static_cast<int32_t>(lambda) - cmfWavelengthMin, 0));
     const auto idx1 = idx0 + 1;
 
-    const auto u = offset - static_cast<float>(idx0);
+    const auto u = offset - static_cast<Float>(idx0);
 
     const auto y = lerp(colorMatchingFunctionY[idx0], colorMatchingFunctionY[idx1], u);
     return y;
 }
 
 template <size_t Samples, typename T, size_t... I>
-static Float expandLum(const T& x, std::index_sequence<I...>) {
-    return ((wavelength2Y((sampleWavelengthMax - sampleWavelengthMin) * static_cast<Float>(I) / static_cast<Float>(Samples)) * x[I]) +
-            ...) /
-        static_cast<Float>(Samples);
+static constexpr Float expandLum(const T& x, const T& w, std::index_sequence<I...>) {
+    return ((wavelength2Y(w[I]) * x[I]) + ...) / static_cast<Float>(Samples);
 }
 
-Float luminance(const SpectralSpectrum& x) noexcept {
+Float luminance(const SpectralSpectrum& x, const SpectralSpectrum& sampledWavelengths) noexcept {
     constexpr auto indices = std::make_index_sequence<SpectralSpectrum::nSamples>{};
-    return expandLum<SpectralSpectrum::nSamples>(x.mVec, indices);
+    return expandLum<SpectralSpectrum::nSamples>(x.mVec, sampledWavelengths.mVec, indices);
 }
 
 template <size_t Samples, typename T, size_t... I>
-static glm::vec3 expandXYZ(const T& x, std::index_sequence<I...>) {
-    return ((wavelength2XYZ((sampleWavelengthMax - sampleWavelengthMin) * static_cast<Float>(I) / static_cast<Float>(Samples)) * x[I]) +
-            ...) /
-        static_cast<Float>(Samples);
+static glm::vec3 expandXYZ(const T& x, const T& w, std::index_sequence<I...>) {
+    return ((wavelength2XYZ(w[I]) * x[I]) + ...) / static_cast<Float>(Samples);
 }
 
-RGBSpectrum toRGB(const SpectralSpectrum& x) noexcept {
+RGBSpectrum toRGB(const SpectralSpectrum& x, const SpectralSpectrum& sampledWavelengths) noexcept {
     constexpr auto indices = std::make_index_sequence<SpectralSpectrum::nSamples>{};
-    const auto xyz = expandXYZ<SpectralSpectrum::nSamples>(x.mVec, indices);
+    const auto xyz = expandXYZ<SpectralSpectrum::nSamples>(x.mVec, sampledWavelengths.mVec, indices);
     return RGBSpectrum::fromRaw(RGBSpectrum::matXYZ2RGB * xyz);
+}
+
+static Float blackBody(const Float temperature, const Float lambdaNm) noexcept {
+    // Planck constant h
+    // Please refer to https://physics.nist.gov/cgi-bin/cuu/Value?h
+    constexpr auto h = 6.626'070'15e-34;  // J/Hz
+    // speed of light in vacuum c
+    // Please refer to https://physics.nist.gov/cgi-bin/cuu/Value?c
+    constexpr auto c = 299'792'458.0;  // m/s
+    // Boltzmann constant k
+    // Please refer to https://physics.nist.gov/cgi-bin/cuu/Value?k
+    constexpr auto k = 1.380'649e-23;  // J/K
+
+    constexpr auto k1 = static_cast<Float>(2.0 * h * c * c);
+    constexpr auto k2 = static_cast<Float>(h * c / k);
+    const auto lambda = lambdaNm * 1e-9f;
+
+    return k1 * pow<5>(lambda) * (exp(k2 / (lambda * temperature)) - 1.0f);
+}
+
+template <size_t Samples, typename T, size_t... I>
+static auto expandBlackBody(const Float temperature, const T& x, std::index_sequence<I...>) {
+    return T{ (blackBody(temperature, x[I]), ...) };
+}
+
+SpectralSpectrum temperatureToSpectrum(const Float temperature, const SpectralSpectrum& sampledWavelengths) noexcept {
+    constexpr auto indices = std::make_index_sequence<SpectralSpectrum::nSamples>{};
+    return SpectralSpectrum::fromRaw(expandBlackBody<SpectralSpectrum::nSamples>(temperature, sampledWavelengths.raw(), indices));
 }
 
 PIPER_NAMESPACE_END

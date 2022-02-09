@@ -19,18 +19,30 @@
 */
 
 #pragma once
-#include <Piper/Core/RefCount.hpp>
 #include <Piper/Render/KeyFrames.hpp>
+#include <Piper/Render/RenderGlobalSetting.hpp>
 
 PIPER_NAMESPACE_BEGIN
 
-class SceneObject : public RefCountBase {
-protected:
+class SceneObjectComponent : public RenderVariantBase {
+public:
+    virtual void updateTransform(const KeyFrames& keyFrames, TimeInterval timeInterval) = 0;
+    virtual PrimitiveGroup* primitiveGroup() const noexcept = 0;
+};
+
+enum class ComponentType { Sensor, Light, Shape };
+
+class SceneObject final : public RefCountBase {
     KeyFrames mKeyFrames;
+    ComponentType mComponentType;
+    Ref<SceneObjectComponent> mComponent;
 
 public:
-    virtual void update(TimeInterval timeInterval) = 0;
-    virtual Ref<PrimitiveGroup> primitiveGroup() const = 0;
+    explicit SceneObject(const Ref<ConfigNode>& node);
+    void update(TimeInterval timeInterval);
+    PrimitiveGroup* primitiveGroup() const;
+    Sensor* sensor() const noexcept;
+    LightBase* light() const noexcept;
 };
 
 PIPER_NAMESPACE_END

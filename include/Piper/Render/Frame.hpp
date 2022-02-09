@@ -59,6 +59,7 @@ constexpr size_t channelSize(const Channel x, const SpectrumType spectrumType) {
 struct FrameMetadata final {
     uint32_t width;
     uint32_t height;
+    uint32_t actionIdx;
     uint32_t frameIdx;
     Channel channel;
     SpectrumType spectrumType;

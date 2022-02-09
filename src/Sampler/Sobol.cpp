@@ -43,13 +43,15 @@ static uint32_t sobol(uint32_t index, const uint32_t scramble) {
 constexpr auto matrixSize = 52;
 constexpr auto matrixDims = 1024;
 
-extern const uint32_t sobolMatrix[matrixSize * matrixDims];
+struct Sobol final {
+    static const uint32_t matrix[];
+};
 
 static Float sobolDim(const uint32_t dim, uint32_t index, const uint32_t scramble) {
     uint32_t res = scramble;
     for(uint32_t i = dim * matrixSize; index; index >>= 1, ++i) {
         if(index & 1)
-            res ^= sobolMatrix[i];
+            res ^= Sobol::matrix[i];
     }
 
     return std::fmin(oneMinusEpsilon, static_cast<Float>(res) * (1.0f / static_cast<Float>(1ULL << 32)));
@@ -164,7 +166,7 @@ PIPER_REGISTER_CLASS(SobolSampler, Sampler);
 // The tabulated direction numbers are available here:
 // http://web.maths.unsw.edu.au/~fkuo/sobol/new-joe-kuo-6.21201
 
-static const uint32_t sobolMatrix[matrixSize * matrixDims] = {
+constexpr uint32_t Sobol::matrix[matrixSize * matrixDims] = {
     0x80000000U, 0x40000000U, 0x20000000U, 0x10000000U, 0x8000000U,  0x4000000U,  0x2000000U,  0x1000000U,  0x800000U,   0x400000U,
     0x200000U,   0x100000U,   0x80000U,    0x40000U,    0x20000U,    0x10000U,    0x8000U,     0x4000U,     0x2000U,     0x1000U,
     0x800U,      0x400U,      0x200U,      0x100U,      0x80U,       0x40U,       0x20U,       0x10U,       0x8U,        0x4U,

@@ -23,6 +23,7 @@ namespace Piper {
     class AccelerationBuilder;
     class ConfigAttr;
     class ConfigNode;
+    class LightBase;
     template <typename Settings>
     class Material;
     class PrimitiveGroup;
@@ -30,6 +31,7 @@ namespace Piper {
     class Ref;
     class RefCountBase;
     class SampleProvider;
+    class Sensor;
     class Shape;
     class StaticFactory;
 

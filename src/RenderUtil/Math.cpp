@@ -24,23 +24,28 @@
 #include <glm/gtc/quaternion.hpp>
 
 PIPER_NAMESPACE_BEGIN
+glm::vec2 parseVec2(const Ref<ConfigAttr>& node) {
+    const auto& arr = node->as<ConfigAttr::AttrArray>();
+    if(arr.size() != 2)
+        fatal("Bad vector2");
+
+    return { static_cast<Float>(arr[0]->as<double>()), static_cast<Float>(arr[1]->as<double>()) };
+}
+
 glm::vec3 parseVec3(const Ref<ConfigAttr>& node) {
     const auto& arr = node->as<ConfigAttr::AttrArray>();
     if(arr.size() != 3)
         fatal("Bad vector3");
 
-    return {
-        static_cast<Float>(arr[0]->as<double>()), static_cast<Float>(arr[1]->as<double>()), static_cast<Float>(arr[2]->as<double>())
-    };
+    return { static_cast<Float>(arr[0]->as<double>()), static_cast<Float>(arr[1]->as<double>()), static_cast<Float>(arr[2]->as<double>()) };
 }
 
 glm::quat parseQuat(const Ref<ConfigAttr>& node) {
     const auto& arr = node->as<ConfigAttr::AttrArray>();
     if(arr.size() != 4)
         fatal("Bad quaternion");
-    return glm::quat{
-        static_cast<Float>(arr[0]->as<double>()), static_cast<Float>(arr[1]->as<double>()), static_cast<Float>(arr[2]->as<double>()), static_cast<Float>(arr[3]->as<double>())
-    };
+    return glm::quat{ static_cast<Float>(arr[0]->as<double>()), static_cast<Float>(arr[1]->as<double>()),
+                      static_cast<Float>(arr[2]->as<double>()), static_cast<Float>(arr[3]->as<double>()) };
 }
 
 PIPER_NAMESPACE_END

@@ -26,7 +26,8 @@ PIPER_NAMESPACE_BEGIN
 class IntegratorBase : public RenderVariantBase {
 public:
     virtual void preprocess() const noexcept = 0;
-    virtual void estimate(const Ray& ray, const Intersection& intersection, Float* output) const noexcept = 0;
+    virtual void estimate(const Ray& ray, const Intersection& intersection, SampleProvider& sampler, Float shutterTime,
+                          Float* output) const noexcept = 0;
 };
 
 template <typename Setting>

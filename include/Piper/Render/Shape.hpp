@@ -25,9 +25,9 @@
 
 PIPER_NAMESPACE_BEGIN
 
-class Shape : public SceneObject {
+class Shape : public SceneObjectComponent {
 public:
-    virtual Intersection generateIntersection(const Ray& ray, Float hitDistance,
+    virtual Intersection generateIntersection(const Ray& ray, Distance hitDistance,
                                               const AffineTransform<FrameOfReference::Object, FrameOfReference::World>& transform,
                                               const Normal<FrameOfReference::World>& geometryNormal, glm::vec2 barycentric,
                                               uint32_t primitiveIndex) const noexcept = 0;

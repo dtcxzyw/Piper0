@@ -27,11 +27,11 @@ class LDROutput final : public PipelineNode {
     std::pmr::string mOutputPath;
 
 public:
-    explicit LDROutput(const Ref<ConfigNode>& node) {}
-    ChannelRequirement setup(const std::pmr::string& path, const ChannelRequirement req) override {
+    explicit LDROutput(const Ref<ConfigNode>& node)
+        : mOutputPath{ node->get("OutputPath"sv)->as<std::string_view>(), context().globalAllocator } {}
+    ChannelRequirement setup(const ChannelRequirement req) override {
         if(!req.empty())
             fatal("LDROutput is a sink node");
-        mOutputPath = path;
         return { { { Channel::Full, false } }, context().globalAllocator };
     }
 

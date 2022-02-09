@@ -26,7 +26,7 @@ PIPER_NAMESPACE_BEGIN
 
 struct SurfaceHit final {
     Point<FrameOfReference::World> hit;
-    Float distance;
+    Distance distance;
     Normal<FrameOfReference::World> geometryNormal;
     Normal<FrameOfReference::World> lerpGeometryNormal;
     uint32_t primitiveIdx;

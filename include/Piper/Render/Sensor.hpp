@@ -41,10 +41,21 @@ struct RenderRECT final {
 
 [[nodiscard]] std::pair<SensorNDCAffineTransform, RenderRECT> calcRenderRECT(uint32_t width, uint32_t height, Float deviceAspectRatio,
                                                                              FitMode fitMode);
-class Sensor : public SceneObject {
+class Sensor : public SceneObjectComponent {
+protected:
+    ResolvedTransform mTransform{};
+
 public:
     virtual Float deviceAspectRatio() const noexcept = 0;
     virtual std::pair<Ray, Float> sample(glm::vec2 sensorNDC, SampleProvider& sampler) const noexcept = 0;
+    PrimitiveGroup* primitiveGroup() const noexcept final {
+        return nullptr;
+    }
+    void updateTransform(const KeyFrames& keyFrames, TimeInterval timeInterval) final;
 };
+
+// TODO: Sensor Controller
+
+glm::vec2 parseSensorSize(const Ref<ConfigAttr>& attr);
 
 PIPER_NAMESPACE_END

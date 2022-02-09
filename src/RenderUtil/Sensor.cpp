@@ -61,4 +61,33 @@ std::pair<SensorNDCAffineTransform, RenderRECT> calcRenderRECT(const uint32_t wi
     return { transform, rect };
 }
 
+void Sensor::updateTransform(const KeyFrames& keyFrames, const TimeInterval timeInterval) {
+    mTransform = resolveTransform(keyFrames, timeInterval);
+}
+
+glm::vec2 parseSensorSize(const Ref<ConfigAttr>& attr) {
+    if(attr->isArray())
+        return parseVec2(attr) * 1e-3f;
+
+    const auto type = attr->as<std::string_view>();
+    // Please refer to https://lenspire.zeiss.com/photo/en/article/making-sense-of-sensors-full-frame-vs-aps-c
+    if(type == "Full Frame"sv)
+        return { 36e-3f, 24e-3f };
+    if(type == "APS-C"sv)
+        return { 22.2e-3f, 14.8e-3f };
+    if(type == "MFT"sv)
+        return { 17.3e-3f, 13e-3f };
+    if(type == "APS-H"sv)
+        return { 28.7e-3f, 19e-3f };
+    if(type == "Foveon"sv)
+        return { 20.7e-3f, 13.8e-3f };
+    if(type == "1/1.7''"sv)
+        return { 7.6e-3f, 5.6e-3f };
+    if(type == "1/1.8''"sv)
+        return { 7.18e-3f, 5.32e-3f };
+    if(type == "1/2.5''"sv)
+        return { 5.76e-3f, 4.29e-3f };
+    fatal(fmt::format("Unrecognized sensor size \"{}\"", type));
+}
+
 PIPER_NAMESPACE_END

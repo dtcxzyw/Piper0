@@ -24,6 +24,10 @@
 
 PIPER_NAMESPACE_BEGIN
 
-
+class LightSampler : public RefCountBase {
+public:
+    virtual void preprocess(const std::pmr::vector<LightBase*>& lights) = 0;
+    virtual std::pair<Handle<Light>, InversePdf<PdfType::LightSampler>> sample(SampleProvider& sampler) const = 0;
+};
 
 PIPER_NAMESPACE_END

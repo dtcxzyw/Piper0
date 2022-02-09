@@ -25,7 +25,7 @@
 
 PIPER_NAMESPACE_BEGIN
 
-enum class LightAttributes : uint32_t { Delta = 1, Infinite = 2, Area = 4 };
+enum class LightAttributes : uint32_t { None = 0, Delta = 1, Infinite = 2, Area = 4 };
 constexpr bool match(LightAttributes provide, LightAttributes require) {
     return (static_cast<uint32_t>(provide) & static_cast<uint32_t>(require)) == static_cast<uint32_t>(provide);
 }
@@ -33,17 +33,31 @@ constexpr LightAttributes operator|(LightAttributes a, LightAttributes b) {
     return static_cast<LightAttributes>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
 }
 
-class LightBase : public SceneObject {
+class LightBase : public SceneObjectComponent {
 public:
     virtual LightAttributes attributes() const noexcept = 0;
+    PrimitiveGroup* primitiveGroup() const noexcept override {
+        return nullptr;
+    }
 };
 
 template <typename Spectrum>
 struct LightSample final {
     Normal<FrameOfReference::World> dir;  // src -> hit
-    Radiance<Spectrum> rad;
-    Float pdf;
-    Float distance;
+    Radiance<Spectrum, PdfType::Light> rad;
+    InversePdf<PdfType::Light> pdf;
+    Distance distance;
+
+    static LightSample invalid() noexcept {
+        return LightSample{ {},
+                            Radiance<Spectrum, PdfType::Light>::fromRaw(zero<Spectrum>()),
+                            InversePdf<PdfType::Light>::invalid(),
+                            Distance::fromRaw(0.0f) };
+    }
+
+    [[nodiscard]] bool valid() const noexcept {
+        return pdf.valid();
+    }
 };
 
 template <typename Setting>
@@ -51,10 +65,11 @@ class Light : public TypedRenderVariantBase<Setting, LightBase> {
 public:
     PIPER_IMPORT_SETTINGS();
 
-    virtual LightSample<Spectrum> sample(const Point<FrameOfReference::World>& pos) const noexcept = 0;
-    virtual Spectrum evaluate(const Point<FrameOfReference::World>& pos) const noexcept = 0;
-    virtual Float pdf();
-    virtual Float power();
+    virtual LightSample<Spectrum> sample(Float t, const Point<FrameOfReference::World>& pos, SampleProvider& sampler) const noexcept = 0;
+    virtual Radiance<Spectrum> evaluate(Float t, const Point<FrameOfReference::World>& pos) const noexcept = 0;
+    [[nodiscard]] virtual InversePdf<PdfType::Light> pdf(Float t, const Point<FrameOfReference::World>& pos,
+                                                         const Normal<FrameOfReference::World>& dir, Distance distance) const noexcept = 0;
+    virtual Power<Spectrum> power() const noexcept = 0;
 };
 
 PIPER_NAMESPACE_END

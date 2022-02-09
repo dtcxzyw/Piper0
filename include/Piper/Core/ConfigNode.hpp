@@ -49,6 +49,10 @@ public:
             return *ptr;
         return std::get<std::pmr::string>(mValue);
     }
+
+    [[nodiscard]] bool isArray() const noexcept {
+        return mValue.index() == 5;
+    }
 };
 
 class ConfigNode final : public RefCountBase {

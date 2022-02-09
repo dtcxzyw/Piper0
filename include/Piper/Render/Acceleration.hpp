@@ -35,7 +35,7 @@ public:
 class Acceleration : public RefCountBase {
 public:
     virtual void commit() = 0;
-
+    virtual Float radius() const noexcept = 0;
     virtual Intersection trace(const Ray& ray) const = 0;
     virtual std::pmr::vector<Intersection> tracePrimary(const RayStream& rayStream) const = 0;
 };
@@ -47,7 +47,7 @@ public:
     buildFromTriangleMesh(uint32_t vertices, uint32_t faces,
                           const std::function<void(void*, void*)>& writeCallback,  // verticesBuffer,indicesBuffer
                           const Shape& shape) const noexcept = 0;
-    virtual Ref<Acceleration> buildScene(const std::pmr::vector<Ref<PrimitiveGroup>>& primitiveGroups) const noexcept = 0;
+    virtual Ref<Acceleration> buildScene(const std::pmr::vector<PrimitiveGroup*>& primitiveGroups) const noexcept = 0;
 };
 
 PIPER_NAMESPACE_END

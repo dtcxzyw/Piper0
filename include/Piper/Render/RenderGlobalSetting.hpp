@@ -29,6 +29,7 @@ template <SpectrumLike Spectrum>
 struct RenderStaticSetting final {
     using SpectrumType = Spectrum;
     using UnpolarizedType = Spectrum;
+    using WavelengthType = typename WavelengthType<Spectrum>::Type;
     static constexpr auto isPolarized = false;
 };
 
@@ -36,6 +37,7 @@ template <SpectrumLike Spectrum>
 struct RenderStaticSetting<MuellerMatrix<Spectrum>> final {
     using SpectrumType = MuellerMatrix<Spectrum>;
     using UnpolarizedType = Spectrum;
+    using WavelengthType = typename RenderStaticSetting<Spectrum>::WavelengthType;
     static constexpr auto isPolarized = true;
 };
 
@@ -81,24 +83,24 @@ public:
 #define PIPER_IMPORT_SETTINGS()                            \
     using Spectrum = typename Setting::SpectrumType;       \
     using Unpolarized = typename Setting::UnpolarizedType; \
+    using Wavelength = typename Setting::WavelengthType;   \
     static constexpr auto isPolarized = Setting::isPolarized
 
 using RSSMono = RenderStaticSetting<MonoSpectrum>;
 using RSSRGB = RenderStaticSetting<RGBSpectrum>;
 using RSSSpectral = RenderStaticSetting<SpectralSpectrum>;
+/*
 using RSSMonoPolarized = RenderStaticSetting<MuellerMatrix<MonoSpectrum>>;
 using RSSRGBPolarized = RenderStaticSetting<MuellerMatrix<RGBSpectrum>>;
 using RSSSpectralPolarized = RenderStaticSetting<MuellerMatrix<SpectralSpectrum>>;
+*/
 
 struct RenderGlobalSetting final {
     std::pmr::string variant;
     SpectrumType spectrumType;
     Ref<AccelerationBuilder> accelerationBuilder;
 
-    static RenderGlobalSetting& get() noexcept {
-        static RenderGlobalSetting inst;
-        return inst;
-    }
+    static RenderGlobalSetting& get() noexcept;
 };
 
 template <typename Base, template <typename> typename T>
@@ -113,9 +115,12 @@ auto makeVariant(const Ref<ConfigNode>& node) {
     PIPER_PATTERN_MATCH(RSSMono);
     PIPER_PATTERN_MATCH(RSSRGB);
     PIPER_PATTERN_MATCH(RSSSpectral);
+
+    /*
     PIPER_PATTERN_MATCH(RSSMonoPolarized);
     PIPER_PATTERN_MATCH(RSSRGBPolarized);
     PIPER_PATTERN_MATCH(RSSSpectralPolarized);
+    */
 
 #undef PIPER_PATTERN_MATCH
 
@@ -127,12 +132,15 @@ auto makeVariant(const Ref<ConfigNode>& node) {
 #CLASS                                                                \
     }
 
-#define PIPER_REGISTER_VARIANT(CLASS, BASE)                     \
-    PIPER_REGISTER_VARIANT_IMPL(CLASS, BASE, RSSMono);          \
-    PIPER_REGISTER_VARIANT_IMPL(CLASS, BASE, RSSRGB);           \
-    PIPER_REGISTER_VARIANT_IMPL(CLASS, BASE, RSSSpectral);      \
-    PIPER_REGISTER_VARIANT_IMPL(CLASS, BASE, RSSMonoPolarized); \
-    PIPER_REGISTER_VARIANT_IMPL(CLASS, BASE, RSSRGBPolarized);  \
-    PIPER_REGISTER_VARIANT_IMPL(CLASS, BASE, RSSSpectralPolarized)
+#define PIPER_REGISTER_VARIANT(CLASS, BASE)            \
+    PIPER_REGISTER_VARIANT_IMPL(CLASS, BASE, RSSMono); \
+    PIPER_REGISTER_VARIANT_IMPL(CLASS, BASE, RSSRGB);  \
+    PIPER_REGISTER_VARIANT_IMPL(CLASS, BASE, RSSSpectral);
+
+/*
+PIPER_REGISTER_VARIANT_IMPL(CLASS, BASE, RSSMonoPolarized); \
+PIPER_REGISTER_VARIANT_IMPL(CLASS, BASE, RSSRGBPolarized);  \
+PIPER_REGISTER_VARIANT_IMPL(CLASS, BASE, RSSSpectralPolarized)
+*/
 
 PIPER_NAMESPACE_END

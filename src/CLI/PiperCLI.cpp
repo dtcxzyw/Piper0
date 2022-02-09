@@ -19,6 +19,7 @@
 */
 
 // force include
+// ReSharper disable once CppUnusedIncludeDirective
 #include <oneapi/tbb/tbbmalloc_proxy.h>
 //
 #include <Piper/Core/Context.hpp>
@@ -100,14 +101,15 @@ void mainGuarded(int argc, char** argv) {
 
     constexpr auto render = [&] {
         info("Loading scene");
-        const auto pipelineDesc = makeRefCount<ConfigNode>(
-            "pipeline"sv, getPipelineType(inputFilePath.extension().string()),
-            ConfigNode::AttrMap{ { { "InputFile"sv, makeRefCount<ConfigAttr>(inputFile) } }, context().globalAllocator },
-            Ref<RefCountBase>{});
+        const auto pipelineDesc = makeRefCount<ConfigNode>("pipeline"sv, getPipelineType(inputFilePath.extension().string()),
+                                                           ConfigNode::AttrMap{ { { "InputFile"sv, makeRefCount<ConfigAttr>(inputFile) },
+                                                                                  { "OutputDir"sv, makeRefCount<ConfigAttr>(outputDir) } },
+                                                                                context().globalAllocator },
+                                                           Ref<RefCountBase>{});
         // TODO: load configuration from CLI
         const auto pipeline = getStaticFactory().make<Pipeline>(pipelineDesc);
         info("Rendering scene");
-        pipeline->execute(std::pmr::string{ outputDir, context().globalAllocator });
+        pipeline->execute();
 
         printStats();
     };
@@ -160,12 +162,14 @@ void mainGuarded(int argc, char** argv) {
                 ui::Elements cores;
                 cores.reserve(coresPerLine);
 
-                for(uint32_t id = idx; id < realEnd; ++id)
+                for(uint32_t id = idx; id < realEnd; ++id) {
+                    const auto [userTime, kernelTime] = ref.cores[id];
+                    const auto color = (userTime > 0.95 ? (userTime > 0.99 ? ui::Color::Green : ui::Color::Yellow) : ui::Color::Red);
                     cores.push_back(ui::hbox({ ui::text(fmt::format(" CPU {:>3}[", id)),
-                                               ui::gauge(static_cast<float>(ref.cores[id].first + ref.cores[id].second)) |
-                                                   ui::color(ui::Color::DarkGreen),
-                                               ui::text(" ]") }) |
+                                               ui::gauge(static_cast<float>(userTime + kernelTime)) | ui::color(color),
+                                               ui::text("]") }) |
                                     ui::xflex_grow);
+                }
 
                 for(uint32_t id = realEnd; id < end; ++id)
                     cores.push_back(ui::emptyElement());
@@ -202,9 +206,9 @@ void mainGuarded(int argc, char** argv) {
                     const auto eta = reporter->eta();
                     const auto progress = reporter->progress() * 100.0;
                     const auto elapsed = std::chrono::ceil<std::chrono::seconds>(reporter->elapsed());
-                    auto text = eta ? fmt::format(" ] {:.1f}% ETA: {:%H:%M:%S} Elapsed: {:%H:%M:%S}", progress,
+                    auto text = eta ? fmt::format("] {:.1f}% ETA: {:%H:%M:%S} Elapsed: {:%H:%M:%S}", progress,
                                                   std::chrono::ceil<std::chrono::seconds>(eta.value()), elapsed) :
-                                      fmt::format(" ]  {:.1f}% Elapsed: {:%H:%M:%S}", progress, elapsed);
+                                      fmt::format("]  {:.1f}% Elapsed: {:%H:%M:%S}", progress, elapsed);
 
                     lines.push_back(ui::hbox({ ui::text(name + " ["), ui::gauge(static_cast<float>(reporter->progress())),
                                                ui::text(std::move(text)) }) |

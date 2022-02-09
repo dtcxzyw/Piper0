@@ -18,7 +18,10 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+// ReSharper disable CppClangTidyCppcoreguidelinesMacroUsage
 #pragma once
+// ReSharper disable once CppUnusedIncludeDirective
+#include <cstdlib>
 
 #if __cplusplus < 201907L
 #error "C++20 or better is required"
@@ -26,6 +29,7 @@
 
 #ifdef __has_include
 #if __has_include(<version>)
+// ReSharper disable once CppUnusedIncludeDirective
 #include <version>
 #endif
 #endif
@@ -45,11 +49,13 @@
 #define PIPER_NAMESPACE_END }
 
 #ifdef _MSC_VER
-[[noreturn]] __forceinline void unreachable() {
+[[noreturn]] inline void unreachable() {
 #ifdef _DEBUG
     __debugbreak();
-#endif
     __assume(false);
+#else
+    std::abort();
+#endif
 }
 #define PIPER_UNREACHABLE() unreachable()
 #else
@@ -58,10 +64,13 @@
 
 #define PIPER_NOT_IMPLEMENTED() PIPER_UNREACHABLE()
 
+// ReSharper disable once CppUnusedIncludeDirective
 #include <Piper/PiperFwd.hpp>
-
 #include <filesystem>
 #include <range/v3/all.hpp>
+// ReSharper disable once CppInconsistentNaming
 namespace views = ranges::views;
+// ReSharper disable once CppInconsistentNaming
 namespace fs = std::filesystem;
-using namespace std::literals;
+
+using namespace std::literals;  // NOLINT(clang-diagnostic-header-hygiene)

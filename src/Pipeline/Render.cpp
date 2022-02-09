@@ -50,9 +50,9 @@ struct FrameAction final {
     std::pmr::vector<Channel> channels{ context().globalAllocator };
     uint32_t channelTotalSize = 0;
 
-    Ref<Sensor> sensor;
-    SensorNDCAffineTransform transform;
-    RenderRECT rect;
+    Sensor* sensor = nullptr;
+    SensorNDCAffineTransform transform{};
+    RenderRECT rect{};
 };
 
 Ref<AccelerationBuilder> createEmbreeBackend();
@@ -60,11 +60,13 @@ Ref<AccelerationBuilder> createEmbreeBackend();
 class Renderer final : public SourceNode {
     ChannelRequirement mRequirement;
     std::pmr::string mCachePath;
-    std::pmr::vector<Ref<SceneObject>> mSceneObjects;
-    std::pmr::vector<FrameAction> mActions;
+    std::pmr::vector<Ref<SceneObject>> mSceneObjects{ context().globalAllocator };
+    std::pmr::vector<LightBase*> mLights{ context().globalAllocator };
+    std::pmr::vector<FrameAction> mActions{ context().globalAllocator };
     Ref<Acceleration> mAcceleration;
 
     Ref<IntegratorBase> mIntegrator;
+    Ref<LightSampler> mLightSampler;
     Ref<Filter> mFilter;
 
     ProgressReporterHandle mProgressReporter{ "Rendering" };
@@ -103,14 +105,14 @@ class Renderer final : public SourceNode {
     }
 
     struct PrimaryRay final {
-        glm::vec2 filmCoord;
+        glm::vec2 filmCoord{};
         SampleProvider sampleProvider;
-        Float weight;
+        Float weight = 0.0f;
     };
 
-    void tracePrimary(const std::pmr::vector<PrimaryRay>& primaryRays, const RayStream& rayStream, const uint32_t tileWidth, const Float x0,
+    void tracePrimary(std::pmr::vector<PrimaryRay>& primaryRays, const RayStream& rayStream, const uint32_t tileWidth, const Float x0,
                       const Float y0, Float* tileData, const std::pmr::vector<Channel>& channels, const uint32_t pixelStride,
-                      const uint32_t usedSpectrumSize) {
+                      const uint32_t usedSpectrumSize, const Float shutterTime) {
         const auto intersections = mAcceleration->tracePrimary(rayStream);
 
         const auto locale = [&](const uint32_t x, const uint32_t y, const uint32_t offset) noexcept -> Float& {
@@ -118,17 +120,16 @@ class Renderer final : public SourceNode {
         };
 
         for(uint32_t rayIdx = 0; rayIdx < primaryRays.size(); ++rayIdx) {
-            const auto& primaryRay = primaryRays[rayIdx];
+            auto& [filmCoord, sampleProvider, weight] = primaryRays[rayIdx];
             const auto& ray = rayStream[rayIdx];
             const auto& intersection = intersections[rayIdx];
 
-            const auto ix = static_cast<uint32_t>(primaryRay.filmCoord.x - x0 - 0.5f);
-            const auto iy = static_cast<uint32_t>(primaryRay.filmCoord.y - y0 - 0.5f);
+            const auto ix = static_cast<uint32_t>(filmCoord.x - x0 - 0.5f);
+            const auto iy = static_cast<uint32_t>(filmCoord.y - y0 - 0.5f);
 
             const auto evalWeight = [&](const uint32_t x, const uint32_t y) noexcept {
-                return mFilter->evaluate(primaryRay.filmCoord.x - (static_cast<Float>(x) + 0.5f),
-                                         primaryRay.filmCoord.y - (static_cast<Float>(y) + 0.5f)) *
-                    primaryRay.weight;
+                return mFilter->evaluate(filmCoord.x - (static_cast<Float>(x) + 0.5f), filmCoord.y - (static_cast<Float>(y) + 0.5f)) *
+                    weight;
             };
 
             const std::tuple<uint32_t, uint32_t, Float> points[4] = {
@@ -163,7 +164,7 @@ class Renderer final : public SourceNode {
                         }
 
                         Float base[spectrumSize(SpectrumType::Spectral)];
-                        mIntegrator->estimate(ray, intersection, base);
+                        mIntegrator->estimate(ray, intersection, sampleProvider, shutterTime, base);
                         writeData(base, usedSpectrumSize);
                     } break;
                     case Channel::Albedo: {
@@ -175,16 +176,16 @@ class Renderer final : public SourceNode {
                         writeData(nullptr, 3);
                     } break;
                     case Channel::Position: {
-                        Point<FrameOfReference::World> point = ray.origin + ray.direction * 1e5;
+                        Point<FrameOfReference::World> point = ray.origin + ray.direction * Distance::fromRaw(1e5f);
                         if(const auto ptr = std::get_if<SurfaceHit>(&intersection))
                             point = ptr->hit;
 
                         writeData(glm::value_ptr(glm::vec3{ point.x(), point.y(), point.z() }), 3);
                     } break;
                     case Channel::Depth: {
-                        Float distance = 1e5;
+                        Float distance = 1e5f;
                         if(const auto ptr = std::get_if<SurfaceHit>(&intersection))
-                            distance = ptr->distance;
+                            distance = ptr->distance.raw();
                         writeData(&distance, 1);
                     } break;
                 }
@@ -194,7 +195,7 @@ class Renderer final : public SourceNode {
 
     std::pmr::vector<Float> renderTile(const std::pmr ::vector<Channel>& channels, const uint32_t channelTotalSize, const int32_t x0,
                                        const int32_t y0, const int32_t x1, const int32_t y1, const SensorNDCAffineTransform& transform,
-                                       const Ref<Sensor>& sensor, const Ref<TileSampler>& sampler) {
+                                       const Sensor* sensor, const Ref<TileSampler>& sampler, const Float shutterTime) {
         MemoryArena arena;
 
         const uint32_t tileWidth = x1 - x0, tileHeight = y1 - y0;
@@ -241,7 +242,7 @@ class Renderer final : public SourceNode {
                         prepareRay(filmX, filmY, sampleIdx, sampleIdx);
 
                     tracePrimary(primaryRays, stream, tileWidth, static_cast<Float>(x0), static_cast<Float>(y0), tileData.data(), channels,
-                                 pixelStride, usedSpectrumSize);
+                                 pixelStride, usedSpectrumSize, shutterTime);
                 }
                 syncTile(y);
             }
@@ -258,7 +259,7 @@ class Renderer final : public SourceNode {
                 }
 
                 tracePrimary(primaryRays, stream, tileWidth, static_cast<Float>(x0), static_cast<Float>(y0), tileData.data(), channels,
-                             pixelStride, usedSpectrumSize);
+                             pixelStride, usedSpectrumSize, shutterTime);
 
                 syncTile(y);
             }
@@ -277,6 +278,7 @@ class Renderer final : public SourceNode {
 
         const auto tileX = (rect.width + tileSize - 1) / tileSize;
         const auto tileY = (rect.height + tileSize - 1) / tileSize;
+        const auto shutterTime = shutterClose - shutterOpen;
 
         info(fmt::format("Updating scene for action {} frame {}", frameIdx));
 
@@ -287,8 +289,7 @@ class Renderer final : public SourceNode {
 
         mAcceleration->commit();
 
-        // TODO: update sampler
-
+        mLightSampler->preprocess(mLights);
         mIntegrator->preprocess();
 
         info(fmt::format("Rendering scene for action{} frame {}", frameIdx));
@@ -309,7 +310,8 @@ class Renderer final : public SourceNode {
             const auto x1 = std::min(static_cast<int32_t>(rect.width), static_cast<int32_t>(rect.left + (tile.x + 1) * tileSize) + 1);
             const auto y1 = std::min(static_cast<int32_t>(rect.height), static_cast<int32_t>(rect.top + (tile.y + 1) * tileSize) + 1);
 
-            const auto res = renderTile(channelDesc, channelTotalSize, x0, y0, x1, y1, transform, sensor, tileSampler);
+            const auto res =
+                renderTile(channelDesc, channelTotalSize, x0, y0, x1, y1, transform, sensor, tileSampler, static_cast<Float>(shutterTime));
 
             decltype(mutex)::scoped_lock guard{ mutex };
 
@@ -343,12 +345,12 @@ public:
         const auto& objects = node->get("Scene"sv)->as<ConfigAttr::AttrArray>();
         mSceneObjects.reserve(objects.size());
 
-        std::pmr::unordered_map<std::string_view, Ref<Sensor>> sensors{ context().localAllocator };
+        std::pmr::unordered_map<std::string_view, Sensor*> sensors{ context().localAllocator };
 
         {
             tbb::speculative_spin_mutex mutex;
 
-            std::pmr::vector<Ref<PrimitiveGroup>> groups{ context().localAllocator };
+            std::pmr::vector<PrimitiveGroup*> groups{ context().localAllocator };
 
             tbb::parallel_for_each(objects, [&](const Ref<ConfigAttr>& attr) {
                 const auto& ref = attr->as<Ref<ConfigNode>>();
@@ -356,10 +358,12 @@ public:
                 auto object = getStaticFactory().make<SceneObject>(ref);
                 decltype(mutex)::scoped_lock guard{ mutex };
 
-                if(auto group = object->primitiveGroup())
-                    groups.push_back(std::move(group));
+                if(const auto group = object->primitiveGroup())
+                    groups.push_back(group);
 
-                if(auto sensor = dynamicCast<Sensor>(object))
+                if(const auto light = object->light())
+                    mLights.push_back(light);
+                else if(auto sensor = object->sensor())
                     sensors.insert({ ref->name(), sensor });
 
                 mSceneObjects.push_back(std::move(object));
@@ -369,6 +373,7 @@ public:
         }
 
         mIntegrator = makeVariant<IntegratorBase, Integrator>(node->get("Integrator"sv)->as<Ref<ConfigNode>>());
+        mLightSampler = getStaticFactory().make<LightSampler>(node->get("LightSampler"sv)->as<Ref<ConfigNode>>());
         mFilter = getStaticFactory().make<Filter>(node->get("Filter"sv)->as<Ref<ConfigNode>>());
 
         for(auto& action : node->get("Action"sv)->as<ConfigAttr::AttrArray>()) {
@@ -424,10 +429,9 @@ public:
     uint32_t frameCount() override {
         return mTotalFrameCount;
     }
-    ChannelRequirement setup(const std::pmr::string& path, ChannelRequirement req) override {
-        mCachePath = path + "/cache/render";
-        if(!fs::exists(mCachePath))
-            fs::create_directories(mCachePath);
+    ChannelRequirement setup(ChannelRequirement req) override {
+        if(!fs::exists(mCachePath) && !fs::create_directories(mCachePath))
+            fatal(fmt::format("Failed to create cache directory {}.", mCachePath));
 
         for(auto [channel, force] : req)
             if(channel != Channel::Full && force)

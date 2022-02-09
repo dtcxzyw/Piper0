@@ -19,11 +19,13 @@
 */
 
 #pragma once
-#include <OpenColorIO/OpenColorIO.h>
-#include <Piper/Core/Context.hpp>
+#include <Piper/Config.hpp>
+#include <glm/glm.hpp>
 
 PIPER_NAMESPACE_BEGIN
 
-
+glm::vec3 convertRGB2StandardLinearRGB(const glm::vec3& valueRGB, std::string_view colorSpace);
+glm::vec3 convertStandardLinearRGB2RGB(const glm::vec3& valueStandardLinearRGB, std::string_view colorSpace);
+// TODO: batching
 
 PIPER_NAMESPACE_END

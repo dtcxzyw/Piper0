@@ -45,9 +45,9 @@ using ShutterKeyFrames = std::pmr::vector<SRTTransform>;
 
 ShutterKeyFrames generateTransform(const KeyFrames& keyFrames, TimeInterval interval, uint32_t maxCount);
 struct ResolvedTransform final {
-    SRTTransform transformBegin;
-    SRTTransform transformEnd;
-    InterpolationCurve curve;
+    SRTTransform transformBegin{};
+    SRTTransform transformEnd{};
+    InterpolationCurve curve = InterpolationCurve::Hold;
 
     SRTTransform operator()(Float t) const noexcept;
 };

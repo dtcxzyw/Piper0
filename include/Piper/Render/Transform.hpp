@@ -42,8 +42,12 @@ class Point final {
     friend class AffineTransform;
 
 public:
+    Point() = default;
     static constexpr Point fromRaw(const glm::vec3& x) noexcept {
         return Point{ x };
+    }
+    [[nodiscard]] glm::vec3 raw() const noexcept {
+        return mVec;
     }
     [[nodiscard]] constexpr Float x() const noexcept {
         return mVec.x;
@@ -54,9 +58,6 @@ public:
     [[nodiscard]] constexpr Float z() const noexcept {
         return mVec.z;
     }
-    friend constexpr Point operator+(const Point& lhs, const Vector<F>& rhs) noexcept;
-    friend constexpr Point operator-(const Point& lhs, const Vector<F>& rhs) noexcept;
-    friend constexpr Vector<F> operator-(const Point& lhs, const Point& rhs) noexcept;
 };
 
 template <FrameOfReference F>
@@ -72,6 +73,9 @@ public:
     static constexpr Vector fromRaw(const glm::vec3& x) noexcept {
         return Vector{ x };
     }
+    [[nodiscard]] glm::vec3 raw() const noexcept {
+        return mVec;
+    }
     [[nodiscard]] constexpr Float x() const noexcept {
         return mVec.x;
     }
@@ -81,23 +85,97 @@ public:
     [[nodiscard]] constexpr Float z() const noexcept {
         return mVec.z;
     }
-    friend constexpr Float dot(const Vector& lhs, const Vector& rhs) noexcept {
-        return glm::dot(lhs.mVec, rhs.mVec);
+    constexpr Vector operator*(const Float rhs) const noexcept {
+        return Vector{ mVec * rhs };
     }
-    friend constexpr Vector cross(const Vector& lhs, const Vector& rhs) noexcept {
-        return Vector{ glm::cross(lhs.mVec, rhs.mVec) };
+};
+
+class Distance final {
+    Float mValue;
+
+    constexpr explicit Distance(const Float x) noexcept : mValue{ x } {}
+
+public:
+    [[nodiscard]] constexpr Float raw() const noexcept {
+        return mValue;
     }
-    friend constexpr Point<F> operator+(const Point<F>& lhs, const Vector<F>& rhs) noexcept {
-        return Point<F>{ lhs.mVec + rhs.mVec };
+    static constexpr Distance fromRaw(const Float x) noexcept {
+        return Distance{ x };
     }
-    friend constexpr Point<F> operator-(const Point<F>& lhs, const Vector<F>& rhs) noexcept {
-        return Point<F>{ lhs.mVec - rhs.mVec };
+    Distance operator*(const Float x) const noexcept {
+        return Distance{ mValue * x };
+    }
+};
+
+class InverseDistance final {
+    Float mValue;
+
+    constexpr explicit InverseDistance(const Float x) noexcept : mValue{ x } {}
+
+public:
+    [[nodiscard]] constexpr Float raw() const noexcept {
+        return mValue;
+    }
+    static constexpr InverseDistance fromRaw(const Float x) noexcept {
+        return InverseDistance{ x };
+    }
+    constexpr InverseDistance operator*(const Float x) const noexcept {
+        return InverseDistance{ mValue * x };
+    }
+    constexpr InverseDistance operator-(const InverseDistance rhs) const noexcept {
+        return InverseDistance{ mValue - rhs.mValue };
+    }
+};
+
+constexpr InverseDistance rcp(const Distance x) noexcept {
+    return InverseDistance::fromRaw(1.0f / x.raw());
+}
+
+constexpr Distance rcp(const InverseDistance x) noexcept {
+    return Distance::fromRaw(1.0f / x.raw());
+}
+
+constexpr Float operator*(const Distance lhs, const InverseDistance rhs) noexcept {
+    return lhs.raw() * rhs.raw();
+}
+
+class DistanceSquare final {
+    Float mValue;
+
+    constexpr explicit DistanceSquare(const Float x) noexcept : mValue{ x } {}
+
+public:
+    [[nodiscard]] Float raw() const noexcept {
+        return mValue;
+    }
+    static constexpr DistanceSquare fromRaw(const Float x) noexcept {
+        return DistanceSquare{ x };
+    }
+    friend Distance sqrt(const DistanceSquare x) noexcept {
+        return Distance::fromRaw(std::sqrt(x.mValue));
     }
 };
 
 template <FrameOfReference F>
-constexpr Vector<F> operator-(const Point<F>& lhs, const Point<F>& rhs) noexcept {
-    return Vector<F>::fromRaw(lhs.mVec - rhs.mVec);
+constexpr DistanceSquare dot(const Vector<F>& lhs, const Vector<F>& rhs) noexcept {
+    return DistanceSquare::fromRaw(glm::dot(lhs.raw(), rhs.raw()));
+}
+template <FrameOfReference F>
+constexpr auto cross(const Vector<F>& lhs, const Vector<F>& rhs) noexcept {
+    return Vector<F>::fromRaw(glm::cross(lhs.raw(), rhs.raw()));
+}
+template <FrameOfReference F>
+constexpr Point<F> operator+(const Point<F>& lhs, const Vector<F>& rhs) noexcept {
+    return Point<F>::fromRaw(lhs.raw() + rhs.raw());
+}
+template <FrameOfReference F>
+constexpr Point<F> operator-(const Point<F>& lhs, const Vector<F>& rhs) noexcept {
+    return Point<F>::fromRaw(lhs.raw() - rhs.raw());
+}
+
+template <FrameOfReference F>
+constexpr auto operator-(const Point<F>& lhs, const Point<F>& rhs) noexcept {
+    return Vector<F>::fromRaw(lhs.raw() - rhs.raw());
 }
 
 template <FrameOfReference F>
@@ -115,7 +193,7 @@ public:
     static constexpr Normal fromRaw(const glm::vec3& x) noexcept {
         return Normal{ x };
     }
-    glm::vec3 raw() const noexcept {
+    [[nodiscard]] glm::vec3 raw() const noexcept {
         return mVec;
     }
 
@@ -128,16 +206,28 @@ public:
     [[nodiscard]] constexpr Float z() const noexcept {
         return mVec.z;
     }
-    constexpr Vector<F> operator*(const Float x) const noexcept {
-        return Vector<F>::fromRaw(mVec * x);
+    constexpr Vector<F> operator*(const Distance x) const noexcept {
+        return Vector<F>::fromRaw(mVec * x.raw());
     }
     friend constexpr Float dot(const Normal& lhs, const Normal& rhs) noexcept {
         return glm::dot(lhs.mVec, rhs.mVec);
     }
     friend constexpr Normal cross(const Normal& lhs, const Normal& rhs) noexcept {
-        return Vector{ glm::cross(lhs.mVec, rhs.mVec) };
+        return Normal{ glm::cross(lhs.mVec, rhs.mVec) };
     }
 };
+
+template <FrameOfReference F>
+constexpr Distance dot(const Normal<F>& lhs, const Vector<F>& rhs) noexcept {
+    return Distance::fromRaw(glm::dot(lhs.raw(), rhs.raw()));
+}
+
+template <FrameOfReference F>
+std::pair<Normal<F>, DistanceSquare> direction(const Point<F>& src, const Point<F>& dst) {
+    const auto diff = dst - src;
+    const auto distSquare = DistanceSquare::fromRaw(glm::dot(diff.raw(), diff.raw()));
+    return { Normal<F>::fromRaw(diff.raw() * glm::inversesqrt(distSquare.raw())), distSquare };
+}
 
 template <FrameOfReference A, FrameOfReference B>
 class AffineTransform final {

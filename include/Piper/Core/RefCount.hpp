@@ -28,11 +28,21 @@ PIPER_NAMESPACE_BEGIN
 template <typename T>
 class Ref;
 
+namespace impl {
+    constexpr struct OwnsTag {
+    } owns;
+
+    struct PostSetter;
+}  // namespace impl
+
 class RefCountBase {
     std::atomic_uint32_t mRefCount{ 0u };
+    size_t mAllocatedSize = 0;
 
     template <typename T>
     friend class Ref;
+
+    friend struct impl::PostSetter;
 
     void addRef() noexcept {
         ++mRefCount;
@@ -41,13 +51,11 @@ class RefCountBase {
         if((--mRefCount) == 0) {
             std::destroy_at(this);
             const auto allocator = context().globalObjectAllocator;
-            allocator->deallocate(this, 0);
+            allocator->deallocate(this, mAllocatedSize);
         }
     }
 
 public:
-    size_t allocatedSize;
-
     RefCountBase() noexcept = default;
     virtual ~RefCountBase() noexcept = default;
     RefCountBase(RefCountBase&) = delete;
@@ -59,8 +67,13 @@ public:
     }
 };
 
-constexpr struct OwnsTag {
-} owns;
+namespace impl {
+    struct PostSetter final {
+        static void setAllocatedSize(RefCountBase* base, const size_t size) noexcept {
+            base->mAllocatedSize = size;
+        }
+    };
+}  // namespace impl
 
 template <typename T>
 class Ref final {
@@ -76,7 +89,7 @@ public:
         if(mPtr)
             mPtr->addRef();
     }
-    explicit Ref(T* ptr, OwnsTag) noexcept : mPtr{ ptr } {}
+    explicit Ref(T* ptr, impl::OwnsTag) noexcept : mPtr{ ptr } {}
     ~Ref() noexcept {
         if(mPtr)
             mPtr->decRef();
@@ -98,9 +111,12 @@ public:
         return *this;
     }
 
-    Ref& operator=(const Ref& rhs) noexcept {
-        Ref copy{ rhs };
-        this->swap(copy);
+    Ref& operator=(const Ref& rhs) noexcept {  // NOLINT(bugprone-unhandled-self-assignment)
+        if(mPtr != rhs.mPtr) {
+            Ref copy{ rhs };
+            this->swap(copy);
+        }
+
         return *this;
     }
 
@@ -124,7 +140,7 @@ public:
         return mPtr;
     }
 
-    T* get() const noexcept {
+    [[nodiscard]] T* get() const noexcept {
         return mPtr;
     }
 
@@ -147,7 +163,7 @@ template <RefCountable T, RefCountable U = T, typename... Args>
         throw;
     }
     const auto typedPtr = static_cast<U*>(ptr);
-    typedPtr->allocatedSize = sizeof(T);
+    impl::PostSetter::setAllocatedSize(typedPtr, sizeof(T));
     return Ref<U>{ typedPtr };
 }
 
@@ -155,7 +171,7 @@ template <typename T, typename U>
 Ref<T> dynamicCast(Ref<U> ptr) {
     if(const auto newPtr = dynamic_cast<T*>(ptr.get())) {
         ptr.release();
-        return Ref<T>{ newPtr, owns };
+        return Ref<T>{ newPtr, impl::owns };
     }
     return Ref<T>{};
 }

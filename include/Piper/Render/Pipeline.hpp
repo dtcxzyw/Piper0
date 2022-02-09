@@ -25,7 +25,7 @@ PIPER_NAMESPACE_BEGIN
 
 class Pipeline : public RefCountBase {
 public:
-    virtual void execute(const std::pmr::string& outputDir) = 0;
+    virtual void execute() = 0;
 };
 
 PIPER_NAMESPACE_END

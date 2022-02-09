@@ -24,6 +24,7 @@
 #include <Piper/Core/Context.hpp>
 #include <Piper/Core/Sync.hpp>
 #ifdef PIPER_WINDOWS
+// ReSharper disable once CppUnusedIncludeDirective
 #include <sdkddkver.h>
 #endif
 #include <boost/asio.hpp>

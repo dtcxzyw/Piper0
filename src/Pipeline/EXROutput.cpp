@@ -18,6 +18,7 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+#include <OpenEXR/ImfRgbaFile.h>
 #include <Piper/Core/StaticFactory.hpp>
 #include <Piper/Render/PipelineNode.hpp>
 
@@ -27,16 +28,37 @@ class EXROutput final : public PipelineNode {
     std::pmr::string mOutputPath;
 
 public:
-    explicit EXROutput(const Ref<ConfigNode>& node) {}
-    ChannelRequirement setup(const std::pmr::string& path, const ChannelRequirement req) override {
+    explicit EXROutput(const Ref<ConfigNode>& node)
+        : mOutputPath{ node->get("OutputPath"sv)->as<std::string_view>(), context().globalAllocator } {}
+    ChannelRequirement setup(const ChannelRequirement req) override {
         if(!req.empty())
             fatal("EXROutput is a sink node");
-        mOutputPath = path;
         return { { { Channel::Full, false } }, context().globalAllocator };
     }
 
     FrameGroup transform(FrameGroup group) override {
-        PIPER_NOT_IMPLEMENTED();
+        for(const auto& [channel, frame] : group) {
+            const auto& metadata = frame->metadata();
+            if(channel == Channel::Full) {
+                if(!metadata.isHDR)
+                    fatal("LDR images are not supported by EXR output node.");
+
+                const auto fileName = fmt::format("{}/action{}/frame{}.exr", mOutputPath, metadata.actionIdx, metadata.frameIdx);
+                Imf::RgbaOutputFile file{ fileName.c_str(), static_cast<int32_t>(metadata.width), static_cast<int32_t>(metadata.height),
+                                          Imf::WRITE_RGB };
+
+                std::pmr::vector<Imf::Rgba> buffer{ metadata.width * metadata.height, context().localAllocator };
+
+                // TODO: fill buffer
+
+                file.setFrameBuffer(buffer.data(), 1, metadata.width);
+                file.writePixels(static_cast<int32_t>(metadata.height));
+
+            } else {
+                PIPER_NOT_IMPLEMENTED();
+            }
+        }
+
         return {};
     }
 };

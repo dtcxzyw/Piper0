@@ -39,6 +39,7 @@ public:
         LoadConfiguration cfg{ context().globalAllocator };
         const auto base = fs::path{ path }.parent_path().string();
         cfg.insert({ "${BaseDir}"sv, base });
+        cfg.insert({ "${OutputDir}"sv, config->get("OutputDir"sv)->as<std::string_view>() });
 
         const auto pipelineDesc = parseJSONConfigNode(path, cfg);
         const auto pipeline = pipelineDesc->get("Pipeline"sv);
@@ -61,7 +62,7 @@ public:
         }
     }
 
-    void execute(const std::pmr::string& outputDir) override {
+    void execute() override {
         {
             MemoryArena arena;
 
@@ -70,7 +71,7 @@ public:
 
             for(int32_t idx = static_cast<int32_t>(mNodes.size()) - 1; idx >= 0; --idx) {
                 const auto& [node, prev] = mNodes[idx];
-                auto req = node->setup(outputDir, requirements[idx]);
+                auto req = node->setup(requirements[idx]);
                 if(prev != noPrevNode)
                     mergeRequirement(requirements[prev], std::move(req));
             }

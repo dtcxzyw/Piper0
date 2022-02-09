@@ -37,12 +37,48 @@ constexpr auto pi = std::numbers::pi_v<Float>;
 constexpr auto sqrtTwo = std::numbers::sqrt2_v<Float>;
 constexpr auto twoPi = glm::two_pi<Float>();
 constexpr auto fourPi = static_cast<Float>(4.0 * std::numbers::pi);
+constexpr auto quarterPi = glm::quarter_pi<Float>();
+constexpr auto halfPi = glm::half_pi<Float>();
 constexpr auto invPi = std::numbers::inv_pi_v<Float>;
 constexpr auto invSqrtPi = std::numbers::inv_sqrtpi_v<Float>;
 constexpr auto invSqrt2 = static_cast<Float>(1.0 / std::numbers::sqrt2);
 constexpr auto oneMinusEpsilon = static_cast<Float>(0x1.fffffep-1);
 
+glm::vec2 parseVec2(const Ref<ConfigAttr>& node);
 glm::vec3 parseVec3(const Ref<ConfigAttr>& node);
 glm::quat parseQuat(const Ref<ConfigAttr>& node);
+
+template <typename T>
+constexpr auto rcp(T x) {
+    return static_cast<T>(1.0) / x;
+}
+
+template <typename T>
+constexpr auto sqr(T x) {
+    return x * x;
+}
+
+namespace Impl {
+    template <typename T, uint32_t P>
+    struct PowCall final {
+        static constexpr T eval(const T& x) noexcept {
+            const auto halfPow = PowCall<T, P / 2>::eval(x);
+            return P & 1 ? halfPow * halfPow : halfPow * halfPow * x;
+        }
+    };
+
+    template <typename T>
+    struct PowCall<T, 1> final {
+        static constexpr T eval(const T& x) noexcept {
+            return x;
+        }
+    };
+
+}  // namespace Impl
+
+template <uint32_t P, typename T>
+constexpr auto pow(const T& x) noexcept {
+    return Impl::PowCall<T, P>::eval(x);
+}
 
 PIPER_NAMESPACE_END

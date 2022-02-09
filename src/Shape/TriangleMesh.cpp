@@ -74,16 +74,18 @@ public:
 
         mSurface = makeVariant<MaterialBase, Material>(node->get("Surface"sv)->as<Ref<ConfigNode>>());
     }
-    void update(const TimeInterval timeInterval) override {
+
+    void updateTransform(const KeyFrames& keyFrames, const TimeInterval timeInterval) override {
         mPrimitiveGroup->updateTransform(
-            generateTransform(mKeyFrames, timeInterval, RenderGlobalSetting::get().accelerationBuilder->maxStepCount()));
+            generateTransform(keyFrames, timeInterval, RenderGlobalSetting::get().accelerationBuilder->maxStepCount()));
         mPrimitiveGroup->commit();
     }
-    Ref<PrimitiveGroup> primitiveGroup() const override {
-        return mPrimitiveGroup;
+
+    PrimitiveGroup* primitiveGroup() const noexcept override {
+        return mPrimitiveGroup.get();
     }
 
-    Intersection generateIntersection(const Ray& ray, const Float hitDistance,
+    Intersection generateIntersection(const Ray& ray, const Distance hitDistance,
                                       const AffineTransform<FrameOfReference::Object, FrameOfReference::World>& transform,
                                       const Normal<FrameOfReference::World>& geometryNormal, const glm::vec2 barycentric,
                                       const uint32_t primitiveIndex) const noexcept override {
@@ -103,6 +105,6 @@ public:
     }
 };
 
-PIPER_REGISTER_CLASS(TriangleMesh, SceneObject);
+PIPER_REGISTER_CLASS(TriangleMesh, Shape);
 
 PIPER_NAMESPACE_END

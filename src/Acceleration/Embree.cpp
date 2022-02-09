@@ -86,6 +86,8 @@ public:
         const auto dev = device();
         mInstancedScene = rtcNewScene(dev);
         rtcAttachGeometry(mInstancedScene, mGeometry);
+
+        // TODO: progress monitor
         rtcSetSceneProgressMonitorFunction(
             mInstancedScene, [](void* ptr, double progress) { return true; }, this);
 
@@ -133,6 +135,7 @@ class EmbreeScene final : public Acceleration {
 
 public:
     explicit EmbreeScene(const RTCScene scene) : mScene{ scene } {
+        // TODO: progress monitor
         rtcSetSceneProgressMonitorFunction(
             scene, [](void* ptr, double progress) { return true; }, this);
     }
@@ -141,11 +144,22 @@ public:
         rtcReleaseScene(mScene);
     }
 
+    Float radius() const noexcept override {
+        RTCLinearBounds linearBounds;
+        rtcGetSceneLinearBounds(mScene, &linearBounds);
+        constexpr auto evalRadius = [](const RTCBounds& bounds) {
+            return glm::distance(glm::vec3{ bounds.lower_x, bounds.lower_y, bounds.lower_z },
+                                 glm::vec3{ bounds.upper_x, bounds.upper_y, bounds.upper_z }) *
+                0.5f;
+        };
+        return (evalRadius(linearBounds.bounds0) + evalRadius(linearBounds.bounds1)) * 0.5f;
+    }
+
     void commit() override {
         rtcCommitScene(mScene);
     }
 
-    Intersection processHitInfo(const Ray& ray, const RTCHit& hitInfo, const Float distance) const {
+    Intersection processHitInfo(const Ray& ray, const RTCHit& hitInfo, const Distance distance) const {
         BoolCounter<StatsType::Intersection> counter;
         if(hitInfo.geomID != RTC_INVALID_GEOMETRY_ID) {
             // surface
@@ -177,7 +191,7 @@ public:
 
         rtcIntersect1(mScene, &ctx, &hit);
 
-        return processHitInfo(ray, hit.hit, hit.ray.tfar);
+        return processHitInfo(ray, hit.hit, Distance::fromRaw(hit.ray.tfar));
     }
 
     std::pmr::vector<Intersection> tracePrimary(const RayStream& rayStream) const override {
@@ -199,7 +213,7 @@ public:
 
         for(uint32_t idx = 0; idx < hit.size(); ++idx) {
             const auto& ray = rayStream[idx];
-            res[idx] = processHitInfo(ray, hit[idx].hit, hit[idx].ray.tfar);
+            res[idx] = processHitInfo(ray, hit[idx].hit, Distance::fromRaw(hit[idx].ray.tfar));
         }
 
         return res;
@@ -224,12 +238,12 @@ public:
         return makeRefCount<EmbreeGeometry>(geometry, &shape);
     }
 
-    Ref<Acceleration> buildScene(const std::pmr::vector<Ref<PrimitiveGroup>>& primitiveGroups) const noexcept override {
+    Ref<Acceleration> buildScene(const std::pmr::vector<PrimitiveGroup*>& primitiveGroups) const noexcept override {
         const auto dev = device();
         const auto scene = rtcNewScene(dev);
 
         for(auto& group : primitiveGroups) {
-            const auto geometry = dynamic_cast<EmbreeGeometry*>(group.get())->getGeometry();
+            const auto geometry = dynamic_cast<EmbreeGeometry*>(group)->getGeometry();
             rtcAttachGeometry(scene, geometry);
         }
 

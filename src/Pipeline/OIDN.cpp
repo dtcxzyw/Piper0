@@ -33,7 +33,7 @@ public:
         PIPER_NOT_IMPLEMENTED();
     }
 
-    ChannelRequirement setup(const std::pmr::string&, ChannelRequirement req) override {
+    ChannelRequirement setup(ChannelRequirement req) override {
         if(req.count(Channel::Full) || req.count(Channel::Direct) || req.count(Channel::Indirect)) {
             if(!req.count(Channel::Albedo))
                 req[Channel::Albedo] = false;

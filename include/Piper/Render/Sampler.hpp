@@ -45,6 +45,18 @@ public:
         return mGeneratedSamples[mIndex++];
     }
 
+    void reuse(const Float u) noexcept {
+        mGeneratedSamples[--mIndex] = u;
+    }
+
+    uint32_t sampleIdx(const uint32_t size) noexcept {
+        const auto u = sample();
+        const auto scaled = u * static_cast<Float>(size);
+        const auto idx = std::min(size - 1, static_cast<uint32_t>(scaled));
+        reuse(scaled - idx);
+        return idx;
+    }
+
     glm::vec2 sampleVec2() noexcept {
         if(mIndex + 2 <= mGeneratedSamples.size()) {
             const glm::vec2 res = { mGeneratedSamples[mIndex], mGeneratedSamples[mIndex + 1] };

@@ -18,26 +18,15 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#pragma once
+// ReSharper disable once CppUnusedIncludeDirective
+#include <Piper/Render/Acceleration.hpp> // For destructor
 #include <Piper/Render/RenderGlobalSetting.hpp>
-#include <Piper/Render/Transform.hpp>
 
 PIPER_NAMESPACE_BEGIN
 
-struct Ray {
-    Point<FrameOfReference::World> origin;
-    Normal<FrameOfReference::World> direction;
-
-    Float t;
-};
-
-using RayStream = std::pmr::vector<Ray>;
-
-template <typename Setting>
-struct ShadingRay final : Ray {
-    PIPER_IMPORT_SETTINGS();
-
-    Wavelength sampledWavelength;
-};
+RenderGlobalSetting& RenderGlobalSetting::get() noexcept {
+    static RenderGlobalSetting inst;
+    return inst;
+}
 
 PIPER_NAMESPACE_END

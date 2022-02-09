@@ -27,7 +27,7 @@ class PipelineNode : public RefCountBase {
 public:
     using ChannelRequirement = std::pmr::unordered_map<Channel, bool>;
 
-    virtual ChannelRequirement setup(const std::pmr::string& path, ChannelRequirement req) = 0;
+    virtual ChannelRequirement setup(ChannelRequirement req) = 0;
     virtual FrameGroup transform(FrameGroup group) = 0;
 };
 
