@@ -18,6 +18,8 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+// ReSharper disable CppClangTidyCppcoreguidelinesMacroUsage
+// ReSharper disable CppClangTidyBugproneMacroParentheses
 #pragma once
 
 #include <Piper/Config.hpp>
@@ -80,5 +82,71 @@ template <uint32_t P, typename T>
 constexpr auto pow(const T& x) noexcept {
     return Impl::PowCall<T, P>::eval(x);
 }
+
+#define PIPER_GUARD_BASE(TYPE, STORAGE)                                 \
+    STORAGE mValue;                                                     \
+    constexpr explicit TYPE(const STORAGE& x) noexcept : mValue{ x } {} \
+                                                                        \
+public:                                                                 \
+    constexpr const STORAGE& raw() const noexcept {                     \
+        return mValue;                                                  \
+    }                                                                   \
+    static constexpr TYPE fromRaw(const STORAGE& x) noexcept {          \
+        return TYPE{ x };                                               \
+    }
+
+#define PIPER_GUARD_BASE_OP(TYPE)                                                \
+    constexpr TYPE operator+(const TYPE& rhs) const noexcept {                   \
+        return TYPE{ mValue + rhs.mValue };                                      \
+    }                                                                            \
+    constexpr TYPE operator-(const TYPE& rhs) const noexcept {                   \
+        return TYPE{ mValue + rhs.mValue };                                      \
+    }                                                                            \
+    constexpr TYPE operator*(const Float rhs) const noexcept {                   \
+        return TYPE{ mValue * rhs };                                             \
+    }                                                                            \
+    constexpr TYPE operator/(const Float rhs) const noexcept {                   \
+        return TYPE{ mValue * rcp(rhs) };                                        \
+    }                                                                            \
+    friend constexpr TYPE operator*(const Float lhs, const TYPE& rhs) noexcept { \
+        return TYPE{ rhs.mValue * lhs };                                         \
+    }
+
+// TA*TB -> TC
+#define PIPER_GUARD_MULTIPLY(TA, TB, TC)                              \
+    constexpr auto operator*(const TA& lhs, const TB& rhs) noexcept { \
+        return TC::fromRaw(lhs.raw() * rhs.raw());                    \
+    }
+
+#define PIPER_GUARD_MULTIPLY_COMMUTATIVE(HEADER, TA, TB, TC) HEADER PIPER_GUARD_MULTIPLY(TA, TB, TC) HEADER PIPER_GUARD_MULTIPLY(TB, TA, TC)
+
+#define PIPER_GUARD_ELEMENT_VISE_MULTIPLY(TYPE) PIPER_GUARD_MULTIPLY(TYPE, TYPE, TYPE)
+
+// TA*TB -> Dimensionless
+#define PIPER_GUARD_INVERSE(TA, TB)                                    \
+    constexpr auto rcp(const TA& x) noexcept {                         \
+        return TB::fromRaw(rcp(x.raw()));                              \
+    }                                                                  \
+    constexpr auto rcp(const TB& x) noexcept {                         \
+        return TA::fromRaw(rcp(x.raw()));                              \
+    }                                                                  \
+    constexpr Float operator*(const TA& lhs, const TB& rhs) noexcept { \
+        return lhs.raw() * rhs.raw();                                  \
+    }
+
+#define PIPER_GUARD_VEC3(TYPE)                         \
+    [[nodiscard]] constexpr Float x() const noexcept { \
+        return mValue.x;                               \
+    }                                                  \
+    [[nodiscard]] constexpr Float y() const noexcept { \
+        return mValue.y;                               \
+    }                                                  \
+    [[nodiscard]] constexpr Float z() const noexcept { \
+        return mValue.z;                               \
+    }                                                  \
+    TYPE() = default;                                  \
+    static TYPE zero() {                               \
+        return TYPE{ glm::vec3{ 0.0f, 0.0f, 0.0f } };  \
+    }
 
 PIPER_NAMESPACE_END

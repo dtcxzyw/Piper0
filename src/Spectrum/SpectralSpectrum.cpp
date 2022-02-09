@@ -271,7 +271,7 @@ static constexpr Float expandLum(const T& x, const T& w, std::index_sequence<I..
 
 Float luminance(const SpectralSpectrum& x, const SpectralSpectrum& sampledWavelengths) noexcept {
     constexpr auto indices = std::make_index_sequence<SpectralSpectrum::nSamples>{};
-    return expandLum<SpectralSpectrum::nSamples>(x.mVec, sampledWavelengths.mVec, indices);
+    return expandLum<SpectralSpectrum::nSamples>(x.raw(), sampledWavelengths.raw(), indices);
 }
 
 template <size_t Samples, typename T, size_t... I>
@@ -281,7 +281,7 @@ static glm::vec3 expandXYZ(const T& x, const T& w, std::index_sequence<I...>) {
 
 RGBSpectrum toRGB(const SpectralSpectrum& x, const SpectralSpectrum& sampledWavelengths) noexcept {
     constexpr auto indices = std::make_index_sequence<SpectralSpectrum::nSamples>{};
-    const auto xyz = expandXYZ<SpectralSpectrum::nSamples>(x.mVec, sampledWavelengths.mVec, indices);
+    const auto xyz = expandXYZ<SpectralSpectrum::nSamples>(x.raw(), sampledWavelengths.raw(), indices);
     return RGBSpectrum::fromRaw(RGBSpectrum::matXYZ2RGB * xyz);
 }
 

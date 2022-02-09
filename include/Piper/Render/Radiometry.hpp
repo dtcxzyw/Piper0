@@ -30,18 +30,7 @@ enum class PdfType { BSDF = 1 << 0, Light = 1 << 1, LightSampler = 1 << 2 };
 
 template <PdfType T>
 class InversePdf final {
-    Float mValue;
-
-    constexpr explicit InversePdf(const Float x) noexcept : mValue{ x } {}
-
-public:
-    [[nodiscard]] Float raw() const noexcept {
-        return mValue;
-    }
-
-    static constexpr InversePdf fromRaw(const Float x) noexcept {
-        return InversePdf{ x };
-    }
+    PIPER_GUARD_BASE(InversePdf, Float)
 
     static constexpr InversePdf invalid() noexcept {
         return InversePdf{ 0.0f };
@@ -53,17 +42,8 @@ public:
 };
 
 class SolidAngle final {
-    Float mValue;
+    PIPER_GUARD_BASE(SolidAngle, Float)
 
-    constexpr explicit SolidAngle(const Float x) noexcept : mValue{ x } {}
-
-public:
-    [[nodiscard]] Float raw() const noexcept {
-        return mValue;
-    }
-    static constexpr SolidAngle fromRaw(const Float x) noexcept {
-        return SolidAngle{ x };
-    }
     static constexpr SolidAngle fullSphere() noexcept {
         return SolidAngle{ fourPi };
     }
@@ -73,75 +53,33 @@ public:
 };
 
 class Area final {
-    Float mValue;
+    PIPER_GUARD_BASE(Area, Float)
+    PIPER_GUARD_BASE_OP(Area)
 
-    constexpr explicit Area(const Float x) noexcept : mValue{ x } {}
-
-public:
-    [[nodiscard]] constexpr Float raw() const noexcept {
-        return mValue;
-    }
-    static constexpr Area fromRaw(const Float x) noexcept {
-        return Area{ x };
-    }
-    constexpr Area operator*(const Float rhs) const noexcept {
-        return Area{ mValue * rhs };
-    }
     constexpr Float operator/(const Area rhs) const noexcept {
         return mValue / rhs.raw();
     }
 };
 
-constexpr Area operator*(const Distance lhs, const Distance rhs) noexcept {
-    return Area::fromRaw(lhs.raw() * rhs.raw());
-}
+PIPER_GUARD_MULTIPLY(Distance, Distance, Area)
 
 class Time final {
-    Float mValue;
-
-    constexpr explicit Time(const Float x) noexcept : mValue{ x } {}
-
-public:
-    [[nodiscard]] Float raw() const noexcept {
-        return mValue;
-    }
-    static constexpr Time fromRaw(const Float x) noexcept {
-        return Time{ x };
-    }
+    PIPER_GUARD_BASE(Time, Float)
+    PIPER_GUARD_BASE_OP(Time)
 };
 
 // W/(m^2)
 template <SpectrumLike Spectrum, PdfType... Pdfs>
 class Irradiance final {
-    Spectrum mSpectrum;
-
-    constexpr explicit Irradiance(const Spectrum& x) noexcept : mSpectrum{ x } {}
-
-public:
-    [[nodiscard]] const Spectrum& raw() const noexcept {
-        return mSpectrum;
-    }
-
-    static Irradiance fromRaw(const Spectrum& x) noexcept {
-        return Irradiance{ x };
-    }
+    PIPER_GUARD_BASE(Irradiance, Spectrum)
+    PIPER_GUARD_BASE_OP(Irradiance)
 };
 
 // W/(sr*m^2)
 template <SpectrumLike Spectrum, PdfType... Pdfs>
 class Radiance final {
-    Spectrum mSpectrum;
-
-    constexpr explicit Radiance(const Spectrum& x) noexcept : mSpectrum{ x } {}
-
-public:
-    [[nodiscard]] const Spectrum& raw() const noexcept {
-        return mSpectrum;
-    }
-
-    static Radiance fromRaw(const Spectrum& x) noexcept {
-        return Radiance{ x };
-    }
+    PIPER_GUARD_BASE(Radiance, Spectrum)
+    PIPER_GUARD_BASE_OP(Radiance)
 
     static Radiance zero() noexcept {
         return Radiance{ Piper::zero<Spectrum>() };
@@ -149,80 +87,48 @@ public:
 
     template <PdfType... NewPdfs>
     [[nodiscard]] constexpr auto importanceSampled() const noexcept {
-        return Radiance<Spectrum, Pdfs..., NewPdfs...>::fromRaw(mSpectrum);
+        return Radiance<Spectrum, Pdfs..., NewPdfs...>::fromRaw(mValue);
     }
 };
 
 // W/sr
 template <SpectrumLike Spectrum>
 class Intensity final {
-    Spectrum mSpectrum;
-
-    constexpr explicit Intensity(const Spectrum& x) noexcept : mSpectrum{ x } {}
-
-public:
-    [[nodiscard]] const Spectrum& raw() const noexcept {
-        return mSpectrum;
-    }
-
-    static Intensity fromRaw(const Spectrum& x) noexcept {
-        return Intensity{ x };
-    }
+    PIPER_GUARD_BASE(Intensity, Spectrum)
+    PIPER_GUARD_BASE_OP(Intensity)
 
     [[nodiscard]] Radiance<Spectrum> toRadiance(const DistanceSquare distanceSquare) const noexcept {
-        return Radiance<Spectrum>::fromRaw(mSpectrum * rcp(distanceSquare.raw()));
+        return Radiance<Spectrum>::fromRaw(mValue * rcp(distanceSquare.raw()));
     }
 };
+
+PIPER_GUARD_MULTIPLY_COMMUTATIVE(template <SpectrumLike Spectrum>, Radiance<Spectrum>, DistanceSquare, Intensity<Spectrum>)
 
 // W
 template <SpectrumLike Spectrum>
 class Power final {
-    Spectrum mSpectrum;
-
-    constexpr explicit Power(const Spectrum& x) noexcept : mSpectrum{ x } {}
-
-public:
-    [[nodiscard]] const Spectrum& raw() const noexcept {
-        return mSpectrum;
-    }
-    static Power fromRaw(const Spectrum& x) noexcept {
-        return Power{ x };
-    }
+    PIPER_GUARD_BASE(Power, Spectrum)
+    PIPER_GUARD_BASE_OP(Power)
 
     Intensity<Spectrum> operator/(const SolidAngle rhs) const noexcept {
-        return Intensity<Spectrum>::fromRaw(mSpectrum * rcp(rhs.raw()));
-    }
-
-    Power operator+(const Power& rhs) const noexcept {
-        return Power{ mSpectrum + rhs.mSpectrum };
+        return Intensity<Spectrum>::fromRaw(mValue * rcp(rhs.raw()));
     }
 
     [[nodiscard]] Float scalar() const noexcept {
-        return luminance(mSpectrum);
+        return luminance(mValue);
     }
 };
 
-template <SpectrumLike Spectrum>
-Power<Spectrum> operator*(const Irradiance<Spectrum>& lhs, const Area rhs) noexcept {
-    return Power{ lhs.raw() * rhs.raw() };
-}
-
-template <SpectrumLike Spectrum>
-auto operator*(const Intensity<Spectrum>& lhs, const SolidAngle rhs) noexcept {
-    return Power<Spectrum>::fromRaw(lhs.raw() * rhs.raw());
-}
+PIPER_GUARD_MULTIPLY_COMMUTATIVE(template <SpectrumLike Spectrum>, Intensity<Spectrum>, SolidAngle, Power<Spectrum>)
+PIPER_GUARD_MULTIPLY_COMMUTATIVE(template <SpectrumLike Spectrum>, Irradiance<Spectrum>, Area, Power<Spectrum>)
 
 // J
 template <SpectrumLike Spectrum>
 class Energy final {
-    Spectrum mSpectrum;
-
-    constexpr explicit Energy(const Spectrum& x) noexcept : mSpectrum{ x } {}
-
-public:
-    friend Energy operator*(const Power<Spectrum>& lhs, const Time rhs) noexcept {
-        return Energy{ lhs.raw() * rhs.raw() };
-    }
+    PIPER_GUARD_BASE(Energy, Spectrum)
+    PIPER_GUARD_BASE_OP(Energy)
 };
+
+PIPER_GUARD_MULTIPLY_COMMUTATIVE(template <SpectrumLike Spectrum>, Power<Spectrum>, Time, Energy<Spectrum>)
 
 PIPER_NAMESPACE_END

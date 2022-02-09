@@ -23,7 +23,7 @@
 PIPER_NAMESPACE_BEGIN
 
 Float luminance(const RGBSpectrum& x, const std::monostate&) noexcept {
-    return glm::dot(RGBSpectrum::matRGB2XYZ[1], x.mVec);
+    return glm::dot(RGBSpectrum::matRGB2XYZ[1], x.raw());
 }
 
 PIPER_NAMESPACE_END

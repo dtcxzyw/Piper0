@@ -164,7 +164,7 @@ class Renderer final : public SourceNode {
                         }
 
                         Float base[spectrumSize(SpectrumType::Spectral)];
-                        mIntegrator->estimate(ray, intersection, sampleProvider, shutterTime, base);
+                        mIntegrator->estimate(ray, intersection, *mAcceleration, sampleProvider, shutterTime, base);
                         writeData(base, usedSpectrumSize);
                     } break;
                     case Channel::Albedo: {

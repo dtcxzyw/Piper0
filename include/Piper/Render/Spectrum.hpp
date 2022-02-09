@@ -61,11 +61,9 @@ concept SpectrumLike = requires(const T& x, Float y, const typename WavelengthTy
 static constexpr const char* nameOfStandardLinearRGB = "Rec.709";
 
 class RGBSpectrum final {
-    glm::vec3 mVec;
+    PIPER_GUARD_BASE(RGBSpectrum, glm::vec3)
+    PIPER_GUARD_BASE_OP(RGBSpectrum)
 
-    explicit constexpr RGBSpectrum(const glm::vec3& x) noexcept : mVec{ x } {}
-
-public:
     // Please refer to https://pbr-book.org/3ed-2018/Color_and_Radiometry/The_SampledSpectrum_Class
     static constexpr glm::mat3 matXYZ2RGB = {
         3.240479f,  -1.537150f, -0.498535f,  //
@@ -78,44 +76,37 @@ public:
         0.019334f, 0.119193f, 0.950227f   //
     };
 
-    constexpr explicit RGBSpectrum(const Float x) noexcept : mVec{ x } {}
-
-    static RGBSpectrum fromRaw(const glm::vec3& x) noexcept {
-        return RGBSpectrum{ x };
+    static constexpr RGBSpectrum fromScalar(const Float x) noexcept {
+        return RGBSpectrum{ glm::vec3{ x } };
     }
 
-    constexpr RGBSpectrum operator+(const RGBSpectrum& rhs) const noexcept {
-        return RGBSpectrum{ mVec + rhs.mVec };
-    }
-    constexpr RGBSpectrum operator*(const RGBSpectrum& rhs) const noexcept {
-        return RGBSpectrum{ mVec * rhs.mVec };
-    }
-    constexpr RGBSpectrum operator*(const Float rhs) const noexcept {
-        return RGBSpectrum{ mVec * rhs };
-    }
-    friend Float luminance(const RGBSpectrum& x, const std::monostate&) noexcept;
 };
+
+Float luminance(const RGBSpectrum& x, const std::monostate&) noexcept;
+PIPER_GUARD_ELEMENT_VISE_MULTIPLY(RGBSpectrum)
+
 constexpr const RGBSpectrum& toRGB(const RGBSpectrum& x, const std::monostate&) noexcept {
     return x;
 }
+
 template <>
 constexpr SpectrumType spectrumType<RGBSpectrum>() noexcept {
     return SpectrumType::LinearRGB;
 }
 template <>
 constexpr RGBSpectrum zero<RGBSpectrum>() noexcept {
-    return RGBSpectrum{ 0.0f };
+    return RGBSpectrum::fromScalar(0.0f);
 }
 
 template <>
 constexpr RGBSpectrum one<RGBSpectrum>() noexcept {
-    return RGBSpectrum{ 1.0f };
+    return RGBSpectrum::fromScalar(1.0f);
 }
 
 using MonoSpectrum = Float;
 
 constexpr RGBSpectrum toRGB(const MonoSpectrum x, const std::monostate&) noexcept {
-    return RGBSpectrum{ x };
+    return RGBSpectrum::fromScalar(x);
 }
 
 constexpr Float luminance(const MonoSpectrum x, const std::monostate&) noexcept {
@@ -148,31 +139,18 @@ public:
     using VecType = glm::vec<nSamples, Float>;
 
 private:
-    VecType mVec;
+    PIPER_GUARD_BASE(SpectralSpectrum, VecType)
+    PIPER_GUARD_BASE_OP(SpectralSpectrum)
 
-    explicit constexpr SpectralSpectrum(const VecType& x) noexcept : mVec{ x } {}
-
-public:
-    constexpr explicit SpectralSpectrum(const Float x) noexcept : mVec{ x } {}
-    static constexpr SpectralSpectrum fromRaw(const VecType& x) noexcept {
-        return SpectralSpectrum{ x };
+    static constexpr SpectralSpectrum fromScalar(const Float x) noexcept {
+        return SpectralSpectrum{ VecType{ x } };
     }
-    [[nodiscard]] constexpr const VecType& raw() const noexcept {
-        return mVec;
-    }
-
-    constexpr SpectralSpectrum operator+(const SpectralSpectrum& rhs) const noexcept {
-        return SpectralSpectrum{ mVec + rhs.mVec };
-    }
-    constexpr SpectralSpectrum operator*(const SpectralSpectrum& rhs) const noexcept {
-        return SpectralSpectrum{ mVec * rhs.mVec };
-    }
-    constexpr SpectralSpectrum operator*(const Float rhs) const noexcept {
-        return SpectralSpectrum{ mVec * rhs };
-    }
-    friend Float luminance(const SpectralSpectrum& x, const SpectralSpectrum& sampledWavelengths) noexcept;
-    friend RGBSpectrum toRGB(const SpectralSpectrum& x, const SpectralSpectrum& sampledWavelengths) noexcept;
 };
+
+Float luminance(const SpectralSpectrum& x, const SpectralSpectrum& sampledWavelengths) noexcept;
+RGBSpectrum toRGB(const SpectralSpectrum& x, const SpectralSpectrum& sampledWavelengths) noexcept;
+
+PIPER_GUARD_ELEMENT_VISE_MULTIPLY(SpectralSpectrum)
 
 template <>
 struct WavelengthType<SpectralSpectrum> final {
@@ -186,12 +164,12 @@ constexpr SpectrumType spectrumType<SpectralSpectrum>() noexcept {
 
 template <>
 constexpr SpectralSpectrum zero<SpectralSpectrum>() noexcept {
-    return SpectralSpectrum{ 0.0f };
+    return SpectralSpectrum::fromScalar(0.0f);
 }
 
 template <>
 constexpr SpectralSpectrum one<SpectralSpectrum>() noexcept {
-    return SpectralSpectrum{ 1.0f };
+    return SpectralSpectrum::fromScalar(1.0f);
 }
 
 constexpr uint32_t spectrumSize(const SpectrumType type) noexcept {

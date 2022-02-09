@@ -27,130 +27,33 @@ PIPER_NAMESPACE_BEGIN
 enum class FrameOfReference { Camera, World, Object, Shading };
 
 template <FrameOfReference F>
-class Vector;
-
-template <FrameOfReference A, FrameOfReference B>
-class AffineTransform;
-
-template <FrameOfReference F>
 class Point final {
-    glm::vec3 mVec;
-
-    explicit constexpr Point(const glm::vec3& x) noexcept : mVec{ x } {}
-
-    template <FrameOfReference A, FrameOfReference B>
-    friend class AffineTransform;
-
-public:
-    Point() = default;
-    static constexpr Point fromRaw(const glm::vec3& x) noexcept {
-        return Point{ x };
-    }
-    [[nodiscard]] glm::vec3 raw() const noexcept {
-        return mVec;
-    }
-    [[nodiscard]] constexpr Float x() const noexcept {
-        return mVec.x;
-    }
-    [[nodiscard]] constexpr Float y() const noexcept {
-        return mVec.y;
-    }
-    [[nodiscard]] constexpr Float z() const noexcept {
-        return mVec.z;
-    }
+    PIPER_GUARD_BASE(Point, glm::vec3)
+    PIPER_GUARD_VEC3(Point)
 };
 
 template <FrameOfReference F>
 class Vector final {
-    glm::vec3 mVec;
-
-    explicit constexpr Vector(const glm::vec3& x) noexcept : mVec{ x } {}
-
-    template <FrameOfReference A, FrameOfReference B>
-    friend class AffineTransform;
-
-public:
-    static constexpr Vector fromRaw(const glm::vec3& x) noexcept {
-        return Vector{ x };
-    }
-    [[nodiscard]] glm::vec3 raw() const noexcept {
-        return mVec;
-    }
-    [[nodiscard]] constexpr Float x() const noexcept {
-        return mVec.x;
-    }
-    [[nodiscard]] constexpr Float y() const noexcept {
-        return mVec.y;
-    }
-    [[nodiscard]] constexpr Float z() const noexcept {
-        return mVec.z;
-    }
-    constexpr Vector operator*(const Float rhs) const noexcept {
-        return Vector{ mVec * rhs };
-    }
+    PIPER_GUARD_BASE(Vector, glm::vec3)
+    PIPER_GUARD_VEC3(Vector)
+    PIPER_GUARD_BASE_OP(Vector)
 };
 
 class Distance final {
-    Float mValue;
-
-    constexpr explicit Distance(const Float x) noexcept : mValue{ x } {}
-
-public:
-    [[nodiscard]] constexpr Float raw() const noexcept {
-        return mValue;
-    }
-    static constexpr Distance fromRaw(const Float x) noexcept {
-        return Distance{ x };
-    }
-    Distance operator*(const Float x) const noexcept {
-        return Distance{ mValue * x };
-    }
+    PIPER_GUARD_BASE(Distance, Float)
+    PIPER_GUARD_BASE_OP(Distance)
 };
 
 class InverseDistance final {
-    Float mValue;
-
-    constexpr explicit InverseDistance(const Float x) noexcept : mValue{ x } {}
-
-public:
-    [[nodiscard]] constexpr Float raw() const noexcept {
-        return mValue;
-    }
-    static constexpr InverseDistance fromRaw(const Float x) noexcept {
-        return InverseDistance{ x };
-    }
-    constexpr InverseDistance operator*(const Float x) const noexcept {
-        return InverseDistance{ mValue * x };
-    }
-    constexpr InverseDistance operator-(const InverseDistance rhs) const noexcept {
-        return InverseDistance{ mValue - rhs.mValue };
-    }
+    PIPER_GUARD_BASE(InverseDistance, Float)
+    PIPER_GUARD_BASE_OP(InverseDistance)
 };
 
-constexpr InverseDistance rcp(const Distance x) noexcept {
-    return InverseDistance::fromRaw(1.0f / x.raw());
-}
-
-constexpr Distance rcp(const InverseDistance x) noexcept {
-    return Distance::fromRaw(1.0f / x.raw());
-}
-
-constexpr Float operator*(const Distance lhs, const InverseDistance rhs) noexcept {
-    return lhs.raw() * rhs.raw();
-}
+PIPER_GUARD_INVERSE(Distance, InverseDistance);
 
 class DistanceSquare final {
-    Float mValue;
+    PIPER_GUARD_BASE(DistanceSquare, Float)
 
-    constexpr explicit DistanceSquare(const Float x) noexcept : mValue{ x } {}
-
-public:
-    [[nodiscard]] Float raw() const noexcept {
-        return mValue;
-    }
-    static constexpr DistanceSquare fromRaw(const Float x) noexcept {
-        return DistanceSquare{ x };
-    }
     friend Distance sqrt(const DistanceSquare x) noexcept {
         return Distance::fromRaw(std::sqrt(x.mValue));
     }
@@ -160,14 +63,17 @@ template <FrameOfReference F>
 constexpr DistanceSquare dot(const Vector<F>& lhs, const Vector<F>& rhs) noexcept {
     return DistanceSquare::fromRaw(glm::dot(lhs.raw(), rhs.raw()));
 }
+
 template <FrameOfReference F>
 constexpr auto cross(const Vector<F>& lhs, const Vector<F>& rhs) noexcept {
     return Vector<F>::fromRaw(glm::cross(lhs.raw(), rhs.raw()));
 }
+
 template <FrameOfReference F>
 constexpr Point<F> operator+(const Point<F>& lhs, const Vector<F>& rhs) noexcept {
     return Point<F>::fromRaw(lhs.raw() + rhs.raw());
 }
+
 template <FrameOfReference F>
 constexpr Point<F> operator-(const Point<F>& lhs, const Vector<F>& rhs) noexcept {
     return Point<F>::fromRaw(lhs.raw() - rhs.raw());
@@ -180,40 +86,19 @@ constexpr auto operator-(const Point<F>& lhs, const Point<F>& rhs) noexcept {
 
 template <FrameOfReference F>
 class Normal final {
-    glm::vec3 mVec;
-
-    explicit constexpr Normal(const glm::vec3& x) noexcept : mVec{ x } {}
-
     template <FrameOfReference A, FrameOfReference B>
     friend class AffineTransform;
+    PIPER_GUARD_BASE(Normal, glm::vec3)
+    PIPER_GUARD_VEC3(Normal)
 
-public:
-    Normal() = default;
-
-    static constexpr Normal fromRaw(const glm::vec3& x) noexcept {
-        return Normal{ x };
-    }
-    [[nodiscard]] glm::vec3 raw() const noexcept {
-        return mVec;
-    }
-
-    [[nodiscard]] constexpr Float x() const noexcept {
-        return mVec.x;
-    }
-    [[nodiscard]] constexpr Float y() const noexcept {
-        return mVec.y;
-    }
-    [[nodiscard]] constexpr Float z() const noexcept {
-        return mVec.z;
-    }
     constexpr Vector<F> operator*(const Distance x) const noexcept {
-        return Vector<F>::fromRaw(mVec * x.raw());
+        return Vector<F>::fromRaw(mValue * x.raw());
     }
     friend constexpr Float dot(const Normal& lhs, const Normal& rhs) noexcept {
-        return glm::dot(lhs.mVec, rhs.mVec);
+        return glm::dot(lhs.mValue, rhs.mValue);
     }
     friend constexpr Normal cross(const Normal& lhs, const Normal& rhs) noexcept {
-        return Normal{ glm::cross(lhs.mVec, rhs.mVec) };
+        return Normal{ glm::cross(lhs.mValue, rhs.mValue) };
     }
 };
 
@@ -250,27 +135,27 @@ public:
     }
 
     Vector<B> operator()(const Vector<A>& x) const noexcept {
-        return Vector<B>::fromRaw(glm::mat3{ mA2B } * x.mVec);
+        return Vector<B>::fromRaw(glm::mat3{ mA2B } * x.raw());
     }
 
     Vector<A> operator()(const Vector<B>& x) const noexcept {
-        return Vector<B>::fromRaw(glm::mat3{ mB2A } * x.mVec);
+        return Vector<B>::fromRaw(glm::mat3{ mB2A } * x.raw());
     }
 
     Point<B> operator()(const Point<A>& x) const noexcept {
-        return Point<B>::fromRaw(mA2B * glm::vec4{ x.mVec, 1.0f });
+        return Point<B>::fromRaw(mA2B * glm::vec4{ x.raw(), 1.0f });
     }
 
     Point<A> operator()(const Point<B>& x) const noexcept {
-        return Point<A>::fromRaw(mB2A * glm::vec4{ x.mVec, 1.0f });
+        return Point<A>::fromRaw(mB2A * glm::vec4{ x.raw(), 1.0f });
     }
 
     Normal<B> operator()(const Normal<A>& x) const noexcept {
-        return Normal<B>::fromRaw(glm::transpose(glm::mat3(mB2A)) * x.mVec);
+        return Normal<B>::fromRaw(glm::transpose(glm::mat3(mB2A)) * x.raw());
     }
 
     Normal<A> operator()(const Normal<B>& x) const noexcept {
-        return Normal<A>::fromRaw(glm::transpose(glm::mat3(mA2B)) * x.mVec);
+        return Normal<A>::fromRaw(glm::transpose(glm::mat3(mA2B)) * x.raw());
     }
 };
 

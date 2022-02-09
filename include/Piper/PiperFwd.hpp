@@ -27,6 +27,7 @@ namespace Piper {
     template <typename Settings>
     class Material;
     class PrimitiveGroup;
+    struct Ray;
     template <typename T>
     class Ref;
     class RefCountBase;
