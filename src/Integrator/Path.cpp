@@ -20,6 +20,8 @@
 
 #include <Piper/Render/Acceleration.hpp>
 #include <Piper/Render/Integrator.hpp>
+#include <Piper/Render/LightSampler.hpp>
+#include <Piper/Render/Material.hpp>
 #include <Piper/Render/Radiometry.hpp>
 
 PIPER_NAMESPACE_BEGIN
@@ -33,20 +35,48 @@ public:
 
     explicit PathIntegrator(const Ref<ConfigNode>& node) : mMaxDepth{ node->get("MaxDepth"sv)->as<uint32_t>() } {}
     void preprocess() const noexcept override {}
-    void estimate(const Ray& rayInit, const Intersection& intersectionInit, const Acceleration& acceleration, SampleProvider& sampler,
-                  Float shutterTime, Float* output) const noexcept override {
-
+    void estimate(const Ray& rayInit, const Intersection& intersectionInit, const Acceleration& acceleration,
+                  const LightSampler& lightSampler, SampleProvider& sampler, Float* output) const noexcept override {
         Ray ray = rayInit;
         Intersection intersection = intersectionInit;
 
-        Radiance<Spectrum> result = Radiance<Spectrum>::zero();
+        auto& result = *reinterpret_cast<Radiance<Spectrum>*>(output);
+        result = Radiance<Spectrum>::zero();
+        Rational<Spectrum> beta = Rational<Spectrum>::fromRaw(identity<Spectrum>());
 
         for(uint32_t idx = 0; idx < mMaxDepth; ++idx) {
+            // ReSharper disable once CppDefaultCaseNotHandledInSwitchStatement
+            switch(intersection.index()) {
+                case 0: {
+                    // TODO: sample infinite lights
+                    return;
+                }
+                case 1: {
+                    const auto& info = std::get<SurfaceHit>(intersection);
 
-            intersection = acceleration.trace(ray);
+                    const auto& material = info.surface.as<Setting>();
+                    BSDFArray<Setting> bsdfSampler;
+                    material.evaluate(info, bsdfSampler);
+
+                    const auto [selectedLight, weight] = lightSampler.sample(sampler);
+                    const auto sampledLight = selectedLight.as<Setting>().sample(ray.t, ray.origin, sampler);
+
+                    // for(auto& x : acceleration.occlusions()) {}
+
+                    const auto wo = info.transform(-ray.direction);
+                    const auto wi = info.transform(-sampledLight.dir);
+                    if(!acceleration.occluded(Ray{ info.hit, -sampledLight.dir, ray.t }, sampledLight.distance))
+                        result += beta * bsdfSampler.evaluate(wo, wi) * (sampledLight.rad * (sampledLight.inversePdf * weight));
+
+                    const auto sampledBSDF = bsdfSampler.sample(sampler, wo);
+
+                    beta = beta * sampledBSDF.f * sampledBSDF.inversePdf;
+                    ray.origin = info.hit;
+                    ray.direction = info.transform(sampledBSDF.wi);
+                    intersection = acceleration.trace(ray);
+                } break;
+            }
         }
-
-        // Power<Spectrum> x = result;
     }
 };
 

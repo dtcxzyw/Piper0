@@ -32,11 +32,17 @@ public:
     virtual void commit() = 0;
 };
 
+class OcclusionQueryIterator final {
+public:
+};
+
 class Acceleration : public RefCountBase {
 public:
     virtual void commit() = 0;
     virtual Float radius() const noexcept = 0;
     virtual Intersection trace(const Ray& ray) const = 0;
+    virtual bool occluded(const Ray& shadowRay, Distance dist) const = 0;
+    // virtual OcclusionQueryIterator occlusions(const Ray& shadowRay, const Distance dist) const = 0;
     virtual std::pmr::vector<Intersection> tracePrimary(const RayStream& rayStream) const = 0;
 };
 

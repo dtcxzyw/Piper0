@@ -51,13 +51,23 @@ glm::vec3 parseVec3(const Ref<ConfigAttr>& node);
 glm::quat parseQuat(const Ref<ConfigAttr>& node);
 
 template <typename T>
-constexpr auto rcp(T x) {
+constexpr auto rcp(T x) noexcept {
     return static_cast<T>(1.0) / x;
 }
 
 template <typename T>
-constexpr auto sqr(T x) {
+constexpr auto sqr(T x) noexcept {
     return x * x;
+}
+
+template <typename T>
+constexpr auto evalPoly(T) noexcept {
+    return static_cast<T>(0.0);
+}
+
+template <typename T, typename... Ts>
+constexpr auto evalPoly(T x, T c0, Ts... c) noexcept {
+    return c0 + x * evalPoly(x, c...);
 }
 
 namespace Impl {
@@ -83,6 +93,23 @@ constexpr auto pow(const T& x) noexcept {
     return Impl::PowCall<T, P>::eval(x);
 }
 
+#define PIPER_BIT_ENUM(TYPE)                                                                                        \
+    constexpr bool match(const TYPE provide, const TYPE require) noexcept {                                         \
+        return (static_cast<uint32_t>(provide) & static_cast<uint32_t>(require)) == static_cast<uint32_t>(provide); \
+    }                                                                                                               \
+    constexpr TYPE operator&(const TYPE a, const TYPE b) noexcept {                                                 \
+        return static_cast<TYPE>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));                              \
+    }                                                                                                               \
+    constexpr TYPE operator|(const TYPE a, const TYPE b) noexcept {                                                 \
+        return static_cast<TYPE>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));                              \
+    }                                                                                                               \
+    constexpr TYPE operator^(const TYPE a, const TYPE b) noexcept {                                                 \
+        return static_cast<TYPE>(static_cast<uint32_t>(a) ^ static_cast<uint32_t>(b));                              \
+    }                                                                                                               \
+    constexpr TYPE operator~(const TYPE a) noexcept {                                                               \
+        return a ^ TYPE::All;                                                                                       \
+    }
+
 #define PIPER_GUARD_BASE(TYPE, STORAGE)                                 \
     STORAGE mValue;                                                     \
     constexpr explicit TYPE(const STORAGE& x) noexcept : mValue{ x } {} \
@@ -98,6 +125,10 @@ public:                                                                 \
 #define PIPER_GUARD_BASE_OP(TYPE)                                                \
     constexpr TYPE operator+(const TYPE& rhs) const noexcept {                   \
         return TYPE{ mValue + rhs.mValue };                                      \
+    }                                                                            \
+    constexpr TYPE& operator+=(const TYPE& rhs) noexcept {                       \
+        mValue += rhs.mValue;                                                    \
+        return *this;                                                            \
     }                                                                            \
     constexpr TYPE operator-(const TYPE& rhs) const noexcept {                   \
         return TYPE{ mValue + rhs.mValue };                                      \
@@ -120,7 +151,14 @@ public:                                                                 \
 
 #define PIPER_GUARD_MULTIPLY_COMMUTATIVE(HEADER, TA, TB, TC) HEADER PIPER_GUARD_MULTIPLY(TA, TB, TC) HEADER PIPER_GUARD_MULTIPLY(TB, TA, TC)
 
-#define PIPER_GUARD_ELEMENT_VISE_MULTIPLY(TYPE) PIPER_GUARD_MULTIPLY(TYPE, TYPE, TYPE)
+#define PIPER_GUARD_ELEMENT_VISE_MULTIPLY(TYPE)                \
+    constexpr TYPE operator*(const TYPE& rhs) const noexcept { \
+        return TYPE{ mValue * rhs.mValue };                    \
+    }                                                          \
+    constexpr TYPE& operator*=(const TYPE& rhs) noexcept {     \
+        mValue *= rhs.mValue;                                  \
+        return *this;                                          \
+    }
 
 // TA*TB -> Dimensionless
 #define PIPER_GUARD_INVERSE(TA, TB)                                    \

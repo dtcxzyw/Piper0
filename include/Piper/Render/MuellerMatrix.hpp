@@ -57,8 +57,8 @@ public:
     static constexpr SpectrumType spectrumType() noexcept {
         return Piper::spectrumType<T>();
     }
-    static constexpr MuellerMatrix one() noexcept {
-        return MuellerMatrix{ Piper::one<T>() };
+    static constexpr MuellerMatrix identity() noexcept {
+        return MuellerMatrix{ Piper::identity<T>() };
     }
     static constexpr MuellerMatrix zero() noexcept {
         return MuellerMatrix{ Piper::zero<T>() };

@@ -53,12 +53,12 @@ class Handle final {
 public:
     Handle() : mPtr{ nullptr } {}
     explicit Handle(const RenderVariantBase* ptr) noexcept : mPtr{ ptr } {}
-    template <typename Settings>
-    Handle(const Ref<T<Settings>>& ref) noexcept : mPtr{ ref.get() } {}
+    template <typename Setting>
+    explicit Handle(const Ref<T<Setting>>& ref) noexcept : mPtr{ ref.get() } {}
 
-    template <typename Settings>
-    auto as() const noexcept -> const T<Settings>& {
-        return *reinterpret_cast<T<Settings>*>(mPtr);
+    template <typename Setting>
+    [[nodiscard]] auto as() const noexcept -> const T<Setting>& {
+        return *reinterpret_cast<const T<Setting>*>(mPtr);
     }
 
     [[nodiscard]] auto get() const noexcept {

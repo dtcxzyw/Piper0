@@ -164,7 +164,8 @@ class Renderer final : public SourceNode {
                         }
 
                         Float base[spectrumSize(SpectrumType::Spectral)];
-                        mIntegrator->estimate(ray, intersection, *mAcceleration, sampleProvider, shutterTime, base);
+                        mIntegrator->estimate(ray, intersection, *mAcceleration, *mLightSampler, sampleProvider, base);
+                        // TODO: convert radiance to irradiance (W/(m^2)) or energy density (J/pixel) ?
                         writeData(base, usedSpectrumSize);
                     } break;
                     case Channel::Albedo: {

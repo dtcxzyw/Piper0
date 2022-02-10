@@ -83,15 +83,21 @@ class EmbreeGeometry final : public PrimitiveGroup {
 
 public:
     explicit EmbreeGeometry(const RTCGeometry geometry, const Shape* shape) : mGeometry{ geometry } {
+        rtcSetGeometryBuildQuality(mGeometry, RTC_BUILD_QUALITY_HIGH);
+
         const auto dev = device();
         mInstancedScene = rtcNewScene(dev);
-        rtcAttachGeometry(mInstancedScene, mGeometry);
 
         // TODO: progress monitor
         rtcSetSceneProgressMonitorFunction(
             mInstancedScene, [](void* ptr, double progress) { return true; }, this);
+        rtcSetSceneBuildQuality(mInstancedScene, RTC_BUILD_QUALITY_HIGH);
+        rtcSetSceneFlags(mInstancedScene, RTC_SCENE_FLAG_COMPACT);
+
+        rtcAttachGeometry(mInstancedScene, mGeometry);
 
         mMotionBlurGeometry = rtcNewGeometry(dev, RTC_GEOMETRY_TYPE_INSTANCE);
+        rtcSetGeometryBuildQuality(mMotionBlurGeometry, RTC_BUILD_QUALITY_HIGH);
         rtcSetGeometryInstancedScene(mMotionBlurGeometry, mInstancedScene);
         rtcSetGeometryUserData(mMotionBlurGeometry, const_cast<Shape*>(shape));
     }
@@ -135,6 +141,10 @@ class EmbreeScene final : public Acceleration {
 
 public:
     explicit EmbreeScene(const RTCScene scene) : mScene{ scene } {
+
+        rtcSetSceneBuildQuality(mScene, RTC_BUILD_QUALITY_LOW);
+        rtcSetSceneFlags(mScene, RTC_SCENE_FLAG_DYNAMIC);
+
         // TODO: progress monitor
         rtcSetSceneProgressMonitorFunction(
             scene, [](void* ptr, double progress) { return true; }, this);
@@ -217,6 +227,27 @@ public:
         }
 
         return res;
+    }
+
+    bool occluded(const Ray& shadowRay, Distance dist) const override {
+        RTCIntersectContext ctx{};
+        rtcInitIntersectContext(&ctx);
+
+        RTCRay ray{ shadowRay.origin.x(),
+                    shadowRay.origin.y(),
+                    shadowRay.origin.z(),
+                    epsilon,
+                    shadowRay.direction.x(),
+                    shadowRay.direction.y(),
+                    shadowRay.direction.z(),
+                    shadowRay.t,
+                    infinity,
+                    0,
+                    0,
+                    0 };
+
+        rtcOccluded1(mScene, &ctx, &ray);
+        return ray.tfar != infinity;
     }
 };
 

@@ -55,7 +55,7 @@ public:
     LightSample<Spectrum> sample(const Float t, const Point<FrameOfReference::World>& pos, SampleProvider&) const noexcept override {
         const auto lightSource = Point<FrameOfReference::World>::fromRaw(mTransform(t).translation);
         const auto [dir, dist2] = direction(pos, lightSource);
-        const auto radiance = mIntensity.toRadiance(dist2).template importanceSampled<PdfType::Light>();
+        const auto radiance = importanceSampled<PdfType::Light | PdfType::LightSampler>(mIntensity.toRadiance(dist2));
         return LightSample<Spectrum>{ dir, radiance, InversePdf<PdfType::Light>::fromRaw(1.0f), sqrt(dist2) };
     }
 

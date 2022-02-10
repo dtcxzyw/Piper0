@@ -31,6 +31,7 @@ struct SurfaceHit final {
     Normal<FrameOfReference::World> lerpGeometryNormal;
     uint32_t primitiveIdx;
     TexCoord texCoord;
+    AffineTransform<FrameOfReference::World, FrameOfReference::Shading> transform;
 
     Handle<Material> surface;
 };

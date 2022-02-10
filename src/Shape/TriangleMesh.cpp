@@ -98,9 +98,25 @@ public:
         const auto lerpNormal = transform(
             Normal<FrameOfReference::Object>::fromRaw(glm::normalize(lerp3(mNormals[iu].raw(), mNormals[iv].raw(), mNormals[iw].raw()))));
 
-        // TODO: direction?
+        // TODO: front/back?
 
-        return SurfaceHit{ ray.origin + ray.direction * hitDistance, hitDistance, geometryNormal, lerpNormal, primitiveIndex, texCoord,
+        const auto normal = lerpNormal.raw();
+        constexpr auto ref0 = glm::vec3{ 1.0f, 0.0f, 0.0f }, ref1 = glm::vec3{ 0.0f, 1.0f, 0.0f };
+        const auto ref = std::fabs(glm::dot(normal, ref0)) < std::fabs(glm::dot(normal, ref1)) ? ref0 : ref1;
+        const auto tangent = glm::cross(normal, ref);
+        const auto biTangent = glm::cross(normal, tangent);
+
+        const auto matTBN = glm::mat3{ tangent, biTangent, normal };
+        const AffineTransform<FrameOfReference::Object, FrameOfReference::Shading> frame{ glm::mat3x4{ glm::transpose(matTBN) },
+                                                                                          glm::mat3x4{ matTBN } };
+
+        return SurfaceHit{ ray.origin + ray.direction * hitDistance,
+                           hitDistance,
+                           geometryNormal,
+                           lerpNormal,
+                           primitiveIndex,
+                           texCoord,
+                           transform.inverse() * frame,
                            Handle<Material>{ mSurface.get() } };
     }
 };

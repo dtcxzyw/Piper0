@@ -44,8 +44,8 @@ public:
 template <typename Spectrum>
 struct LightSample final {
     Normal<FrameOfReference::World> dir;  // src -> hit
-    Radiance<Spectrum, PdfType::Light> rad;
-    InversePdf<PdfType::Light> pdf;
+    Radiance<Spectrum, PdfType::Light | PdfType::LightSampler> rad;
+    InversePdf<PdfType::Light> inversePdf;
     Distance distance;
 
     static LightSample invalid() noexcept {
@@ -56,7 +56,7 @@ struct LightSample final {
     }
 
     [[nodiscard]] bool valid() const noexcept {
-        return pdf.valid();
+        return inversePdf.valid();
     }
 };
 

@@ -24,16 +24,8 @@
 
 PIPER_NAMESPACE_BEGIN
 
-class IntegratorBase : public RenderVariantBase {
-public:
-    virtual void preprocess() const noexcept = 0;
-    // output radiance (W/(sr*m^2))
-    virtual void estimate(const Ray& ray, const Intersection& intersection, const Acceleration& acceleration,
-                          const LightSampler& lightSampler, SampleProvider& sampler, Float* output) const noexcept = 0;
-};
-
 template <typename Setting>
-class Integrator : public TypedRenderVariantBase<Setting, IntegratorBase> {
+class Fresnel : public TypedRenderVariantBase<Setting> {
 public:
     PIPER_IMPORT_SETTINGS();
 };

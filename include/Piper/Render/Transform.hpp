@@ -24,7 +24,7 @@
 
 PIPER_NAMESPACE_BEGIN
 
-enum class FrameOfReference { Camera, World, Object, Shading };
+enum class FrameOfReference { World, Object, Shading };
 
 template <FrameOfReference F>
 class Point final {
@@ -94,6 +94,10 @@ class Normal final {
     constexpr Vector<F> operator*(const Distance x) const noexcept {
         return Vector<F>::fromRaw(mValue * x.raw());
     }
+    constexpr Normal operator-() const noexcept {
+        return Normal{ -mValue };
+    }
+
     friend constexpr Float dot(const Normal& lhs, const Normal& rhs) noexcept {
         return glm::dot(lhs.mValue, rhs.mValue);
     }
@@ -131,7 +135,7 @@ public:
 
     template <FrameOfReference C>
     AffineTransform<A, C> operator*(const AffineTransform<B, C>& rhs) const noexcept {
-        return { rhs.mA2B * mA2B, mB2A * rhs.mB2A };
+        return { glm::mat3x4{ glm::mat4{ rhs.mA2B } * glm::mat4{ mA2B } }, glm::mat3x4{ glm::mat4{ mB2A } * glm::mat4{ rhs.mB2A } } };
     }
 
     Vector<B> operator()(const Vector<A>& x) const noexcept {

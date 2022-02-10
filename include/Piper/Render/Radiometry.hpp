@@ -26,7 +26,8 @@
 
 PIPER_NAMESPACE_BEGIN
 
-enum class PdfType { BSDF = 1 << 0, Light = 1 << 1, LightSampler = 1 << 2 };
+enum class PdfType { None = 0, BSDF = 1 << 0, Light = 1 << 1, LightSampler = 1 << 2, All = (1 << 3) - 1 };
+PIPER_BIT_ENUM(PdfType)
 
 template <PdfType T>
 class InversePdf final {
@@ -40,6 +41,11 @@ class InversePdf final {
         return mValue != 0.0f;
     }
 };
+
+template <PdfType A, PdfType B>
+requires((A & B) == PdfType::None) constexpr auto operator*(const InversePdf<A>& lhs, const InversePdf<B>& rhs) noexcept {
+    return InversePdf<A | B>::fromRaw(lhs.raw() * rhs.raw());
+}
 
 class SolidAngle final {
     PIPER_GUARD_BASE(SolidAngle, Float)
@@ -68,15 +74,55 @@ class Time final {
     PIPER_GUARD_BASE_OP(Time)
 };
 
+// Dimensionless
+template <SpectrumLike Spectrum, PdfType Pdf = PdfType::None>
+class Rational final {
+    PIPER_GUARD_BASE(Rational, Spectrum)
+    PIPER_GUARD_BASE_OP(Rational)
+};
+
+template <SpectrumLike Spectrum, PdfType A, PdfType B>
+requires((A & B) == PdfType::None) constexpr auto operator*(const Rational<Spectrum, A>& lhs, const Rational<Spectrum, B>& rhs) noexcept {
+    return Rational<Spectrum, A | B>::fromRaw(lhs.raw() * rhs.raw());
+}
+template <typename Spectrum, PdfType A, PdfType B>
+requires(match(A, B)) constexpr auto operator*(const Rational<Spectrum, A>& lhs, const InversePdf<B> rhs) noexcept {
+    return Rational<Spectrum, A ^ B>::fromRaw(lhs.raw() * rhs.raw());
+}
+template <PdfType T, typename Spectrum>
+constexpr auto importanceSampled(const Rational<Spectrum>& x) noexcept {
+    return Rational<Spectrum, T>::fromRaw(x.raw());
+}
+
+#define PIPER_GUARD_IMPORTANCE_OP(TYPE)                                                                                                    \
+    template <typename Spectrum, PdfType A, PdfType B>                                                                                     \
+    requires((A & B) == PdfType::None) constexpr auto operator*(const TYPE<Spectrum, A>& lhs, const Rational<Spectrum, B>& rhs) noexcept { \
+        return TYPE<Spectrum, A | B>::fromRaw(lhs.raw() * rhs.raw());                                                                      \
+    }                                                                                                                                      \
+    template <typename Spectrum, PdfType A, PdfType B>                                                                                     \
+    requires((A & B) == PdfType::None) constexpr auto operator*(const Rational<Spectrum, A>& lhs, const TYPE<Spectrum, B>& rhs) noexcept { \
+        return TYPE<Spectrum, A | B>::fromRaw(lhs.raw() * rhs.raw());                                                                      \
+    }                                                                                                                                      \
+    template <typename Spectrum, PdfType A, PdfType B>                                                                                     \
+    requires(match(A, B)) constexpr auto operator*(const TYPE<Spectrum, A>& lhs, const InversePdf<B> rhs) noexcept {                       \
+        return TYPE<Spectrum, A ^ B>::fromRaw(lhs.raw() * rhs.raw());                                                                      \
+    }                                                                                                                                      \
+    template <PdfType T, typename Spectrum>                                                                                                \
+    constexpr auto importanceSampled(const TYPE<Spectrum>& x) noexcept {                                                                   \
+        return TYPE<Spectrum, T>::fromRaw(x.raw());                                                                                        \
+    }
+
 // W/(m^2)
-template <SpectrumLike Spectrum, PdfType... Pdfs>
+template <SpectrumLike Spectrum, PdfType Pdf = PdfType::None>
 class Irradiance final {
     PIPER_GUARD_BASE(Irradiance, Spectrum)
     PIPER_GUARD_BASE_OP(Irradiance)
 };
 
+PIPER_GUARD_IMPORTANCE_OP(Irradiance)
+
 // W/(sr*m^2)
-template <SpectrumLike Spectrum, PdfType... Pdfs>
+template <SpectrumLike Spectrum, PdfType Pdf = PdfType::None>
 class Radiance final {
     PIPER_GUARD_BASE(Radiance, Spectrum)
     PIPER_GUARD_BASE_OP(Radiance)
@@ -85,11 +131,14 @@ class Radiance final {
         return Radiance{ Piper::zero<Spectrum>() };
     }
 
-    template <PdfType... NewPdfs>
-    [[nodiscard]] constexpr auto importanceSampled() const noexcept {
-        return Radiance<Spectrum, Pdfs..., NewPdfs...>::fromRaw(mValue);
+    template <PdfType NewPdf>
+    requires((Pdf & NewPdf) == PdfType::None) [[nodiscard]] constexpr auto importanceSampled() const noexcept {
+        return Radiance<Spectrum, Pdf | NewPdf>::fromRaw(mValue);
     }
 };
+PIPER_GUARD_IMPORTANCE_OP(Radiance)
+
+PIPER_GUARD_MULTIPLY_COMMUTATIVE(template <SpectrumLike Spectrum>, Radiance<Spectrum>, SolidAngle, Irradiance<Spectrum>)
 
 // W/sr
 template <SpectrumLike Spectrum>
@@ -121,6 +170,9 @@ class Power final {
 
 PIPER_GUARD_MULTIPLY_COMMUTATIVE(template <SpectrumLike Spectrum>, Intensity<Spectrum>, SolidAngle, Power<Spectrum>)
 PIPER_GUARD_MULTIPLY_COMMUTATIVE(template <SpectrumLike Spectrum>, Irradiance<Spectrum>, Area, Power<Spectrum>)
+
+template <SpectrumLike Spectrum>
+using Flux = Power<Spectrum>;
 
 // J
 template <SpectrumLike Spectrum>

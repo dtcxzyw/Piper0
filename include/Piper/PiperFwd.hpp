@@ -24,6 +24,7 @@ namespace Piper {
     class ConfigAttr;
     class ConfigNode;
     class LightBase;
+    class LightSampler;
     template <typename Settings>
     class Material;
     class PrimitiveGroup;

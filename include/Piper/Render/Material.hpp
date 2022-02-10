@@ -19,19 +19,21 @@
 */
 
 #pragma once
+#include <Piper/Render/BSDF.hpp>
 #include <Piper/Render/Intersection.hpp>
 #include <Piper/Render/RenderGlobalSetting.hpp>
 
 PIPER_NAMESPACE_BEGIN
 
-class MaterialBase : public RenderVariantBase {
-public:
-};
+class MaterialBase : public RenderVariantBase {};
 
 template <typename Setting>
 class Material : public TypedRenderVariantBase<Setting, MaterialBase> {
 public:
     PIPER_IMPORT_SETTINGS();
+    PIPER_IMPORT_SHADING();
+
+    virtual void evaluate(const SurfaceHit& intersection, BSDFArray<Setting>& evaluatedBSDF) const noexcept = 0;
 };
 
 PIPER_NAMESPACE_END

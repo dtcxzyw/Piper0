@@ -39,7 +39,7 @@ Float luminance(const T&, const typename WavelengthType<T>::Type&) noexcept;
 template <typename T>
 constexpr SpectrumType spectrumType() noexcept = delete;
 template <typename T>
-constexpr T one() noexcept = delete;
+constexpr T identity() noexcept = delete;
 template <typename T>
 constexpr T zero() noexcept = delete;
 
@@ -51,7 +51,7 @@ concept SpectrumLike = requires(const T& x, Float y, const typename WavelengthTy
     { toRGB(x, w) } -> std::convertible_to<RGBSpectrum>;
     { luminance(x, w) } -> std::convertible_to<Float>;  // Y of CIE 1931 XYZ
     { spectrumType<T>() } -> std::convertible_to<SpectrumType>;
-    { one<T>() } -> std::convertible_to<T>;
+    { identity<T>() } -> std::convertible_to<T>;
     { zero<T>() } -> std::convertible_to<T>;
     typename WavelengthType<T>::Type;
 };
@@ -79,11 +79,11 @@ class RGBSpectrum final {
     static constexpr RGBSpectrum fromScalar(const Float x) noexcept {
         return RGBSpectrum{ glm::vec3{ x } };
     }
-
+    PIPER_GUARD_ELEMENT_VISE_MULTIPLY(RGBSpectrum)
 };
 
 Float luminance(const RGBSpectrum& x, const std::monostate&) noexcept;
-PIPER_GUARD_ELEMENT_VISE_MULTIPLY(RGBSpectrum)
+
 
 constexpr const RGBSpectrum& toRGB(const RGBSpectrum& x, const std::monostate&) noexcept {
     return x;
@@ -99,7 +99,7 @@ constexpr RGBSpectrum zero<RGBSpectrum>() noexcept {
 }
 
 template <>
-constexpr RGBSpectrum one<RGBSpectrum>() noexcept {
+constexpr RGBSpectrum identity<RGBSpectrum>() noexcept {
     return RGBSpectrum::fromScalar(1.0f);
 }
 
@@ -119,7 +119,7 @@ constexpr MonoSpectrum zero<MonoSpectrum>() noexcept {
 }
 
 template <>
-constexpr MonoSpectrum one<MonoSpectrum>() noexcept {
+constexpr MonoSpectrum identity<MonoSpectrum>() noexcept {
     return 1.0f;
 }
 
@@ -141,6 +141,7 @@ public:
 private:
     PIPER_GUARD_BASE(SpectralSpectrum, VecType)
     PIPER_GUARD_BASE_OP(SpectralSpectrum)
+    PIPER_GUARD_ELEMENT_VISE_MULTIPLY(SpectralSpectrum)
 
     static constexpr SpectralSpectrum fromScalar(const Float x) noexcept {
         return SpectralSpectrum{ VecType{ x } };
@@ -149,8 +150,6 @@ private:
 
 Float luminance(const SpectralSpectrum& x, const SpectralSpectrum& sampledWavelengths) noexcept;
 RGBSpectrum toRGB(const SpectralSpectrum& x, const SpectralSpectrum& sampledWavelengths) noexcept;
-
-PIPER_GUARD_ELEMENT_VISE_MULTIPLY(SpectralSpectrum)
 
 template <>
 struct WavelengthType<SpectralSpectrum> final {
@@ -168,7 +167,7 @@ constexpr SpectralSpectrum zero<SpectralSpectrum>() noexcept {
 }
 
 template <>
-constexpr SpectralSpectrum one<SpectralSpectrum>() noexcept {
+constexpr SpectralSpectrum identity<SpectralSpectrum>() noexcept {
     return SpectralSpectrum::fromScalar(1.0f);
 }
 
