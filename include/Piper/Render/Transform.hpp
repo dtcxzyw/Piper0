@@ -120,11 +120,11 @@ std::pair<Normal<F>, DistanceSquare> direction(const Point<F>& src, const Point<
 
 template <FrameOfReference A, FrameOfReference B>
 class AffineTransform final {
-    glm::mat3x4 mA2B, mB2A;
+    glm::mat4 mA2B, mB2A;
 
 public:
-    explicit constexpr AffineTransform(glm::mat3x4 matA2B) noexcept : mA2B{ matA2B }, mB2A{ glm::inverse(glm::mat4{ mB2A }) } {}
-    constexpr AffineTransform(glm::mat3x4 matA2B, glm::mat3x4 matB2A) noexcept : mA2B{ matA2B }, mB2A{ matB2A } {}
+    explicit constexpr AffineTransform(const glm::mat4& matA2B) noexcept : mA2B{ matA2B }, mB2A{ glm::inverse(matA2B) } {}
+    constexpr AffineTransform(const glm::mat4& matA2B, const glm::mat4& matB2A) noexcept : mA2B{ matA2B }, mB2A{ matB2A } {}
 
     [[nodiscard]] constexpr AffineTransform<B, A> inverse() const noexcept {
         return { mB2A, mA2B };
@@ -135,7 +135,7 @@ public:
 
     template <FrameOfReference C>
     AffineTransform<A, C> operator*(const AffineTransform<B, C>& rhs) const noexcept {
-        return { glm::mat3x4{ glm::mat4{ rhs.mA2B } * glm::mat4{ mA2B } }, glm::mat3x4{ glm::mat4{ mB2A } * glm::mat4{ rhs.mB2A } } };
+        return { rhs.mA2B * mA2B, mB2A * rhs.mB2A };
     }
 
     Vector<B> operator()(const Vector<A>& x) const noexcept {
@@ -155,18 +155,26 @@ public:
     }
 
     Normal<B> operator()(const Normal<A>& x) const noexcept {
-        return Normal<B>::fromRaw(glm::transpose(glm::mat3(mB2A)) * x.raw());
+        return Normal<B>::fromRaw(glm::transpose(glm::mat3{ mB2A }) * x.raw());
     }
 
     Normal<A> operator()(const Normal<B>& x) const noexcept {
-        return Normal<A>::fromRaw(glm::transpose(glm::mat3(mA2B)) * x.raw());
+        return Normal<A>::fromRaw(glm::transpose(glm::mat3{ mA2B }) * x.raw());
     }
 };
 
+// Local to World
 struct SRTTransform final {
     glm::vec3 scale;
     glm::quat rotation;
     glm::vec3 translation;
+
+    constexpr Normal<FrameOfReference::World> rotateOnly(const Normal<FrameOfReference::Object>& x) const noexcept {
+        return Normal<FrameOfReference::World>::fromRaw(rotation * x.raw());
+    }
+    constexpr Normal<FrameOfReference::Object> rotateOnly(const Normal<FrameOfReference::World>& x) const noexcept {
+        return Normal<FrameOfReference::Object>::fromRaw(glm::inverse(rotation) * x.raw());
+    }
 };
 
 inline SRTTransform lerp(const SRTTransform& lhs, const SRTTransform& rhs, const Float u) noexcept {

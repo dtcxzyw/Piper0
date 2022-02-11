@@ -33,7 +33,8 @@ public:
     PIPER_IMPORT_SETTINGS();
     PIPER_IMPORT_SHADING();
 
-    virtual void evaluate(const SurfaceHit& intersection, BSDFArray<Setting>& evaluatedBSDF) const noexcept = 0;
+    virtual void evaluate(const Wavelength& sampledWavelength, const SurfaceHit& intersection,
+                          BSDFArray<Setting>& evaluatedBSDF) const noexcept = 0;
 };
 
 PIPER_NAMESPACE_END

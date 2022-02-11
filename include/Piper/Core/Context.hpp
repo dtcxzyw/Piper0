@@ -34,7 +34,8 @@ struct Context final {
 Context& context();
 
 class MemoryArena final {
-    std::pmr::monotonic_buffer_resource mAllocator{ context().scopedAllocator ? 0U : 4096U, context().localAllocator };
+    // std::pmr::monotonic_buffer_resource mAllocator{ context().scopedAllocator ? 0U : 4096U, context().localAllocator }; //TODO: FIXME
+    std::pmr::unsynchronized_pool_resource mAllocator{ context().localAllocator };
 
 public:
     MemoryArena() {

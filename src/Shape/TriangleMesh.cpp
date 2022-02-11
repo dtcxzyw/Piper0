@@ -95,9 +95,10 @@ public:
         const auto lerp3 = [&](auto u, auto v, auto w) { return u * wu + v * wv + w * ww; };
 
         const auto texCoord = lerp3(mTexCoords[iu], mTexCoords[iv], mTexCoords[iw]);
-        const auto lerpNormal = transform(
+        auto lerpNormal = transform(
             Normal<FrameOfReference::Object>::fromRaw(glm::normalize(lerp3(mNormals[iu].raw(), mNormals[iv].raw(), mNormals[iw].raw()))));
-
+        if(dot(lerpNormal, geometryNormal) < 0.0f)
+            lerpNormal = -lerpNormal;
         // TODO: front/back?
 
         const auto normal = lerpNormal.raw();
@@ -107,8 +108,10 @@ public:
         const auto biTangent = glm::cross(normal, tangent);
 
         const auto matTBN = glm::mat3{ tangent, biTangent, normal };
-        const AffineTransform<FrameOfReference::Object, FrameOfReference::Shading> frame{ glm::mat3x4{ glm::transpose(matTBN) },
-                                                                                          glm::mat3x4{ matTBN } };
+        const AffineTransform<FrameOfReference::Object, FrameOfReference::Shading> frame{ glm::mat4{
+                                                                                              glm::transpose(matTBN),
+                                                                                          },
+                                                                                          glm::mat4{ matTBN } };
 
         return SurfaceHit{ ray.origin + ray.direction * hitDistance,
                            hitDistance,

@@ -71,11 +71,12 @@ void error(std::string message) {
 
 ProgressReporter::ProgressReporter() : mStart{ Clock::now() }, mProgress{ 0.0 } {}
 void ProgressReporter::update(const double progress) noexcept {
-    mProgress = progress;
+    mProgress = std::fmin(1.0, progress);
 
     if(mProgress > 0.001) {
         const auto delta = Clock::now() - mStart;
-        mEstimatedEnd = mStart + Clock::duration{ static_cast<Clock::rep>(std::ceil(static_cast<double>(delta.count()) / mProgress)) };
+        mEstimatedEnd = mStart +
+            Clock::duration{ static_cast<Clock::rep>(std::ceil(static_cast<double>(delta.count()) / std::fmin(0.999, mProgress))) };
     }
 }
 double ProgressReporter::progress() const noexcept {

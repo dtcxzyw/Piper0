@@ -40,12 +40,14 @@
 #include <ftxui/screen/color.hpp>
 #include <ftxui/screen/terminal.hpp>
 #include <oneapi/tbb/task_group.h>
-#include <pmmintrin.h>
-#include <xmmintrin.h>
+#include <Piper/Render/Math.hpp>
 using namespace Piper;
 
 template <typename Callable>
 void guard(Callable&& callable) noexcept {
+#ifdef _DEBUG
+    std::invoke(std::forward<Callable>(callable));
+#else
     try {
         std::invoke(std::forward<Callable>(callable));
     } catch(const std::exception& ex) {
@@ -53,11 +55,11 @@ void guard(Callable&& callable) noexcept {
     } catch(...) {
         fatal("Unknown error"s);
     }
+#endif
 }
 
 void mainGuarded(int argc, char** argv) {
-    _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
-    _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
+    initFloatingPointEnvironment();
 
     std::string inputFile, outputDir, serverConfig;
     bool help = false;
@@ -166,8 +168,7 @@ void mainGuarded(int argc, char** argv) {
                     const auto [userTime, kernelTime] = ref.cores[id];
                     const auto color = (userTime > 0.95 ? (userTime > 0.99 ? ui::Color::Green : ui::Color::Yellow) : ui::Color::Red);
                     cores.push_back(ui::hbox({ ui::text(fmt::format(" CPU {:>3}[", id)),
-                                               ui::gauge(static_cast<float>(userTime + kernelTime)) | ui::color(color),
-                                               ui::text("]") }) |
+                                               ui::gauge(static_cast<float>(userTime + kernelTime)) | ui::color(color), ui::text("]") }) |
                                     ui::xflex_grow);
                 }
 
@@ -206,9 +207,9 @@ void mainGuarded(int argc, char** argv) {
                     const auto eta = reporter->eta();
                     const auto progress = reporter->progress() * 100.0;
                     const auto elapsed = std::chrono::ceil<std::chrono::seconds>(reporter->elapsed());
-                    auto text = eta ? fmt::format("] {:.1f}% ETA: {:%H:%M:%S} Elapsed: {:%H:%M:%S}", progress,
+                    auto text = eta ? fmt::format(" ] {:.1f}% ETA: {:%H:%M:%S} Elapsed: {:%H:%M:%S}", progress,
                                                   std::chrono::ceil<std::chrono::seconds>(eta.value()), elapsed) :
-                                      fmt::format("]  {:.1f}% Elapsed: {:%H:%M:%S}", progress, elapsed);
+                                      fmt::format(" ]  {:.1f}% Elapsed: {:%H:%M:%S}", progress, elapsed);
 
                     lines.push_back(ui::hbox({ ui::text(name + " ["), ui::gauge(static_cast<float>(reporter->progress())),
                                                ui::text(std::move(text)) }) |
@@ -227,8 +228,8 @@ void mainGuarded(int argc, char** argv) {
             ui::Elements lines;
             for(auto& [type, msg] : output) {
                 const auto& headerOfLog = header(type);
-                constexpr auto selectColor = [](const LogType type) {
-                    switch(type) {
+                constexpr auto selectColor = [](const LogType logType) {
+                    switch(logType) {
                         case LogType::Info:
                             return ui::Color::Green;
                         case LogType::Warning:

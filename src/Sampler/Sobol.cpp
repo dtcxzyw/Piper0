@@ -118,8 +118,8 @@ class SobolSampler final : public Sampler {
 
 public:
     explicit SobolSampler(const Ref<ConfigNode>& node) : mSampleCount{ node->get("SampleCount"sv)->as<uint32_t>() } {
-        if(const auto ptr = node->tryGet("SampleCount"sv))
-            mSampleCount = (*ptr)->as<uint32_t>();
+        if(const auto ptr = node->tryGet("ProvidedDims"sv))
+            mProvidedDims = (*ptr)->as<uint32_t>();
         if(const auto ptr = node->tryGet("Scramble"sv))
             mScramble = (*ptr)->as<uint32_t>();
     }

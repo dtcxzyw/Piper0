@@ -61,31 +61,28 @@ struct FrameMetadata final {
     uint32_t height;
     uint32_t actionIdx;
     uint32_t frameIdx;
-    Channel channel;
+    std::pmr::vector<Channel> channels;
+    uint32_t pixelStride;
     SpectrumType spectrumType;
     bool isHDR;
 };
 
 class Frame final : public RefCountBase {
     FrameMetadata mMetadata;
-    uint32_t mChannelStride;
-
     std::pmr::vector<Float> mData;
 
 public:
-    Frame(const FrameMetadata& metadata, const uint32_t channelStride, std::pmr::vector<float> data)
-        : mMetadata{ metadata }, mChannelStride{ channelStride }, mData{ std::move(data) } {}
+    Frame(const FrameMetadata metadata, std::pmr::vector<Float> data) : mMetadata{ std::move(metadata) }, mData{ std::move(data) } {}
     const FrameMetadata& metadata() const noexcept {
         return mMetadata;
     }
 
-    const float* at(const uint32_t i, const uint32_t j) const {
-        return mData.data() + (i * mMetadata.width + j) * mChannelStride;
+    const Float* data() const noexcept {
+        return mData.data();
     }
 };
 
-using FrameGroup = std::pmr::unordered_map<Channel, Ref<Frame>>;
-
+/*
 template <typename T>
 class FrameView final {
     Ref<Frame> mFrame;
@@ -95,5 +92,6 @@ public:
         return *reinterpret_cast<const T*>(mFrame->at(i, j));
     }
 };
+*/
 
 PIPER_NAMESPACE_END

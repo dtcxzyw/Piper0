@@ -18,27 +18,3 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#pragma once
-#include <Piper/Render/RenderGlobalSetting.hpp>
-#include <Piper/Render/Transform.hpp>
-
-PIPER_NAMESPACE_BEGIN
-
-struct Ray {
-    Point<FrameOfReference::World> origin;
-    Normal<FrameOfReference::World> direction;
-
-    Float t;
-};
-
-using RayStream = std::pmr::vector<Ray>;
-
-// TODO: differential
-template <typename Setting>
-struct ShadingRay final : Ray {
-    PIPER_IMPORT_SETTINGS();
-
-    Wavelength sampledWavelength;
-};
-
-PIPER_NAMESPACE_END

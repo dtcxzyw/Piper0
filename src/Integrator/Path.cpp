@@ -44,6 +44,8 @@ public:
         result = Radiance<Spectrum>::zero();
         Rational<Spectrum> beta = Rational<Spectrum>::fromRaw(identity<Spectrum>());
 
+        Wavelength sampledWavelength = *reinterpret_cast<Wavelength*>(output);  // TODO
+
         for(uint32_t idx = 0; idx < mMaxDepth; ++idx) {
             // ReSharper disable once CppDefaultCaseNotHandledInSwitchStatement
             switch(intersection.index()) {
@@ -56,10 +58,10 @@ public:
 
                     const auto& material = info.surface.as<Setting>();
                     BSDFArray<Setting> bsdfSampler;
-                    material.evaluate(info, bsdfSampler);
+                    material.evaluate(sampledWavelength, info, bsdfSampler);
 
                     const auto [selectedLight, weight] = lightSampler.sample(sampler);
-                    const auto sampledLight = selectedLight.as<Setting>().sample(ray.t, ray.origin, sampler);
+                    const auto sampledLight = selectedLight.as<Setting>().sample(ray.t, sampledWavelength, ray.origin, sampler);
 
                     // for(auto& x : acceleration.occlusions()) {}
 

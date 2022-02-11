@@ -59,26 +59,4 @@ auto spectrumCast(const U& u, const typename WavelengthType<U>::Type& w) {
 
 enum class SpectrumParseType { Illuminant, Albedo };
 
-SpectralSpectrum parseStandardSpectrum(const Ref<ConfigNode>& node);
-RGBSpectrum parseRGBSpectrum(const Ref<ConfigNode>& node);
-SpectralSpectrum parseSpectralSpectrum(const Ref<ConfigNode>& node, SpectrumParseType type);
-SpectralSpectrum parseBlackBodySpectrum(const Ref<ConfigNode>& node, const SpectralSpectrum& sampledWavelengths);
-
-template <typename T>
-auto parseSpectrum(const Ref<ConfigNode>& node, const WavelengthType<SpectralSpectrum>::Type& w, const SpectrumParseType parseType) {
-    const auto type = node->get("Type"sv)->as<std::string_view>();
-    if(parseType == SpectrumParseType::Illuminant) {
-        if(type == "Standard"sv)
-            return spectrumCast<T>(parseStandardSpectrum(node), w);
-        if(type == "Blackbody"sv)
-            return spectrumCast<T>(parseBlackBodySpectrum(node, w), w);
-    }
-
-    if(type == "RGB"sv)
-        return spectrumCast<T>(parseRGBSpectrum(node), std::monostate{});
-    if(type == "Spectral"sv)
-        return spectrumCast<T>(parseSpectralSpectrum(node, parseType), w);
-    fatal(fmt::format("Unsupported spectrum type {}", type));
-}
-
 PIPER_NAMESPACE_END

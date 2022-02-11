@@ -74,3 +74,4 @@ namespace views = ranges::views;
 namespace fs = std::filesystem;
 
 using namespace std::literals;  // NOLINT(clang-diagnostic-header-hygiene)
+#define GLM_FORCE_XYZW_ONLY

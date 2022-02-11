@@ -29,7 +29,7 @@ class IntelOpenImageDenoiser final : public PipelineNode {
 
 public:
     explicit IntelOpenImageDenoiser(const Ref<ConfigNode>& node) {}
-    FrameGroup transform(FrameGroup group) override {
+    Ref<Frame> transform(Ref<Frame> frame) override {
         PIPER_NOT_IMPLEMENTED();
     }
 

@@ -36,7 +36,7 @@ public:
 
         const auto path = config->get("InputFile"sv)->as<std::string_view>();
         // TODO: load configuration from CLI
-        LoadConfiguration cfg{ context().globalAllocator };
+        ResolveConfiguration cfg{ context().globalAllocator };
         const auto base = fs::path{ path }.parent_path().string();
         cfg.insert({ "${BaseDir}"sv, base });
         cfg.insert({ "${OutputDir}"sv, config->get("OutputDir"sv)->as<std::string_view>() });
@@ -74,9 +74,11 @@ public:
                 auto req = node->setup(requirements[idx]);
                 if(prev != noPrevNode)
                     mergeRequirement(requirements[prev], std::move(req));
+                else if(!req.empty())
+                    fatal("Source node should require nothing.");
             }
 
-            if(!requirements.front().empty() || mNodes.front().second != noPrevNode)
+            if(mNodes.front().second != noPrevNode)
                 fatal("No pipeline source");
         }
 
@@ -84,10 +86,16 @@ public:
 
         tbb::flow::graph g;
 
-        std::pmr::vector<tbb::flow::function_node<FrameGroup, FrameGroup>> nodes{ context().localAllocator };
+        std::pmr::vector<tbb::flow::function_node<Ref<Frame>, Ref<Frame>>> nodes{ context().localAllocator };
         nodes.reserve(mNodes.size());
         for(auto& [node, prevIdx] : mNodes) {
-            nodes.push_back({ g, 1, [&](FrameGroup frames) { return node->transform(std::move(frames)); } });
+            nodes.push_back({ g, 1, [&](Ref<Frame> frames) {
+                                 try {
+                                     return node->transform(std::move(frames));
+                                 } catch(const std::exception& ex) {
+                                     fatal(fmt::format("{}: {}", typeid(ex).name(), ex.what()));
+                                 }
+                             } });
             auto& inserted = nodes.back();
             if(prevIdx != noPrevNode)
                 tbb::flow::make_edge(nodes[prevIdx], inserted);

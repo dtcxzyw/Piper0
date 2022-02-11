@@ -39,7 +39,7 @@ public:
 
     template <typename T>
     requires(!std::is_same_v<std::string_view, T>) const T& as() const {
-        return std::get<T>(mValue);
+        return *std::get_if<T>(&mValue);
     }
 
     template <typename T>
@@ -47,7 +47,7 @@ public:
     const {
         if(const auto ptr = std::get_if<std::string_view>(&mValue))
             return *ptr;
-        return std::get<std::pmr::string>(mValue);
+        return *std::get_if<std::pmr::string>(&mValue);
     }
 
     [[nodiscard]] bool isArray() const noexcept {
@@ -90,10 +90,11 @@ public:
     const Ref<ConfigAttr>* tryGet(const char*) const = delete;
 };
 
-using LoadConfiguration = std::pmr::unordered_map<std::string_view, std::string_view>;
+using ResolveConfiguration = std::pmr::unordered_map<std::string_view, std::string_view>;
 
-Ref<ConfigNode> parseJSONConfigNode(const std::string_view& path, const LoadConfiguration& config);
-Ref<ConfigNode> parseYAMLConfigNode(const std::string_view& path, const LoadConfiguration& config);
-Ref<ConfigNode> parseXMLConfigNode(const std::string_view& path, const LoadConfiguration& config);
+std::pmr::string resolveString(std::string_view string, const ResolveConfiguration& config);
+Ref<ConfigNode> parseJSONConfigNode(std::string_view path, const ResolveConfiguration& config);
+Ref<ConfigNode> parseYAMLConfigNode(std::string_view path, const ResolveConfiguration& config);
+Ref<ConfigNode> parseXMLConfigNode(std::string_view path, const ResolveConfiguration& config);
 
 PIPER_NAMESPACE_END

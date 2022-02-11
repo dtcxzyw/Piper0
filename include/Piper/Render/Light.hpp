@@ -39,6 +39,8 @@ public:
     PrimitiveGroup* primitiveGroup() const noexcept override {
         return nullptr;
     }
+
+   [[nodiscard]] virtual Power<MonoSpectrum> power() const noexcept = 0;
 };
 
 template <typename Spectrum>
@@ -65,11 +67,13 @@ class Light : public TypedRenderVariantBase<Setting, LightBase> {
 public:
     PIPER_IMPORT_SETTINGS();
 
-    virtual LightSample<Spectrum> sample(Float t, const Point<FrameOfReference::World>& pos, SampleProvider& sampler) const noexcept = 0;
-    virtual Radiance<Spectrum> evaluate(Float t, const Point<FrameOfReference::World>& pos) const noexcept = 0;
-    [[nodiscard]] virtual InversePdf<PdfType::Light> pdf(Float t, const Point<FrameOfReference::World>& pos,
+    virtual LightSample<Spectrum> sample(Float t, const Wavelength& sampledWavelength, const Point<FrameOfReference::World>& pos,
+                                         SampleProvider& sampler) const noexcept = 0;
+    virtual Radiance<Spectrum> evaluate(Float t, const Wavelength& sampledWavelength,
+                                        const Point<FrameOfReference::World>& pos) const noexcept = 0;
+    [[nodiscard]] virtual InversePdf<PdfType::Light> pdf(Float t, const Wavelength& sampledWavelength,
+                                                         const Point<FrameOfReference::World>& pos,
                                                          const Normal<FrameOfReference::World>& dir, Distance distance) const noexcept = 0;
-    virtual Power<Spectrum> power() const noexcept = 0;
 };
 
 PIPER_NAMESPACE_END

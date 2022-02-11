@@ -42,6 +42,7 @@ constexpr auto fourPi = static_cast<Float>(4.0 * std::numbers::pi);
 constexpr auto quarterPi = glm::quarter_pi<Float>();
 constexpr auto halfPi = glm::half_pi<Float>();
 constexpr auto invPi = std::numbers::inv_pi_v<Float>;
+constexpr auto invTwoPi = glm::one_over_two_pi<Float>();
 constexpr auto invSqrtPi = std::numbers::inv_sqrtpi_v<Float>;
 constexpr auto invSqrt2 = static_cast<Float>(1.0 / std::numbers::sqrt2);
 constexpr auto oneMinusEpsilon = static_cast<Float>(0x1.fffffep-1);
@@ -49,6 +50,7 @@ constexpr auto oneMinusEpsilon = static_cast<Float>(0x1.fffffep-1);
 glm::vec2 parseVec2(const Ref<ConfigAttr>& node);
 glm::vec3 parseVec3(const Ref<ConfigAttr>& node);
 glm::quat parseQuat(const Ref<ConfigAttr>& node);
+void initFloatingPointEnvironment() noexcept;
 
 template <typename T>
 constexpr auto rcp(T x) noexcept {

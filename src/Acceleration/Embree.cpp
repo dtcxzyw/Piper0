@@ -32,15 +32,21 @@ PIPER_NAMESPACE_BEGIN
 
 class DeviceInstance final {
     RTCDevice mDevice = nullptr;
+    std::atomic<ssize_t> mUsedMemory = 0;
     std::atomic_uint32_t mUpdateCount = 0;
 
 public:
     DeviceInstance() {
+        initFloatingPointEnvironment();
+
         mDevice = rtcNewDevice("start_threads=1,set_affinity=1");
         rtcSetDeviceMemoryMonitorFunction(
             mDevice,
             [](void* ptr, const ssize_t bytes, bool) {
-                auto& count = *static_cast<std::atomic_uint32_t*>(ptr);
+                auto& self = *static_cast<DeviceInstance*>(ptr);
+                self.mUsedMemory += bytes;
+
+                auto& count = self.mUpdateCount;
                 const auto newCount = getMonitor().updateCount();
                 auto old = count.load();
                 do {
@@ -48,10 +54,15 @@ public:
                         return true;
                 } while(!count.compare_exchange_strong(old, newCount));
 
-                getMonitor().updateCustomStatus(ptr, fmt::format("Embree memory usage: {:.3f} MB", static_cast<double>(bytes) * 1e-6));
+                const auto used = self.mUsedMemory.load();
+
+                if(used >= 1'000'000)
+                    getMonitor().updateCustomStatus(ptr, fmt::format(" Embree memory usage: {:.3f} MB", static_cast<double>(used) * 1e-6));
+                else
+                    getMonitor().updateCustomStatus(ptr, fmt::format(" Embree memory usage: {:.3f} KB", static_cast<double>(used) * 1e-3));
                 return true;
             },
-            &mUpdateCount);
+            this);
 
         rtcSetDeviceErrorFunction(
             mDevice, [](void*, enum RTCError code, const char* str) { fatal(fmt::format("Embree error (code = {}): {}", code, str)); },
@@ -75,6 +86,8 @@ static RTCDevice device() {
     static DeviceInstance inst;
     return inst.device();
 }
+
+static const RTCDevice forceInitBeforeMain = device();  // For option "start_threads=1"
 
 class EmbreeGeometry final : public PrimitiveGroup {
     RTCGeometry mGeometry;
@@ -171,17 +184,19 @@ public:
 
     Intersection processHitInfo(const Ray& ray, const RTCHit& hitInfo, const Distance distance) const {
         BoolCounter<StatsType::Intersection> counter;
-        if(hitInfo.geomID != RTC_INVALID_GEOMETRY_ID) {
+        if(distance.raw() != infinity) {  // NOLINT(clang-diagnostic-float-equal)
             // surface
             counter.count(true);
 
             const auto geo = rtcGetGeometry(mScene, hitInfo.instID[0]);
             const auto& shape = *static_cast<const Shape*>(rtcGetGeometryUserData(geo));
 
-            glm::mat3x4 mat;
-            rtcGetGeometryTransform(geo, ray.t, RTC_FORMAT_FLOAT3X4_ROW_MAJOR, glm::value_ptr(mat));
+            glm::mat4 mat;
+            rtcGetGeometryTransform(geo, ray.t, RTC_FORMAT_FLOAT4X4_COLUMN_MAJOR, glm::value_ptr(mat));
             const AffineTransform<FrameOfReference::Object, FrameOfReference::World> trans{ mat };
-            const auto geometryNormal = Normal<FrameOfReference::World>::fromRaw(glm::vec3{ hitInfo.Ng_x, hitInfo.Ng_y, hitInfo.Ng_z });
+            // NOTICE: Ng_x/y/z are not normalized!!!
+            const auto geometryNormal =
+                Normal<FrameOfReference::World>::fromRaw(glm::normalize(glm::vec3{ hitInfo.Ng_x, hitInfo.Ng_y, hitInfo.Ng_z }));
 
             return shape.generateIntersection(ray, distance, trans, geometryNormal, { hitInfo.u, hitInfo.v }, hitInfo.primID);
         }
@@ -229,7 +244,7 @@ public:
         return res;
     }
 
-    bool occluded(const Ray& shadowRay, Distance dist) const override {
+    bool occluded(const Ray& shadowRay, const Distance dist) const override {
         RTCIntersectContext ctx{};
         rtcInitIntersectContext(&ctx);
 
@@ -241,13 +256,13 @@ public:
                     shadowRay.direction.y(),
                     shadowRay.direction.z(),
                     shadowRay.t,
-                    infinity,
+                    dist.raw(),
                     0,
                     0,
                     0 };
 
         rtcOccluded1(mScene, &ctx, &ray);
-        return ray.tfar != infinity;
+        return ray.tfar < dist.raw();
     }
 };
 

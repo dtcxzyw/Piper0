@@ -22,17 +22,17 @@
 #include <simdjson.h>
 
 PIPER_NAMESPACE_BEGIN
-Ref<ConfigNode> parseNode(const simdjson::dom::object& obj, const LoadConfiguration& config, Ref<RefCountBase> holder = {});
+Ref<ConfigNode> parseNode(const simdjson::dom::object& obj, const ResolveConfiguration& config, Ref<RefCountBase> holder = {});
 
 // TODO: resolve expression
-static std::pmr::string resolveFilename(const std::string_view filename, const LoadConfiguration& config) {
-    std::pmr::string str{ filename, context().scopedAllocator };
+std::pmr::string resolveString(const std::string_view string, const ResolveConfiguration& config) {
+    std::pmr::string str{ string, context().scopedAllocator };
     for(auto [pattern, replace] : config) {
         while(true) {
             const auto pos = str.find(pattern);
             if(pos == std::pmr::string::npos)
                 break;
-            str.replace(pos, pos + pattern.size(), replace);
+            str.replace(pos, pattern.size(), replace);
         }
         if(str.find("${"sv) == std::pmr::string::npos)
             break;
@@ -40,7 +40,7 @@ static std::pmr::string resolveFilename(const std::string_view filename, const L
     return str;
 }
 
-static Ref<ConfigAttr> parseAttr(const simdjson::dom::element& element, const LoadConfiguration& config) {
+static Ref<ConfigAttr> parseAttr(const simdjson::dom::element& element, const ResolveConfiguration& config) {
     switch(element.type()) {
         case simdjson::dom::element_type::ARRAY: {
             ConfigAttr::AttrArray arr{ context().globalAllocator };
@@ -54,12 +54,14 @@ static Ref<ConfigAttr> parseAttr(const simdjson::dom::element& element, const Lo
             return makeRefCount<ConfigAttr>(parseNode(element.get_object(), config));
         case simdjson::dom::element_type::UINT64:
             return makeRefCount<ConfigAttr>(static_cast<uint32_t>(element.get_uint64()));
+        case simdjson::dom::element_type::INT64:
+            return makeRefCount<ConfigAttr>(static_cast<uint32_t>(element.get_int64()));
         case simdjson::dom::element_type::DOUBLE:
             return makeRefCount<ConfigAttr>(element.get_double());
         case simdjson::dom::element_type::STRING: {
             const auto str = element.get_string().value();
             if(str.find("${"sv) != std::string_view::npos)
-                return makeRefCount<ConfigAttr>(resolveFilename(str, config));
+                return makeRefCount<ConfigAttr>(resolveString(str, config));
             return makeRefCount<ConfigAttr>(str);
         }
         case simdjson::dom::element_type::BOOL:
@@ -69,18 +71,23 @@ static Ref<ConfigAttr> parseAttr(const simdjson::dom::element& element, const Lo
     }
 }
 
-static Ref<ConfigNode> parseNode(const simdjson::dom::object& obj, const LoadConfiguration& config, Ref<RefCountBase> holder) {
-    auto type = obj.at_key("Type").get_string().value();
+static Ref<ConfigNode> parseNode(const simdjson::dom::object& obj, const ResolveConfiguration& config,
+                                 Ref<RefCountBase> holder) {  // NOLINT(performance-unnecessary-value-param)
+    constexpr auto valueOr = [](const simdjson::simdjson_result<std::string_view>& res, const std::string_view fallback) {
+        return res.error() == simdjson::SUCCESS ? res.value_unsafe() : fallback;
+    };
+
+    auto type = valueOr(obj.at_key("Type"sv).get_string(), "Unspecified"sv);
     if(type == "Include"sv) {
-        const auto path = resolveFilename(obj.at_key("FileName"), config);
-        LoadConfiguration newConfig{ config, context().scopedAllocator };
+        const auto path = resolveString(obj.at_key("FileName"sv), config);
+        ResolveConfiguration newConfig{ config, context().scopedAllocator };
         const auto base = fs::path{ path }.parent_path().string();
         newConfig["${BaseDir}"] = base;
 
         return parseJSONConfigNode(path, newConfig);
     }
 
-    auto name = obj.at_key("Name").get_string().value();
+    auto name = valueOr(obj.at_key("Name"sv).get_string(), "Unnamed"sv);
     ConfigNode::AttrMap attrs{ context().globalAllocator };
 
     for(auto& [key, value] : obj)
@@ -89,7 +96,7 @@ static Ref<ConfigNode> parseNode(const simdjson::dom::object& obj, const LoadCon
     return makeRefCount<ConfigNode>(name, type, std::move(attrs), std::move(holder));
 }
 
-Ref<ConfigNode> parseJSONConfigNode(const std::string_view& path, const LoadConfiguration& config) {
+Ref<ConfigNode> parseJSONConfigNode(const std::string_view path, const ResolveConfiguration& config) {
     MemoryArena arena;
 
     const auto data = loadData(path);

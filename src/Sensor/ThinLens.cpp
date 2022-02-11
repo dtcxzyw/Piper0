@@ -18,13 +18,13 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include <Piper/Render/SampleUtil.hpp>
+#include <Piper/Render/SamplingUtil.hpp>
 #include <Piper/Render/Sampler.hpp>
 #include <Piper/Render/Sensor.hpp>
 
 PIPER_NAMESPACE_BEGIN
 
-class ThinLen final : public Sensor {
+class ThinLens final : public Sensor {
     glm::vec2 mSensorSize;
     Point<FrameOfReference::World> mLookAt;
     Normal<FrameOfReference::World> mUpRef;
@@ -32,7 +32,7 @@ class ThinLen final : public Sensor {
     Distance mApertureRadius;
 
 public:
-    explicit ThinLen(const Ref<ConfigNode>& node)
+    explicit ThinLens(const Ref<ConfigNode>& node)
         : mSensorSize{ parseSensorSize(node->get("SensorSize"sv)) }, mLookAt{ Point<FrameOfReference::World>::fromRaw(
                                                                          parseVec3(node->get("LookAt"sv))) },
           mUpRef{ Normal<FrameOfReference::World>::fromRaw(glm::normalize(parseVec3(node->get("UpRef"sv)))) },
@@ -43,7 +43,7 @@ public:
     Float deviceAspectRatio() const noexcept override {
         return mSensorSize.x / mSensorSize.y;
     }
-    std::pair<Ray, Float> sample(glm::vec2 sensorNDC, SampleProvider& sampler) const noexcept override {
+    std::pair<Ray, Float> sample(const glm::vec2 sensorNDC, SampleProvider& sampler) const noexcept override {
         const auto t = sampler.sample();
         const auto base = Point<FrameOfReference::World>::fromRaw(mTransform(t).translation);
 
@@ -68,6 +68,6 @@ public:
     }
 };
 
-PIPER_REGISTER_CLASS(ThinLen, Sensor);
+PIPER_REGISTER_CLASS(ThinLens, Sensor);
 
 PIPER_NAMESPACE_END

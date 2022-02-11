@@ -35,7 +35,7 @@ public:
         return { { { Channel::Full, false } }, context().globalAllocator };
     }
 
-    FrameGroup transform(FrameGroup group) override {
+    Ref<Frame> transform(Ref<Frame> frame) override {
         PIPER_NOT_IMPLEMENTED();
         return {};
     }

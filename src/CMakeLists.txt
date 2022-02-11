@@ -18,7 +18,7 @@ find_package(tinyobjloader CONFIG REQUIRED)
 find_package(IlmBase CONFIG REQUIRED)
 find_package(OpenEXR CONFIG REQUIRED)
     
-file(GLOB PIPER_CLI_SRC "*/*.cpp")
+file(GLOB_RECURSE PIPER_CLI_SRC "*.cpp")
 add_executable(PiperCLI ${PIPER_CLI_SRC})
 target_include_directories(PiperCLI PRIVATE ${RANG_INCLUDE_DIRS})
 target_include_directories(PiperCLI PRIVATE ${PCG_INCLUDE_DIRS})

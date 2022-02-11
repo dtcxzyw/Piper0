@@ -83,7 +83,7 @@ KeyFrames parseKeyframes(const Ref<ConfigAttr>& node) {
     return frames;
 }
 
-ResolvedTransform resolveTransform(const KeyFrames& keyFrames, TimeInterval interval) {
+ResolvedTransform resolveTransform(const KeyFrames& keyFrames, const TimeInterval interval) {
     constexpr auto cmp = [](const Float x, const KeyFrame& y) { return x < y.t; };
 
     auto next = std::upper_bound(keyFrames.cbegin(), keyFrames.cend(), interval.begin, cmp);

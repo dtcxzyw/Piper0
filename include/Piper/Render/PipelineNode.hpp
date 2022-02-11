@@ -28,7 +28,7 @@ public:
     using ChannelRequirement = std::pmr::unordered_map<Channel, bool>;
 
     virtual ChannelRequirement setup(ChannelRequirement req) = 0;
-    virtual FrameGroup transform(FrameGroup group) = 0;
+    virtual Ref<Frame> transform(Ref<Frame> frame) = 0;
 };
 
 void mergeRequirement(PipelineNode::ChannelRequirement& lhs, PipelineNode::ChannelRequirement rhs);

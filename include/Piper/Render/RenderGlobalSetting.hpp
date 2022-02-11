@@ -66,17 +66,17 @@ public:
     }
 };
 
-template <typename Settings, typename Base = RenderVariantBase>
+template <typename Setting, typename Base = RenderVariantBase>
 class TypedRenderVariantBase : public Base {
 public:
     template <template <typename> typename T>
-    static auto& view(Handle<T> x) {
-        return x.template as<Settings>();
+    auto& view(Handle<T> x) const {
+        return x.template as<Setting>();
     }
 
     template <template <typename> typename T>
-    static auto make(const Ref<ConfigNode>& node) {
-        return getStaticFactory().make<T<Settings>>(node);
+    auto make(const Ref<ConfigNode>& node) const {
+        return getStaticFactory().make<T<Setting>>(node);
     }
 };
 

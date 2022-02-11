@@ -21,6 +21,8 @@
 #include <OpenEXR/ImfRgbaFile.h>
 #include <Piper/Core/StaticFactory.hpp>
 #include <Piper/Render/PipelineNode.hpp>
+#include <magic_enum.hpp>
+#include <oneapi/tbb/parallel_for.h>
 
 PIPER_NAMESPACE_BEGIN
 
@@ -36,27 +38,46 @@ public:
         return { { { Channel::Full, false } }, context().globalAllocator };
     }
 
-    FrameGroup transform(FrameGroup group) override {
-        for(const auto& [channel, frame] : group) {
-            const auto& metadata = frame->metadata();
+    Ref<Frame> transform(const Ref<Frame> frame) override {
+        MemoryArena arena;
+        const auto& metadata = frame->metadata();
+        uint32_t stride = 0;
+
+        const auto frameIdx = std::to_string(metadata.frameIdx);
+        const auto actionIdx = std::to_string(metadata.actionIdx);
+        ResolveConfiguration pathResolver{ context().scopedAllocator };
+        pathResolver["${FrameIdx}"] = frameIdx;
+        pathResolver["${ActionIdx}"] = actionIdx;
+
+        for(const auto channel : metadata.channels) {
+            pathResolver["${Channel}"] = magic_enum::enum_name(channel);
+
             if(channel == Channel::Full) {
                 if(!metadata.isHDR)
                     fatal("LDR images are not supported by EXR output node.");
+                if(metadata.spectrumType != SpectrumType::LinearRGB)
+                    PIPER_NOT_IMPLEMENTED();
 
-                const auto fileName = fmt::format("{}/action{}/frame{}.exr", mOutputPath, metadata.actionIdx, metadata.frameIdx);
+                const auto pixelCount = metadata.width * metadata.height;
+                std::pmr::vector<Imf::Rgba> buffer{ pixelCount, context().scopedAllocator };
+                tbb::parallel_for(tbb::blocked_range<uint32_t>{ 0, pixelCount }, [&](const tbb::blocked_range<uint32_t>& range) {
+                    for(auto idx = range.begin(); idx != range.end();++idx) {
+                        const auto src = frame->data() + idx * metadata.pixelStride + stride;
+                        buffer[idx] = Imf::Rgba{ src[0], src[1], src[2] };
+                    }
+                });
+
+                const auto fileName = resolveString(mOutputPath, pathResolver);
                 Imf::RgbaOutputFile file{ fileName.c_str(), static_cast<int32_t>(metadata.width), static_cast<int32_t>(metadata.height),
                                           Imf::WRITE_RGB };
-
-                std::pmr::vector<Imf::Rgba> buffer{ metadata.width * metadata.height, context().localAllocator };
-
-                // TODO: fill buffer
-
                 file.setFrameBuffer(buffer.data(), 1, metadata.width);
                 file.writePixels(static_cast<int32_t>(metadata.height));
 
             } else {
                 PIPER_NOT_IMPLEMENTED();
             }
+
+            stride += channelSize(channel, metadata.spectrumType);
         }
 
         return {};

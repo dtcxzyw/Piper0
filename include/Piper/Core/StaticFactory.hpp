@@ -44,7 +44,7 @@ public:
         if(iter == mLUT.cend())
             fatal(fmt::format("Failed to instantiate object \"{}\" [class = {}, interface = {}] ", node->name(), node->type(),
                               typeid(Base).name()));
-        
+
         return dynamicCast<Base>(iter->second(node));
     }
 };

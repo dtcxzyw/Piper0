@@ -23,11 +23,11 @@
 
 PIPER_NAMESPACE_BEGIN
 
-class UniformSampler final : public LightSampler {
+class UniformLightSampler final : public LightSampler {
     std::pmr::vector<Handle<Light>> mLights{ context().globalAllocator };
 
 public:
-    explicit UniformSampler(const Ref<ConfigNode>&) {}
+    explicit UniformLightSampler(const Ref<ConfigNode>&) {}
     void preprocess(const std::pmr::vector<LightBase*>& lights) override {
         mLights.clear();
         mLights.reserve(lights.size());
@@ -40,6 +40,6 @@ public:
     }
 };
 
-PIPER_REGISTER_CLASS(UniformSampler, LightSampler);
+PIPER_REGISTER_CLASS(UniformLightSampler, LightSampler);
 
 PIPER_NAMESPACE_END

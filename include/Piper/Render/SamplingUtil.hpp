@@ -48,7 +48,7 @@ inline Normal<FrameOfReference::Shading> sampleCosineHemisphere(const glm::vec2 
     return Normal<FrameOfReference::Shading>::fromRaw({ coord, z });
 }
 
-inline uint32_t select(const Float* cdf, const Float* pdf, const uint32_t size, float& u) {
+inline uint32_t select(const Float* cdf, const Float* pdf, const uint32_t size, Float& u) {
     uint32_t l = 0, r = size;  //[l,r)
     while(l < r) {
         if(const auto mid = (l + r) >> 1; u >= cdf[mid]) {

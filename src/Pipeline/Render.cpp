@@ -30,6 +30,9 @@
 #include <Piper/Render/Sensor.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <magic_enum.hpp>
+#ifdef _DEBUG
+#include <oneapi/tbb/global_control.h>
+#endif
 #include <oneapi/tbb/parallel_for_each.h>
 #include <oneapi/tbb/spin_mutex.h>
 #include <unordered_set>
@@ -59,7 +62,6 @@ Ref<AccelerationBuilder> createEmbreeBackend();
 
 class Renderer final : public SourceNode {
     ChannelRequirement mRequirement;
-    std::pmr::string mCachePath;
     std::pmr::vector<Ref<SceneObject>> mSceneObjects{ context().globalAllocator };
     std::pmr::vector<LightBase*> mLights{ context().globalAllocator };
     std::pmr::vector<FrameAction> mActions{ context().globalAllocator };
@@ -86,20 +88,30 @@ class Renderer final : public SourceNode {
         };
 
         const auto end = std::max(tileX, tileY);
-        for(uint32_t k = 1; k <= end; ++k) {
+        for(uint32_t k = 1; k <= end; k += 2) {
             // right
-            for(uint32_t i = 0; i < k; ++i, ++curX)
+            for(uint32_t i = 0; i < k; ++i) {
+                ++curX;
                 tryInsert();
+            }
             // down
-            for(uint32_t i = 0; i < k; ++i, ++curY)
+            for(uint32_t i = 0; i < k; ++i) {
+                ++curY;
                 tryInsert();
+            }
             // left
-            for(uint32_t i = 0; i <= k; ++i, --curX)
+            for(uint32_t i = 0; i <= k; ++i) {
+                --curX;
                 tryInsert();
+            }
             // up
-            for(uint32_t i = 0; i <= k; ++i, --curY)
+            for(uint32_t i = 0; i <= k; ++i) {
+                --curY;
                 tryInsert();
+            }
         }
+
+        assert(res.size() == tileX * tileY);
 
         return res;
     }
@@ -124,12 +136,12 @@ class Renderer final : public SourceNode {
             const auto& ray = rayStream[rayIdx];
             const auto& intersection = intersections[rayIdx];
 
-            const auto ix = static_cast<uint32_t>(filmCoord.x - x0 - 0.5f);
-            const auto iy = static_cast<uint32_t>(filmCoord.y - y0 - 0.5f);
+            const auto coordOffset = filmCoord - glm::vec2{ x0 + 0.5f, y0 + 0.5f };
+            const auto ix = static_cast<uint32_t>(coordOffset.x);
+            const auto iy = static_cast<uint32_t>(coordOffset.y);
 
             const auto evalWeight = [&](const uint32_t x, const uint32_t y) noexcept {
-                return mFilter->evaluate(filmCoord.x - (static_cast<Float>(x) + 0.5f), filmCoord.y - (static_cast<Float>(y) + 0.5f)) *
-                    weight;
+                return mFilter->evaluate(coordOffset.x - static_cast<Float>(x), coordOffset.y - static_cast<Float>(y)) * weight;
             };
 
             const std::tuple<uint32_t, uint32_t, Float> points[4] = {
@@ -194,18 +206,14 @@ class Renderer final : public SourceNode {
         }
     }
 
-    std::pmr::vector<Float> renderTile(const std::pmr ::vector<Channel>& channels, const uint32_t channelTotalSize, const int32_t x0,
-                                       const int32_t y0, const int32_t x1, const int32_t y1, const SensorNDCAffineTransform& transform,
-                                       const Sensor* sensor, const Ref<TileSampler>& sampler, const Float shutterTime) {
-        MemoryArena arena;
-
-        const uint32_t tileWidth = x1 - x0, tileHeight = y1 - y0;
-
-        const auto pixelStride = channelTotalSize + 1;
+    std::pmr::vector<Float> renderTile(const std::pmr ::vector<Channel>& channels, const uint32_t pixelStride, const int32_t x0,
+                                       const int32_t y0, const uint32_t tileWidth, const uint32_t tileHeight,
+                                       const SensorNDCAffineTransform& transform, const Sensor* sensor, const Ref<TileSampler>& sampler,
+                                       const Float shutterTime) {
         std::pmr::vector<Float> tileData{ tileWidth * tileHeight * pixelStride, context().scopedAllocator };
 
-        const auto sampleXEnd = tileWidth - 1;
-        const auto sampleYEnd = tileHeight - 1;
+        const auto sampleXEnd = tileWidth - 2;
+        const auto sampleYEnd = tileHeight - 2;
         const auto localSampler = sampler->clone();
         const auto sampleCount = localSampler->samples();
 
@@ -230,7 +238,7 @@ class Renderer final : public SourceNode {
 
         const auto usedSpectrumSize = spectrumSize(RenderGlobalSetting::get().spectrumType);
 
-        if(sampleCount * sampleXEnd > 32) {
+        if(sampleCount * sampleXEnd > 1024) {
             primaryRays.resize(sampleCount);
             stream.resize(sampleCount);
 
@@ -269,19 +277,19 @@ class Renderer final : public SourceNode {
         return tileData;
     }
 
-    FrameGroup render(const uint32_t actionIdx, const uint32_t frameIdx) {
+    Ref<Frame> render(const uint32_t actionIdx, const uint32_t frameIdx) {
         constexpr uint32_t tileSize = 32;
 
         // TODO: sync frame
 
-        const auto& [width, height, frameCount, sampler, begin, fps, shutterOpen, shutterClose, channelDesc, channelTotalSize, sensor,
+        const auto& [width, height, frameCount, sampler, begin, fps, shutterOpen, shutterClose, channels, channelTotalSize, sensor,
                      transform, rect] = mActions[actionIdx];
 
         const auto tileX = (rect.width + tileSize - 1) / tileSize;
         const auto tileY = (rect.height + tileSize - 1) / tileSize;
         const auto shutterTime = shutterClose - shutterOpen;
 
-        info(fmt::format("Updating scene for action {} frame {}", frameIdx));
+        info(fmt::format("Updating scene for action {}, frame {}", actionIdx, frameIdx));
 
         const TimeInterval shutterInterval{ static_cast<Float>(begin + static_cast<double>(frameIdx) / fps + shutterOpen),
                                             static_cast<Float>(begin + static_cast<double>(frameIdx) / fps + shutterClose) };
@@ -293,39 +301,73 @@ class Renderer final : public SourceNode {
         mLightSampler->preprocess(mLights);
         mIntegrator->preprocess();
 
-        info(fmt::format("Rendering scene for action{} frame {}", frameIdx));
+        info(fmt::format("Rendering scene for action {}, frame {}", actionIdx, frameIdx));
 
         std::pmr::vector<glm::uvec2> blocks = generateSpiralTiles(tileX, tileY);
 
         const auto progressBase = static_cast<double>(mFrameCount - 1) / static_cast<double>(mTotalFrameCount),
-                   progressIncr = 1.0 / static_cast<double>(tileX * tileY * mTotalFrameCount);
+                   progressIncr = static_cast<double>((tileX * tileY + 1) * mTotalFrameCount);
+
+        const auto pixelStride = channelTotalSize + 1;
+        std::pmr::vector<Float> filmData{ width * height * pixelStride, context().globalAllocator };
 
         tbb::speculative_spin_mutex mutex;
 
         std::uint32_t tileCount = 0;
         const auto tileSampler = sampler->prepare(frameIdx, width, height, frameCount);
 
+#ifdef _DEBUG
+        tbb::global_control limit{ tbb::global_control::max_allowed_parallelism, 1 };
+#endif
+
         tbb::parallel_for_each(blocks, [&](const glm::uvec2 tile) {
+            MemoryArena arena;
+
             const auto x0 = static_cast<int32_t>(rect.left + tile.x * tileSize) - 1;
             const auto y0 = static_cast<int32_t>(rect.top + tile.y * tileSize) - 1;
-            const auto x1 = std::min(static_cast<int32_t>(rect.width), static_cast<int32_t>(rect.left + (tile.x + 1) * tileSize) + 1);
-            const auto y1 = std::min(static_cast<int32_t>(rect.height), static_cast<int32_t>(rect.top + (tile.y + 1) * tileSize) + 1);
+            const auto x1 = 1 + std::min(static_cast<int32_t>(rect.width), static_cast<int32_t>(rect.left + (tile.x + 1) * tileSize));
+            const auto y1 = 1 + std::min(static_cast<int32_t>(rect.height), static_cast<int32_t>(rect.top + (tile.y + 1) * tileSize));
 
-            const auto res =
-                renderTile(channelDesc, channelTotalSize, x0, y0, x1, y1, transform, sensor, tileSampler, static_cast<Float>(shutterTime));
+            const uint32_t tileWidth = x1 - x0, tileHeight = y1 - y0;
+            const auto res = renderTile(channels, pixelStride, x0, y0, tileWidth, tileHeight, transform, sensor, tileSampler,
+                                        static_cast<Float>(shutterTime));
 
             decltype(mutex)::scoped_lock guard{ mutex };
 
             // TODO: merge tile
 
-            mProgressReporter.update(progressBase + progressIncr * (++tileCount));
+            for(auto y = static_cast<uint32_t>(std::max(y0, 0)); y < std::min(static_cast<uint32_t>(y1), height); ++y)
+                for(auto x = static_cast<uint32_t>(std::max(x0, 0)); x < std::min(static_cast<uint32_t>(x1), width); ++x) {
+                    const auto px = x - x0, py = y - y0;
+                    const auto src = res.data() + (py * tileWidth + px) * pixelStride;
+                    const auto dst = filmData.data() + (y * width + x) * pixelStride;
+                    for(uint32_t k = 0; k < pixelStride; ++k)
+                        dst[k] += src[k];
+                }
+
+            mProgressReporter.update(progressBase + (++tileCount) / progressIncr);
         });
 
-        FrameGroup res;
+        std::pmr::vector<Float> weightedFilm{ width * height * channelTotalSize, context().globalAllocator };
+
+        tbb::parallel_for(tbb::blocked_range<uint32_t>{ 0, width * height }, [&](const tbb::blocked_range<uint32_t>& range) {
+            for(uint32_t idx = range.begin(); idx != range.end(); ++idx) {
+                const auto base = filmData.data() + idx * pixelStride;
+                if(base[0] < 1e-9f)
+                    continue;
+                const auto dst = weightedFilm.data() + idx * channelTotalSize;
+
+                const auto inverse = rcp(base[0]);
+                for(uint32_t k = 0; k < channelTotalSize; ++k)
+                    dst[k] = base[k + 1] * inverse;
+            }
+        });
 
         mProgressReporter.update(static_cast<double>(mFrameCount) / static_cast<double>(mTotalFrameCount));
 
-        return res;
+        return makeRefCount<Frame>(
+            FrameMetadata{ width, height, actionIdx, frameIdx, channels, channelTotalSize, RenderGlobalSetting::get().spectrumType, true },
+            std::move(weightedFilm));
     }
 
 public:
@@ -356,7 +398,7 @@ public:
             tbb::parallel_for_each(objects, [&](const Ref<ConfigAttr>& attr) {
                 const auto& ref = attr->as<Ref<ConfigNode>>();
 
-                auto object = getStaticFactory().make<SceneObject>(ref);
+                auto object = makeRefCount<SceneObject>(ref);
                 decltype(mutex)::scoped_lock guard{ mutex };
 
                 if(const auto group = object->primitiveGroup())
@@ -387,9 +429,9 @@ public:
             res.sampler = getStaticFactory().make<Sampler>(attrs->get("Sampler"sv)->as<Ref<ConfigNode>>());
 
             res.begin = attrs->get("Begin"sv)->as<double>();
-            res.fps = attrs->get("Height"sv)->as<double>();
-            res.shutterOpen = attrs->get("ShutterOpen"sv)->as<uint32_t>();
-            res.shutterClose = attrs->get("ShutterClose"sv)->as<uint32_t>();
+            res.fps = attrs->get("FPS"sv)->as<double>();
+            res.shutterOpen = attrs->get("ShutterOpen"sv)->as<double>();
+            res.shutterClose = attrs->get("ShutterClose"sv)->as<double>();
 
             const auto& channels = attrs->get("Channels"sv)->as<ConfigAttr::AttrArray>();
             res.channels.reserve(channels.size());
@@ -416,7 +458,7 @@ public:
         }
     }
 
-    FrameGroup transform(FrameGroup) override {
+    Ref<Frame> transform(Ref<Frame>) override {
         uint32_t idx = 0;
         uint32_t frameIdx = mFrameCount;
         while(frameIdx >= mActions[idx].frameCount) {
@@ -431,9 +473,6 @@ public:
         return mTotalFrameCount;
     }
     ChannelRequirement setup(ChannelRequirement req) override {
-        if(!fs::exists(mCachePath) && !fs::create_directories(mCachePath))
-            fatal(fmt::format("Failed to create cache directory {}.", mCachePath));
-
         for(auto [channel, force] : req)
             if(channel != Channel::Full && force)
                 fatal("Unsupported channel");

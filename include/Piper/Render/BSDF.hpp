@@ -20,7 +20,7 @@
 
 #pragma once
 #include <Piper/Render/RenderGlobalSetting.hpp>
-#include <Piper/Render/SampleUtil.hpp>
+#include <Piper/Render/SamplingUtil.hpp>
 #include <Piper/Render/Sampler.hpp>
 
 PIPER_NAMESPACE_BEGIN
@@ -95,9 +95,9 @@ class BSDFArray final {
 public:
     template <typename T>
     requires std::is_base_of_v<BSDF<Setting>, std::decay_t<T>>
-    void emplace(T&& storage) {
+    void emplace(const T& storage) {
         static_assert(sizeof(T) <= maxBSDFSize);
-        *reinterpret_cast<T*>(mBSDFStorage + mBSDFCount * maxBSDFSize) = std::forward<T>(storage);
+        memcpy(mBSDFStorage + mBSDFCount * maxBSDFSize, &storage, sizeof(T));
         ++mBSDFCount;
     }
 

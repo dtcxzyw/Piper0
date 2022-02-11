@@ -22,8 +22,16 @@
 #include <Piper/Core/Report.hpp>
 #include <Piper/Render/Math.hpp>
 #include <glm/gtc/quaternion.hpp>
+#include <pmmintrin.h>
+#include <xmmintrin.h>
 
 PIPER_NAMESPACE_BEGIN
+
+void initFloatingPointEnvironment() noexcept {
+    _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
+    _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
+}
+
 glm::vec2 parseVec2(const Ref<ConfigAttr>& node) {
     const auto& arr = node->as<ConfigAttr::AttrArray>();
     if(arr.size() != 2)

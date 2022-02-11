@@ -28,10 +28,15 @@ SpectralSpectrum parseStandardSpectrum(const Ref<ConfigNode>& node) {
     const auto name = node->get("Name"sv)->as<std::string_view>();
     fatal(fmt::format("Unrecognized standard light source {}", name));
 }
-RGBSpectrum parseRGBSpectrum(const Ref<ConfigNode>& node) {
-    const auto value = node->get("Value"sv);
-    const auto colorSpace = node->get("ColorSpace"sv)->as<std::string_view>();
-    return RGBSpectrum::fromRaw(convertRGB2StandardLinearRGB(parseVec3(value), colorSpace));
+RGBSpectrum parseRGBSpectrum(const Ref<ConfigNode>& node, const SpectrumParseType type) {
+    auto value = parseVec3(node->get("Value"sv));
+
+    if(type == SpectrumParseType::Albedo) {
+        const auto colorSpace = node->get("ColorSpace"sv)->as<std::string_view>();
+        value = convertRGB2StandardLinearRGB(value, colorSpace);
+    }
+
+    return RGBSpectrum::fromRaw(value);
 }
 SpectralSpectrum parseSpectralSpectrum(const Ref<ConfigNode>& node, const SpectrumParseType type) {
     PIPER_NOT_IMPLEMENTED();

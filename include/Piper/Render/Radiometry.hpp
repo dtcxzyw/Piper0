@@ -26,7 +26,7 @@
 
 PIPER_NAMESPACE_BEGIN
 
-enum class PdfType { None = 0, BSDF = 1 << 0, Light = 1 << 1, LightSampler = 1 << 2, All = (1 << 3) - 1 };
+enum class PdfType { None = 0, BSDF = 1 << 0, Light = 1 << 1, LightSampler = 1 << 2, Texture = 1 << 3, All = (1 << 4) - 1 };
 PIPER_BIT_ENUM(PdfType)
 
 template <PdfType T>

@@ -20,7 +20,7 @@
 
 #include <Piper/Render/BSDF.hpp>
 #include <Piper/Render/Material.hpp>
-#include <Piper/Render/SpectrumUtil.hpp>
+#include <Piper/Render/Texture.hpp>
 
 PIPER_NAMESPACE_BEGIN
 
@@ -34,7 +34,7 @@ class LambertianBSDF final : public BSDF<Setting> {
 public:
     explicit LambertianBSDF(const Rational<Spectrum>& reflectance) : mReflectance{ reflectance } {}
 
-    BxDFPart part() const noexcept override {
+    [[nodiscard]] BxDFPart part() const noexcept override {
         return BxDFPart::Diffuse | BxDFPart::Reflection;
     }
     Rational<Spectrum> evaluate(const Direction&, const Direction&) const noexcept override {
@@ -47,21 +47,15 @@ class Diffuse final : public Material<Setting> {
     PIPER_IMPORT_SETTINGS();
     PIPER_IMPORT_SHADING();
 
-    Rational<Spectrum> mReflectance;  // TODO: Texture
+    Ref<Texture2D<Setting>> mReflectance;
 
 public:
-    explicit Diffuse(const Ref<ConfigNode>& node) {
-        auto w = zero<SpectralSpectrum>();
-        if(auto ptr = node->tryGet("Reflectance"sv))
-            mReflectance = parseSpectrum<Spectrum>((*ptr)->as<Ref<ConfigNode>>(), w, SpectrumParseType::Albedo);
-        else
-            mReflectance = identity<Spectrum>();
-    }
+    explicit Diffuse(const Ref<ConfigNode>& node)
+        : mReflectance{ this->template make<Texture2D>(node->get("Reflectance"sv)->as<Ref<ConfigNode>>()) } {}
 
-    BSDFArray<Setting> evaluate(const SurfaceHit& intersection) const noexcept {
-        BSDFArray<Setting> res;
-        res.emplace(LambertianBSDF<Setting>{ mReflectance });
-        return res;
+    void evaluate(const Wavelength& sampledWavelength, const SurfaceHit& intersection, BSDFArray<Setting>& res) const noexcept override {
+        res.emplace(
+            LambertianBSDF<Setting>{ Rational<Spectrum>::fromRaw(mReflectance->evaluate(intersection.texCoord, sampledWavelength)) });
     }
 };
 
