@@ -60,12 +60,15 @@ public:
 
                 const auto pixelCount = metadata.width * metadata.height;
                 std::pmr::vector<Imf::Rgba> buffer{ pixelCount, context().scopedAllocator };
-                tbb::parallel_for(tbb::blocked_range<uint32_t>{ 0, pixelCount }, [&](const tbb::blocked_range<uint32_t>& range) {
-                    for(auto idx = range.begin(); idx != range.end();++idx) {
-                        const auto src = frame->data() + idx * metadata.pixelStride + stride;
-                        buffer[idx] = Imf::Rgba{ src[0], src[1], src[2] };
-                    }
-                });
+                tbb::parallel_for(
+                    tbb::blocked_range<uint32_t>{ 0, pixelCount },
+                    [&](const tbb::blocked_range<uint32_t>& range) {
+                        for(auto idx = range.begin(); idx != range.end(); ++idx) {
+                            const auto src = frame->data() + idx * metadata.pixelStride + stride;
+                            buffer[idx] = Imf::Rgba{ src[0], src[1], src[2] };
+                        }
+                    },
+                    globalAffinityPartitioner);
 
                 const auto fileName = resolveString(mOutputPath, pathResolver);
                 Imf::RgbaOutputFile file{ fileName.c_str(), static_cast<int32_t>(metadata.width), static_cast<int32_t>(metadata.height),

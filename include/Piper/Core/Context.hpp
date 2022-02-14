@@ -21,6 +21,7 @@
 #pragma once
 #include <Piper/Config.hpp>
 #include <memory_resource>
+#include <oneapi/tbb/partitioner.h>
 
 PIPER_NAMESPACE_BEGIN
 
@@ -52,5 +53,7 @@ public:
             context().scopedAllocator = nullptr;
     }
 };
+
+extern tbb::affinity_partitioner globalAffinityPartitioner;
 
 PIPER_NAMESPACE_END

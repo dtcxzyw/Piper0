@@ -25,6 +25,8 @@
 
 PIPER_NAMESPACE_BEGIN
 
+tbb::affinity_partitioner globalAffinityPartitioner;
+
 class ContextStorage final {
     Context mCtx{};
     tbb::cache_aligned_resource mAllocator{ tbb::scalable_memory_resource() };

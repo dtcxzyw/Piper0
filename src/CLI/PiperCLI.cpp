@@ -28,6 +28,7 @@
 #include <Piper/Core/StaticFactory.hpp>
 #include <Piper/Core/Stats.hpp>
 #include <Piper/Core/Sync.hpp>
+#include <Piper/Render/Math.hpp>
 #include <Piper/Render/Pipeline.hpp>
 #include <cxxopts.hpp>
 #include <fmt/chrono.h>
@@ -39,8 +40,7 @@
 #include <ftxui/dom/elements.hpp>
 #include <ftxui/screen/color.hpp>
 #include <ftxui/screen/terminal.hpp>
-#include <oneapi/tbb/task_group.h>
-#include <Piper/Render/Math.hpp>
+#include <future>
 using namespace Piper;
 
 template <typename Callable>
@@ -121,19 +121,26 @@ void mainGuarded(int argc, char** argv) {
         auto screen = ui::ScreenInteractive::Fullscreen();
         auto exit = screen.ExitLoopClosure();
 
-        tbb::task_group tg;
         bool running = true;
-        tg.run([&] {
+        auto renderTask = std::async([&] {
             guard(render);
             running = false;
         });
 
         // force update
         bool noProgress = true;
-        tg.run([&] {
+        auto lastEventUpdate = Clock::now() - 1s;
+        auto updateTask = std::async([&] {
             while(running || !noProgress) {  // NOLINT(bugprone-infinite-loop)
                 screen.PostEvent(ui::Event::Custom);
-                std::this_thread::sleep_for(200ms);
+                while(true) {
+                    std::this_thread::yield();
+                    const auto current = Clock::now();
+                    if(current - lastEventUpdate > 200ms) {
+                        lastEventUpdate = current;
+                        break;
+                    }
+                }
             }
             exit();
         });
@@ -258,9 +265,11 @@ void mainGuarded(int argc, char** argv) {
                 ui::borderStyled(ui::BorderStyle::LIGHT);
         });
 
+        // TODO: render manually to reduce overhead of event listener
         screen.Loop(container);
 
-        tg.wait();
+        renderTask.wait();
+        updateTask.wait();
     }
 
     logFile().flush();

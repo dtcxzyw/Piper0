@@ -21,6 +21,8 @@
 #include <Piper/Core/StaticFactory.hpp>
 #include <Piper/Render/Sampler.hpp>
 
+extern "C" void sobolKernel(const uint32_t* matrix, float* res, const uint32_t dims, uint32_t index);
+
 PIPER_NAMESPACE_BEGIN
 
 // Please refer to http://gruenschloss.org/sample-enum/sample-enum.pdf
@@ -44,18 +46,8 @@ constexpr auto matrixSize = 52;
 constexpr auto matrixDims = 1024;
 
 struct Sobol final {
-    static const uint32_t matrix[];
+    static const uint32_t matrix[] alignas(std::hardware_destructive_interference_size);
 };
-
-static Float sobolDim(const uint32_t dim, uint32_t index, const uint32_t scramble) {
-    uint32_t res = scramble;
-    for(uint32_t i = dim * matrixSize; index; index >>= 1, ++i) {
-        if(index & 1)
-            res ^= Sobol::matrix[i];
-    }
-
-    return std::fmin(oneMinusEpsilon, static_cast<Float>(res) * (1.0f / static_cast<Float>(1ULL << 32)));
-}
 
 using LUT = std::pmr::vector<uint32_t>;
 
@@ -66,14 +58,17 @@ class SobolTileSampler final : public TileSampler {
     uint32_t mSize;
     uint32_t mScramble;
 
+    const uint32_t* mMatrix32;
     LUT mC0Lower, mC0Upper, mC0LowerInverse, mC1Lower, mC1Upper, mC1UpperInverse;
 
 public:
-    SobolTileSampler(uint32_t dims, uint32_t sampleCount, uint32_t logSize, uint32_t scramble, LUT c0Lower, LUT c0Upper, LUT c0LowerInverse,
-                     LUT c1Lower, LUT c1Upper, LUT c1UpperInverse)
+    SobolTileSampler(uint32_t dims, uint32_t sampleCount, uint32_t logSize, uint32_t scramble, const uint32_t* matrix32, LUT c0Lower,
+                     LUT c0Upper, LUT c0LowerInverse, LUT c1Lower, LUT c1Upper, LUT c1UpperInverse)
         : mDims{ dims }, mSampleCount{ sampleCount }, mLogSize{ logSize }, mSize{ 1U << logSize }, mScramble{ scramble },
-          mC0Lower{ std::move(c0Lower) }, mC0Upper{ std::move(c0Upper) }, mC0LowerInverse{ std::move(c0LowerInverse) },
-          mC1Lower{ std::move(c1Lower) }, mC1Upper{ std::move(c1Upper) }, mC1UpperInverse{ std::move(c1UpperInverse) } {}
+          mMatrix32{ matrix32 }, mC0Lower{ std::move(c0Lower) }, mC0Upper{ std::move(c0Upper) },
+          mC0LowerInverse{ std::move(c0LowerInverse) }, mC1Lower{ std::move(c1Lower) }, mC1Upper{ std::move(c1Upper) }, mC1UpperInverse{
+              std::move(c1UpperInverse)
+          } {}
 
     uint32_t samples() const noexcept override {
         return mSampleCount;
@@ -94,9 +89,8 @@ public:
         const auto rx = static_cast<Float>(x) / static_cast<Float>(1ULL << (32 - mLogSize));
         const auto ry = static_cast<Float>(y) / static_cast<Float>(1ULL << (32 - mLogSize));
 
-        std::pmr::vector<Float> samples{ mDims, context().scopedAllocator };
-        for(uint32_t idx = 0; idx < mDims; ++idx)
-            samples[idx] = sobolDim(2 + idx, index, mScramble);
+        std::pmr::vector<Float> samples{ mDims, std::bit_cast<Float>(mScramble), context().scopedAllocator };
+        sobolKernel(mMatrix32, samples.data(), mDims, index);
 
         return { glm::vec2{ rx, ry }, SampleProvider{ std::move(samples), index } };
     }
@@ -104,7 +98,7 @@ public:
     Ref<TileSampler> clone() const override {
         const auto allocator = context().localAllocator;
         return makeRefCount<SobolTileSampler>(
-            mDims, mSampleCount, mLogSize, mScramble, LUT{ mC0Lower.cbegin(), mC0Lower.cend(), allocator },
+            mDims, mSampleCount, mLogSize, mScramble, mMatrix32, LUT{ mC0Lower.cbegin(), mC0Lower.cend(), allocator },
             LUT{ mC0Upper.cbegin(), mC0Upper.cend(), allocator }, LUT{ mC0LowerInverse.cbegin(), mC0LowerInverse.cend(), allocator },
             LUT{ mC1Lower.cbegin(), mC1Lower.cend(), allocator }, LUT{ mC1Upper.cbegin(), mC1Upper.cend(), allocator },
             LUT{ mC1UpperInverse.cbegin(), mC1UpperInverse.cend(), allocator });
@@ -115,6 +109,7 @@ class SobolSampler final : public Sampler {
     uint32_t mSampleCount;
     uint32_t mProvidedDims = matrixDims - 2;
     uint32_t mScramble = 0;
+    LUT mMatrix32{ context().globalAllocator };
 
 public:
     explicit SobolSampler(const Ref<ConfigNode>& node) : mSampleCount{ node->get("SampleCount"sv)->as<uint32_t>() } {
@@ -122,6 +117,10 @@ public:
             mProvidedDims = (*ptr)->as<uint32_t>();
         if(const auto ptr = node->tryGet("Scramble"sv))
             mScramble = (*ptr)->as<uint32_t>();
+        mMatrix32.resize(matrixDims * 32);
+        for(uint32_t idx = 2; idx < matrixDims; ++idx)
+            for(uint32_t k = 0; k < 32; ++k)
+                mMatrix32[(k << 10) | (idx - 2)] = Sobol::matrix[idx * matrixSize + k];
     }
 
     Ref<TileSampler> prepare(const uint32_t frameIdx, const uint32_t width, const uint32_t height, uint32_t) override {
@@ -151,8 +150,9 @@ public:
             }
         }
 
-        return makeRefCount<SobolTileSampler>(mProvidedDims, mSampleCount, logSize, scramble, std::move(c0Lower), std::move(c0Upper),
-                                              std::move(c0LowerInverse), std::move(c1Lower), std::move(c1Upper), std::move(c1UpperInverse));
+        return makeRefCount<SobolTileSampler>(mProvidedDims, mSampleCount, logSize, scramble, mMatrix32.data(), std::move(c0Lower),
+                                              std::move(c0Upper), std::move(c0LowerInverse), std::move(c1Lower), std::move(c1Upper),
+                                              std::move(c1UpperInverse));
     }
 };
 

@@ -131,7 +131,8 @@ class Renderer final : public SourceNode {
             return tileData[(x + y * tileWidth) * pixelStride + offset];
         };
 
-        for(uint32_t rayIdx = 0; rayIdx < primaryRays.size(); ++rayIdx) {
+        const uint32_t raySize = primaryRays.size();
+        for(uint32_t rayIdx = 0; rayIdx < raySize; ++rayIdx) {
             auto& [filmCoord, sampleProvider, weight] = primaryRays[rayIdx];
             const auto& ray = rayStream[rayIdx];
             const auto& intersection = intersections[rayIdx];
@@ -309,7 +310,7 @@ class Renderer final : public SourceNode {
                    progressIncr = static_cast<double>((tileX * tileY + 1) * mTotalFrameCount);
 
         const auto pixelStride = channelTotalSize + 1;
-        std::pmr::vector<Float> filmData{ width * height * pixelStride, context().globalAllocator };
+        std::pmr::vector<std::atomic<Float>> filmData{ width * height * pixelStride, context().globalAllocator };
 
         tbb::speculative_spin_mutex mutex;
 
@@ -320,7 +321,7 @@ class Renderer final : public SourceNode {
         tbb::global_control limit{ tbb::global_control::max_allowed_parallelism, 1 };
 #endif
 
-        tbb::parallel_for_each(blocks, [&](const glm::uvec2 tile) {
+        const auto processTile = [&](const glm::uvec2 tile) {
             MemoryArena arena;
 
             const auto x0 = static_cast<int32_t>(rect.left + tile.x * tileSize) - 1;
@@ -332,8 +333,6 @@ class Renderer final : public SourceNode {
             const auto res = renderTile(channels, pixelStride, x0, y0, tileWidth, tileHeight, transform, sensor, tileSampler,
                                         static_cast<Float>(shutterTime));
 
-            decltype(mutex)::scoped_lock guard{ mutex };
-            
             for(auto y = static_cast<uint32_t>(std::max(y0, 0)); y < std::min(static_cast<uint32_t>(y1), height); ++y)
                 for(auto x = static_cast<uint32_t>(std::max(x0, 0)); x < std::min(static_cast<uint32_t>(x1), width); ++x) {
                     const auto px = x - x0, py = y - y0;
@@ -343,23 +342,35 @@ class Renderer final : public SourceNode {
                         dst[k] += src[k];
                 }
 
+            decltype(mutex)::scoped_lock guard{ mutex };
             mProgressReporter.update(progressBase + (++tileCount) / progressIncr);
-        });
+        };
+
+        tbb::parallel_for(
+            tbb::blocked_range<size_t>(0, blocks.size()),
+            [&](const tbb::blocked_range<size_t>& r) {
+                for(size_t idx = r.begin(); idx != r.end(); ++idx)
+                    processTile(blocks[idx]);
+            },
+            globalAffinityPartitioner);
 
         std::pmr::vector<Float> weightedFilm{ width * height * channelTotalSize, context().globalAllocator };
 
-        tbb::parallel_for(tbb::blocked_range<uint32_t>{ 0, width * height }, [&](const tbb::blocked_range<uint32_t>& range) {
-            for(uint32_t idx = range.begin(); idx != range.end(); ++idx) {
-                const auto base = filmData.data() + idx * pixelStride;
-                if(base[0] < 1e-9f)
-                    continue;
-                const auto dst = weightedFilm.data() + idx * channelTotalSize;
+        tbb::parallel_for(
+            tbb::blocked_range<uint32_t>{ 0, width * height },
+            [&](const tbb::blocked_range<uint32_t>& range) {
+                for(uint32_t idx = range.begin(); idx != range.end(); ++idx) {
+                    const auto base = filmData.data() + idx * pixelStride;
+                    if(base[0] < 1e-9f)
+                        continue;
+                    const auto dst = weightedFilm.data() + idx * channelTotalSize;
 
-                const auto inverse = rcp(base[0]);
-                for(uint32_t k = 0; k < channelTotalSize; ++k)
-                    dst[k] = base[k + 1] * inverse;
-            }
-        });
+                    const auto inverse = rcp(base[0].load());
+                    for(uint32_t k = 0; k < channelTotalSize; ++k)
+                        dst[k] = base[k + 1].load() * inverse;
+                }
+            },
+            globalAffinityPartitioner);
 
         mProgressReporter.update(static_cast<double>(mFrameCount) / static_cast<double>(mTotalFrameCount));
 

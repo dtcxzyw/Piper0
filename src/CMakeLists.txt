@@ -17,9 +17,100 @@ find_path(PCG_INCLUDE_DIRS "pcg_extras.hpp")
 find_package(tinyobjloader CONFIG REQUIRED)
 find_package(IlmBase CONFIG REQUIRED)
 find_package(OpenEXR CONFIG REQUIRED)
-    
+find_program(ISPC_EXECUTABLE ispc PATHS ${EMBREE_INCLUDE_DIRS}/../../../ispc/latest/bin/ DOC "Path to the ISPC executable.")
 file(GLOB_RECURSE PIPER_CLI_SRC "*.cpp")
-add_executable(PiperCLI ${PIPER_CLI_SRC})
+file(GLOB_RECURSE PIPER_CLI_ISPC_SRC "*.ispc")
+
+set(ISPC_TARGETS "avx512skx-i32x16")
+
+#Please refer to https://github.com/embree/embree/blob/master/common/cmake/ispc.cmake
+SET(ISPC_TARGET_EXT ${CMAKE_CXX_OUTPUT_EXTENSION})
+STRING(REPLACE ";" "," ISPC_TARGET_ARGS "${ISPC_TARGETS}")
+
+IF (CMAKE_SIZEOF_VOID_P EQUAL 8)
+    IF (${CMAKE_SYSTEM_PROCESSOR} MATCHES "arm64|aarch64")
+        SET(ISPC_ARCHITECTURE "aarch64")
+    ELSE()
+        SET(ISPC_ARCHITECTURE "x86-64")
+    ENDIF()
+ELSE()
+    MESSAGE(ERROR "x86 is not supported.")
+ENDIF()
+
+SET(ISPC_TARGET_DIR "${CMAKE_CURRENT_BINARY_DIR}")
+
+IF(ISPC_INCLUDE_DIR)
+STRING(REPLACE ";" ";-I;" ISPC_INCLUDE_DIR_PARMS "${ISPC_INCLUDE_DIR}")
+SET(ISPC_INCLUDE_DIR_PARMS "-I" ${ISPC_INCLUDE_DIR_PARMS})
+ENDIF()
+
+IF (WIN32 OR "${CMAKE_BUILD_TYPE}" STREQUAL "Release")
+SET(ISPC_OPT_FLAGS -O3)
+ELSE()
+SET(ISPC_OPT_FLAGS -O2)
+ENDIF()
+
+SET(ISPC_OBJECTS "")
+SET(ISPC_ADDITIONAL_ARGS "")
+
+FOREACH(src ${PIPER_CLI_ISPC_SRC})
+    GET_FILENAME_COMPONENT(fname ${src} NAME_WE)
+    GET_FILENAME_COMPONENT(dir ${src} PATH)
+
+    SET(outdir "${ISPC_TARGET_DIR}")
+    SET(input "${src}")
+
+    SET(deps "")
+    IF (EXISTS ${outdir}/${fname}.dev.idep)
+        FILE(READ ${outdir}/${fname}.dev.idep contents)
+        STRING(REPLACE " " ";"     contents "${contents}")
+        STRING(REPLACE ";" "\\\\;" contents "${contents}")
+        STRING(REPLACE "\n" ";"    contents "${contents}")
+        FOREACH(dep ${contents})
+            IF (EXISTS ${dep})
+                SET(deps ${deps} ${dep})
+            ENDIF (EXISTS ${dep})
+        ENDFOREACH(dep ${contents})
+    ENDIF ()
+
+    SET(results "${outdir}/${fname}.dev${ISPC_TARGET_EXT}")
+    
+    LIST(LENGTH ISPC_TARGETS NUM_TARGETS)
+    IF (NUM_TARGETS GREATER 1)
+        FOREACH(target ${ISPC_TARGETS})
+            IF (${target} STREQUAL "avx512skx-i32x16")
+                SET(target "avx512skx")
+            ENDIF()
+            SET(results ${results} "${outdir}/${fname}.dev_${target}${ISPC_TARGET_EXT}")
+        ENDFOREACH()
+    ENDIF()
+
+    ADD_CUSTOM_COMMAND(
+    OUTPUT ${results} "${ISPC_TARGET_DIR}/${fname}_ispc.h"
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${outdir}
+    COMMAND ${ISPC_EXECUTABLE}
+    -I "${CMAKE_CURRENT_SOURCE_DIR}"
+    ${ISPC_INCLUDE_DIR_PARMS}
+    ${ISPC_DEFINITIONS}
+    --arch=${ISPC_ARCHITECTURE}
+    --addressing=64
+    ${ISPC_OPT_FLAGS}
+    --target=${ISPC_TARGET_ARGS}
+    --woff
+    --opt=fast-math
+    ${ISPC_ADDITIONAL_ARGS}
+    -h "${ISPC_TARGET_DIR}/${fname}_ispc.h"
+    -MMM  ${outdir}/${fname}.dev.idep
+    -o ${outdir}/${fname}.dev${ISPC_TARGET_EXT}
+    ${input}
+    DEPENDS ${input} ${deps}
+    COMMENT "Building ISPC object ${outdir}/${fname}.dev${ISPC_TARGET_EXT}"
+    )
+
+    SET(ISPC_OBJECTS ${ISPC_OBJECTS} ${results})
+ENDFOREACH()
+
+add_executable(PiperCLI ${PIPER_CLI_SRC} ${ISPC_OBJECTS})
 target_include_directories(PiperCLI PRIVATE ${RANG_INCLUDE_DIRS})
 target_include_directories(PiperCLI PRIVATE ${PCG_INCLUDE_DIRS})
 target_link_libraries(PiperCLI PRIVATE range-v3 range-v3-meta range-v3::meta range-v3-concepts)
