@@ -152,13 +152,26 @@ public:
 template <typename T>
 concept RefCountable = std::is_base_of_v<RefCountBase, T>;
 
+#ifdef _DEBUG
+void error(std::string message);
+#endif
+
 template <RefCountable T, RefCountable U = T, typename... Args>
 [[nodiscard]] auto makeRefCount(Args&&... args) -> Ref<U> {
     const auto allocator = context().globalObjectAllocator;
     const auto ptr = allocator->allocate(sizeof(T), alignof(T));
     try {
         new(ptr) T{ std::forward<Args>(args)... };
-    } catch(...) {
+    }
+#ifdef _DEBUG
+    catch(const std::exception& ex) {
+        error(ex.what());
+
+        allocator->deallocate(ptr, sizeof(T), alignof(T));
+        throw;
+    }
+#endif
+    catch(...) {
         allocator->deallocate(ptr, sizeof(T), alignof(T));
         throw;
     }

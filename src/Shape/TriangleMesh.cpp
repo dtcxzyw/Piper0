@@ -95,6 +95,8 @@ public:
         const auto lerp3 = [&](auto u, auto v, auto w) { return u * wu + v * wv + w * ww; };
 
         const auto texCoord = lerp3(mTexCoords[iu], mTexCoords[iv], mTexCoords[iw]);
+        const auto normalizedTexCoord = texCoord - glm::floor(texCoord);
+
         auto lerpNormal = transform(
             Normal<FrameOfReference::Object>::fromRaw(glm::normalize(lerp3(mNormals[iu].raw(), mNormals[iv].raw(), mNormals[iw].raw()))));
         if(dot(lerpNormal, geometryNormal) < 0.0f)
@@ -118,7 +120,7 @@ public:
                            geometryNormal,
                            lerpNormal,
                            primitiveIndex,
-                           texCoord,
+                           normalizedTexCoord,
                            transform.inverse() * frame,
                            Handle<Material>{ mSurface.get() } };
     }

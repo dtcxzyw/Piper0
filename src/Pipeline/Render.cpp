@@ -175,7 +175,7 @@ class Renderer final : public SourceNode {
                             PIPER_NOT_IMPLEMENTED();
                         }
 
-                        Float base[spectrumSize(SpectrumType::Spectral)];
+                        Float base[3];
                         mIntegrator->estimate(ray, intersection, *mAcceleration, *mLightSampler, sampleProvider, base);
                         // TODO: convert radiance to irradiance (W/(m^2)) or energy density (J/pixel) ?
                         writeData(base, usedSpectrumSize);
@@ -333,9 +333,7 @@ class Renderer final : public SourceNode {
                                         static_cast<Float>(shutterTime));
 
             decltype(mutex)::scoped_lock guard{ mutex };
-
-            // TODO: merge tile
-
+            
             for(auto y = static_cast<uint32_t>(std::max(y0, 0)); y < std::min(static_cast<uint32_t>(y1), height); ++y)
                 for(auto x = static_cast<uint32_t>(std::max(x0, 0)); x < std::min(static_cast<uint32_t>(x1), width); ++x) {
                     const auto px = x - x0, py = y - y0;
@@ -378,10 +376,8 @@ public:
 
         if(settings.variant.find("Mono"sv) != std::pmr::string::npos)
             settings.spectrumType = SpectrumType::Mono;
-        else if(settings.variant.find("RGB"sv) != std::pmr::string::npos)
-            settings.spectrumType = SpectrumType::LinearRGB;
         else
-            settings.spectrumType = SpectrumType::Spectral;
+            settings.spectrumType = SpectrumType::LinearRGB;
 
         settings.accelerationBuilder = createEmbreeBackend();
 

@@ -19,7 +19,6 @@
 */
 
 #pragma once
-#include <Piper/Core/ConfigNode.hpp>
 #include <Piper/Render/Radiometry.hpp>
 
 PIPER_NAMESPACE_BEGIN
@@ -44,7 +43,7 @@ namespace impl {
 
     template <SpectrumLike T>
     struct SpectrumCastCall<T, SpectralSpectrum> final {
-        static SpectralSpectrum cast(const T& u, const typename WavelengthType<T>::Type& w) noexcept {
+        static SpectralSpectrum cast(const T& u, const WavelengthType<SpectralSpectrum>::Type& w) noexcept {
             // TODO
             return zero<SpectralSpectrum>();
         }
@@ -52,8 +51,8 @@ namespace impl {
 
 }  // namespace impl
 
-template <SpectrumLike T, SpectrumLike U>
-auto spectrumCast(const U& u, const typename WavelengthType<U>::Type& w) {
+template <SpectrumLike T, SpectrumLike U, typename Wavelength>
+auto spectrumCast(const U& u, const Wavelength& w) noexcept {
     return impl::SpectrumCastCall<U, T>::cast(u, w);
 }
 

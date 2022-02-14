@@ -63,21 +63,21 @@ public:
     }
 };
 
-static ColorSpaceConvertContext& context() {
+static ColorSpaceConvertContext& colorContext() {
     static ColorSpaceConvertContext ctx;
     return ctx;
 }
 
 glm::vec3 convertRGB2StandardLinearRGB(const glm::vec3& valueRGB, const std::string_view colorSpace) {
     glm::vec3 res = valueRGB;
-    const auto& processor = context().getRGB2StandardLinearRGB(colorSpace);
+    const auto& processor = colorContext().getRGB2StandardLinearRGB(colorSpace);
     processor.cpuFloatProcessor->applyRGB(glm::value_ptr(res));
     return res;
 }
 
 glm::vec3 convertStandardLinearRGB2RGB(const glm::vec3& valueStandardLinearRGB, const std::string_view colorSpace) {
     glm::vec3 res = valueStandardLinearRGB;
-    const auto& processor = context().getStandardLinearRGB2RGB(colorSpace);
+    const auto& processor = colorContext().getStandardLinearRGB2RGB(colorSpace);
     processor.cpuFloatProcessor->applyRGB(glm::value_ptr(res));
     return res;
 }

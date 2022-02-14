@@ -18,35 +18,32 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+#include <Piper/Render/ColorSpace.hpp>
+#include <Piper/Render/SpectrumUtil.hpp>
 #include <Piper/Render/Texture.hpp>
 
 PIPER_NAMESPACE_BEGIN
 
-SpectralSpectrum temperatureToSpectrum(Float temperature, const SpectralSpectrum& sampledWavelength) noexcept;
-
+// TODO: parseType
 template <typename Setting>
-class BlackBody final : public ConstantTexture<Setting> {
+class RGBSpectrumTexture : public ConstantTexture<Setting> {
     PIPER_IMPORT_SETTINGS();
-    Float mTemperature;
-    Float mScale;
+    RGBSpectrum mSpectrum;
 
 public:
-    explicit BlackBody(const Ref<ConfigNode>& node)
-        : mTemperature{ static_cast<Float>(node->get("Temperature"sv)->as<double>()) }, mScale{ static_cast<Float>(
-                                                                                            node->get("Scale"sv)->as<double>()) } {}
+    explicit RGBSpectrumTexture(const Ref<ConfigNode>& node)
+        : mSpectrum{ RGBSpectrum::fromRaw(
+              convertRGB2StandardLinearRGB(parseVec3(node->get("Value"sv)), node->get("ColorSpace"sv)->as<std::string_view>())) } {}
 
     Spectrum evaluate(const Wavelength& sampledWavelength) const noexcept override {
-        return temperatureToSpectrum(mTemperature, sampledWavelength) * mScale;
+        return spectrumCast<Spectrum>(mSpectrum, sampledWavelength);
     }
 
     [[nodiscard]] MonoSpectrum mean() const noexcept override {
-        // TODO
-        return mScale;
+        return luminance(mSpectrum, {});
     }
 };
 
-// TODO: other variant
-PIPER_REGISTER_WRAPPED_VARIANT_IMPL(ConstantTexture2DWrapper, BlackBody, Texture2D, RSSSpectral);
-PIPER_REGISTER_WRAPPED_VARIANT_IMPL(ConstantSphericalTextureWrapper, BlackBody, SphericalTexture, RSSSpectral);
-
+PIPER_REGISTER_WRAPPED_VARIANT(ConstantTexture2DWrapper, RGBSpectrumTexture, Texture2D);
+PIPER_REGISTER_WRAPPED_VARIANT(ConstantSphericalTextureWrapper, RGBSpectrumTexture, SphericalTexture);
 PIPER_NAMESPACE_END

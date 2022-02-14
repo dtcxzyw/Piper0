@@ -84,4 +84,45 @@ public:
     }
 };
 
+template <typename Setting>
+class ConstantTexture : public TypedRenderVariantBase<Setting> {
+    PIPER_IMPORT_SETTINGS();
+
+public:
+    virtual Spectrum evaluate(const Wavelength& sampledWavelength) const noexcept = 0;
+    [[nodiscard]] virtual MonoSpectrum mean() const noexcept = 0;
+};
+
+template <typename T, typename Setting, typename = std::is_base_of<ConstantTexture<Setting>, T>>
+class ConstantTexture2DWrapper : public Texture2D<Setting> {
+    PIPER_IMPORT_SETTINGS();
+
+    T mImpl;
+
+public:
+    explicit ConstantTexture2DWrapper(const Ref<ConfigNode>& node) : mImpl{ node } {}
+
+    Spectrum evaluate(TexCoord, const Wavelength& sampledWavelength) const noexcept final {
+        return mImpl.evaluate(sampledWavelength);
+    }
+};
+
+template <typename T, typename Setting, typename = std::is_base_of<ConstantTexture<Setting>, T>>
+class ConstantSphericalTextureWrapper : public SphericalTexture<Setting> {
+    PIPER_IMPORT_SETTINGS();
+
+    T mImpl;
+
+public:
+    explicit ConstantSphericalTextureWrapper(const Ref<ConfigNode>& node) : mImpl{ node } {}
+
+    Spectrum evaluate(TexCoord, const Wavelength& sampledWavelength) const noexcept final {
+        return mImpl.evaluate(sampledWavelength);
+    }
+
+    [[nodiscard]] MonoSpectrum mean() const noexcept final {
+        return mImpl.mean();
+    }
+};
+
 PIPER_NAMESPACE_END

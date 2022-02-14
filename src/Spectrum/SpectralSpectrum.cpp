@@ -308,9 +308,9 @@ static auto expandBlackBody(const Float temperature, const T& x, std::index_sequ
     return T{ (blackBody(temperature, x[I]), ...) };
 }
 
-SpectralSpectrum temperatureToSpectrum(const Float temperature, const SpectralSpectrum& sampledWavelengths) noexcept {
+SpectralSpectrum temperatureToSpectrum(const Float temperature, const SpectralSpectrum& sampledWavelength) noexcept {
     constexpr auto indices = std::make_index_sequence<SpectralSpectrum::nSamples>{};
-    return SpectralSpectrum::fromRaw(expandBlackBody<SpectralSpectrum::nSamples>(temperature, sampledWavelengths.raw(), indices));
+    return SpectralSpectrum::fromRaw(expandBlackBody<SpectralSpectrum::nSamples>(temperature, sampledWavelength.raw(), indices));
 }
 
 PIPER_NAMESPACE_END

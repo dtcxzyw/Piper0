@@ -23,7 +23,7 @@
 
 PIPER_NAMESPACE_BEGIN
 
-enum class SpectrumType : uint16_t { Mono, LinearRGB, Spectral };
+enum class SpectrumType : uint16_t { Mono, LinearRGB };
 
 class RGBSpectrum;
 
@@ -58,7 +58,7 @@ concept SpectrumLike = requires(const T& x, Float y, const typename WavelengthTy
 
 // ITU-R Rec. BT.709 linear RGB, used by pbrt/mitsuba
 // Please refer to section "1 opto-electronic conversion" of https://www.itu.int/rec/R-REC-BT.709-6-201506-I/en
-static constexpr const char* nameOfStandardLinearRGB = "Rec.709";
+static constexpr const char* nameOfStandardLinearRGB = "lin_rec709";  // TODO: check again
 
 class RGBSpectrum final {
     PIPER_GUARD_BASE(RGBSpectrum, glm::vec3)
@@ -83,7 +83,6 @@ class RGBSpectrum final {
 };
 
 Float luminance(const RGBSpectrum& x, const std::monostate&) noexcept;
-
 
 constexpr const RGBSpectrum& toRGB(const RGBSpectrum& x, const std::monostate&) noexcept {
     return x;
@@ -158,7 +157,7 @@ struct WavelengthType<SpectralSpectrum> final {
 
 template <>
 constexpr SpectrumType spectrumType<SpectralSpectrum>() noexcept {
-    return SpectrumType::Spectral;
+    return SpectrumType::LinearRGB;
 }
 
 template <>
@@ -177,8 +176,6 @@ constexpr uint32_t spectrumSize(const SpectrumType type) noexcept {
             return 1;
         case SpectrumType::LinearRGB:
             return 3;
-        case SpectrumType::Spectral:
-            return SpectralSpectrum::nSamples;
     }
     return 0;
 }
