@@ -89,10 +89,13 @@ public:
         const auto rx = static_cast<Float>(x) / static_cast<Float>(1ULL << (32 - mLogSize));
         const auto ry = static_cast<Float>(y) / static_cast<Float>(1ULL << (32 - mLogSize));
 
-        std::pmr::vector<Float> samples{ mDims, std::bit_cast<Float>(mScramble), context().scopedAllocator };
-        sobolKernel(mMatrix32, samples.data(), mDims, index);
+        if(mDims) {
+            std::pmr::vector<Float> samples{ mDims, std::bit_cast<Float>(mScramble), context().scopedAllocator };
+            sobolKernel(mMatrix32, samples.data(), mDims, index);
 
-        return { glm::vec2{ rx, ry }, SampleProvider{ std::move(samples), index } };
+            return { glm::vec2{ rx, ry }, SampleProvider{ std::move(samples), index } };
+        }
+        return { glm::vec2{ rx, ry }, SampleProvider{ {}, index } };
     }
 
     Ref<TileSampler> clone() const override {

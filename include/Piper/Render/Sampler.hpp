@@ -33,7 +33,10 @@ public:
     SampleProvider() = default;
     ~SampleProvider() = default;
     explicit SampleProvider(std::pmr::vector<Float> samples, const uint64_t seed)
-        : mGeneratedSamples{ std::move(samples) }, mFallback{ seeding(seed) } {}
+        : mGeneratedSamples{ std::move(samples) }, mFallback{ seeding(seed) } {
+        if(mGeneratedSamples.empty())
+            mGeneratedSamples = std::pmr::vector<Float>(1, context().scopedAllocator);
+    }
     SampleProvider(SampleProvider&&) = default;
     SampleProvider& operator=(SampleProvider&&) = default;
     SampleProvider(const SampleProvider&) = delete;
