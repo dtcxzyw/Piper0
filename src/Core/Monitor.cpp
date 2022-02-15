@@ -54,6 +54,8 @@ struct CurrentCheckpoint final {
     uint64_t activeIOThread = 0;
 };
 
+extern std::function<void()> renderCallback;
+
 class MonitorImpl final : public Monitor {
     static constexpr auto unavailable = std::numeric_limits<uint64_t>::max();
 
@@ -200,6 +202,7 @@ public:
         return res;
     }
     void updateCustomStatus(void* key, std::string message) override {
+        renderCallback();
         mCustomStatus.emplace(key, std::move(message));
     }
     uint32_t updateCount() const noexcept override {

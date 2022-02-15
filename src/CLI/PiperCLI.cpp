@@ -39,9 +39,6 @@
 #include <ftxui/component/component_base.hpp>
 #include <ftxui/dom/elements.hpp>
 #include <ftxui/screen/color.hpp>
-#include <ftxui/screen/terminal.hpp>
-#include <future>
-#include <oneapi/tbb/task_group.h>
 using namespace Piper;
 
 template <typename Callable>
@@ -57,6 +54,10 @@ void guard(Callable&& callable) noexcept {
         fatal("Unknown error"s);
     }
 #endif
+}
+
+namespace Piper {
+    std::function<void()> renderCallback;
 }
 
 void mainGuarded(int argc, char** argv) {
@@ -102,7 +103,7 @@ void mainGuarded(int argc, char** argv) {
         fatal("Unrecognized input file");
     };
 
-    constexpr auto render = [&] {
+    const auto render = [&] {
         info("Loading scene");
         const auto pipelineDesc = makeRefCount<ConfigNode>("pipeline"sv, getPipelineType(inputFilePath.extension().string()),
                                                            ConfigNode::AttrMap{ { { "InputFile"sv, makeRefCount<ConfigAttr>(inputFile) },
@@ -121,10 +122,6 @@ void mainGuarded(int argc, char** argv) {
         namespace ui = ftxui;
 
         bool running = true;
-        auto renderTask = std::async([&] {
-            guard(render);
-            running = false;
-        });
 
         // force update
         bool noProgress = true;
@@ -212,6 +209,7 @@ void mainGuarded(int argc, char** argv) {
                 return ui::text("No progress");
             return ui::vbox(std::move(lines));
         });
+
         auto consoleView = ui::Renderer([] {
             auto& output = consoleOutput();
 
@@ -243,17 +241,25 @@ void mainGuarded(int argc, char** argv) {
 
             return ui::vbox(lines);
         });
+
         auto container = ui::Renderer([&] {
             return ui::vbox({ monitorView->Render(), ui::separator(), statusView->Render(), ui::separator(), consoleView->Render() }) |
                 ui::borderStyled(ui::BorderStyle::LIGHT);
         });
 
-        // TODO: render manually to reduce overhead of event listener
-        // screen.Loop(container);
-
         ui::NaiveUI screen;
-
         auto lastRenderUpdate = Clock::now() - 1s;
+
+        renderCallback = [&] {
+            if(const auto current = Clock::now(); current - lastRenderUpdate > 200ms) {
+                lastRenderUpdate = current;
+                screen.render(container);
+            }
+        };
+
+        guard(render);
+        running = false;
+
         while(running || !noProgress) {  // NOLINT(bugprone-infinite-loop)
             screen.render(container);
             while(true) {
@@ -265,7 +271,7 @@ void mainGuarded(int argc, char** argv) {
             }
         }
 
-        renderTask.wait();
+        renderCallback = [] {};
     }
 
     logFile().flush();

@@ -69,8 +69,11 @@ void error(std::string message) {
     std::abort();
 }
 
+extern std::function<void()> renderCallback;
+
 ProgressReporter::ProgressReporter() : mStart{ Clock::now() }, mProgress{ 0.0 } {}
 void ProgressReporter::update(const double progress) noexcept {
+    renderCallback();
     mProgress = std::fmin(1.0, progress);
 
     if(mProgress > 0.001) {
