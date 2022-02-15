@@ -24,6 +24,7 @@
 //
 #include <Piper/Core/Context.hpp>
 #include <Piper/Core/Monitor.hpp>
+#include <Piper/Core/NaiveUI.hpp>
 #include <Piper/Core/Report.hpp>
 #include <Piper/Core/StaticFactory.hpp>
 #include <Piper/Core/Stats.hpp>
@@ -36,11 +37,11 @@
 #include <fstream>
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/component_base.hpp>
-#include <ftxui/component/screen_interactive.hpp>
 #include <ftxui/dom/elements.hpp>
 #include <ftxui/screen/color.hpp>
 #include <ftxui/screen/terminal.hpp>
 #include <future>
+#include <oneapi/tbb/task_group.h>
 using namespace Piper;
 
 template <typename Callable>
@@ -118,8 +119,6 @@ void mainGuarded(int argc, char** argv) {
 
     {
         namespace ui = ftxui;
-        auto screen = ui::ScreenInteractive::Fullscreen();
-        auto exit = screen.ExitLoopClosure();
 
         bool running = true;
         auto renderTask = std::async([&] {
@@ -129,29 +128,13 @@ void mainGuarded(int argc, char** argv) {
 
         // force update
         bool noProgress = true;
-        auto lastEventUpdate = Clock::now() - 1s;
-        auto updateTask = std::async([&] {
-            while(running || !noProgress) {  // NOLINT(bugprone-infinite-loop)
-                screen.PostEvent(ui::Event::Custom);
-                while(true) {
-                    std::this_thread::yield();
-                    const auto current = Clock::now();
-                    if(current - lastEventUpdate > 200ms) {
-                        lastEventUpdate = current;
-                        break;
-                    }
-                }
-            }
-            exit();
-        });
-
         auto lastUpdate = Clock::now() - 1s;
         std::optional<CurrentStatus> status;
 
         auto monitorView = ui::Renderer([&] {
             const auto now = Clock::now();
 
-            if(now - lastUpdate > 500ms) {
+            if(now - lastUpdate > 2s) {
                 status = getMonitor().update();
                 lastUpdate = now;
             }
@@ -266,10 +249,23 @@ void mainGuarded(int argc, char** argv) {
         });
 
         // TODO: render manually to reduce overhead of event listener
-        screen.Loop(container);
+        // screen.Loop(container);
+
+        ui::NaiveUI screen;
+
+        auto lastRenderUpdate = Clock::now() - 1s;
+        while(running || !noProgress) {  // NOLINT(bugprone-infinite-loop)
+            screen.render(container);
+            while(true) {
+                std::this_thread::yield();
+                if(const auto current = Clock::now(); current - lastRenderUpdate > 200ms) {
+                    lastRenderUpdate = current;
+                    break;
+                }
+            }
+        }
 
         renderTask.wait();
-        updateTask.wait();
     }
 
     logFile().flush();

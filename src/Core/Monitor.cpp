@@ -46,6 +46,7 @@ struct CurrentCheckpoint final {
     std::pmr::vector<CoreInfo> cores{ context().localAllocator };
     uint64_t userTime = 0;
     uint64_t kernelTime = 0;
+    uint64_t totalTime = 0;
     uint64_t memoryUsage = 0;
     uint64_t IOOps = 0;
     uint64_t readCount = 0;   // in bytes
@@ -104,11 +105,19 @@ class MonitorImpl final : public Monitor {
 
         const auto process = GetCurrentProcess();
 
-        FILETIME creation, exit, user, kernel;
-        GetProcessTimes(process, &creation, &exit, &kernel, &user);
+        {
+            FILETIME creation, exit, user, kernel;
+            GetProcessTimes(process, &creation, &exit, &kernel, &user);
 
-        res.userTime = toNanosecond(user);
-        res.kernelTime = toNanosecond(kernel);
+            res.userTime = toNanosecond(user);
+            res.kernelTime = toNanosecond(kernel);
+        }
+
+        {
+            FILETIME idle, user, kernel;
+            GetSystemTimes(&idle, &kernel, &user);
+            res.totalTime = toNanosecond(kernel) + toNanosecond(user);
+        }
 
         PROCESS_MEMORY_COUNTERS memCounter;
         GetProcessMemoryInfo(process, &memCounter, sizeof(memCounter));
@@ -149,7 +158,7 @@ class MonitorImpl final : public Monitor {
     CurrentStatus diff(const CurrentCheckpoint& last, const CurrentCheckpoint& now) {
         CurrentStatus res;
         const auto dt = static_cast<double>(now.recordTime - last.recordTime);
-        const uint32_t cores = now.cores.size();
+        const auto cores = static_cast<uint32_t>(now.cores.size());
         res.cores.resize(cores);
         for(uint32_t idx = 0; idx < cores; ++idx) {
             const auto [user0, kernel0, total0] = last.cores[idx];
@@ -159,8 +168,10 @@ class MonitorImpl final : public Monitor {
             res.cores[idx] = { user / total, kernel / total };
         }
 
-        res.userRatio = static_cast<double>(now.userTime - last.userTime) / (cores * dt);
-        res.kernelRatio = static_cast<double>(now.kernelTime - last.kernelTime) / (cores * dt);
+        const auto systemDeltaTime =
+            static_cast<double>(std::max(now.userTime - last.userTime + now.kernelTime - last.kernelTime, now.totalTime - last.totalTime));
+        res.userRatio = std::fmin(1.0, static_cast<double>(now.userTime - last.userTime) / systemDeltaTime);
+        res.kernelRatio = std::fmin(1.0, static_cast<double>(now.kernelTime - last.kernelTime) / systemDeltaTime);
         res.memoryUsage = now.memoryUsage;
         res.IOOps = now.IOOps - last.IOOps;
         res.readSpeed = static_cast<double>(now.readCount - last.readCount) / (1e-9 * dt);

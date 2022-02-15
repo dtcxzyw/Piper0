@@ -21,7 +21,7 @@ find_program(ISPC_EXECUTABLE ispc PATHS ${EMBREE_INCLUDE_DIRS}/../../../ispc/lat
 file(GLOB_RECURSE PIPER_CLI_SRC "*.cpp")
 file(GLOB_RECURSE PIPER_CLI_ISPC_SRC "*.ispc")
 
-set(ISPC_TARGETS "avx512skx-i32x16")
+set(ISPC_TARGETS "avx2;avx512skx-i32x16")
 
 #Please refer to https://github.com/embree/embree/blob/master/common/cmake/ispc.cmake
 SET(ISPC_TARGET_EXT ${CMAKE_CXX_OUTPUT_EXTENSION})
