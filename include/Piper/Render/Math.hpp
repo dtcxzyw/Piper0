@@ -32,7 +32,7 @@ PIPER_NAMESPACE_BEGIN
 using Float = float;
 using TexCoord = glm::vec2;
 
-constexpr auto infinity = std::numeric_limits<Float>::infinity();
+constexpr auto infinity = std::numeric_limits<Float>::max();
 constexpr auto epsilon = 1e-4f;
 constexpr auto e = std::numbers::e_v<Float>;
 constexpr auto pi = std::numbers::pi_v<Float>;

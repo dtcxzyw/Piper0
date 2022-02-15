@@ -46,7 +46,7 @@ constexpr auto matrixSize = 52;
 constexpr auto matrixDims = 1024;
 
 struct Sobol final {
-    static const uint32_t matrix[] alignas(std::hardware_destructive_interference_size);
+    static const uint32_t matrix[];
 };
 
 using LUT = std::pmr::vector<uint32_t>;

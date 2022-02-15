@@ -133,16 +133,16 @@ class Renderer final : public SourceNode {
 
         const uint32_t raySize = primaryRays.size();
         for(uint32_t rayIdx = 0; rayIdx < raySize; ++rayIdx) {
-            auto& [filmCoord, sampleProvider, weight] = primaryRays[rayIdx];
+            auto& payload = primaryRays[rayIdx];
             const auto& ray = rayStream[rayIdx];
             const auto& intersection = intersections[rayIdx];
 
-            const auto coordOffset = filmCoord - glm::vec2{ x0 + 0.5f, y0 + 0.5f };
+            const auto coordOffset = payload.filmCoord - glm::vec2{ x0 + 0.5f, y0 + 0.5f };
             const auto ix = static_cast<uint32_t>(coordOffset.x);
             const auto iy = static_cast<uint32_t>(coordOffset.y);
 
             const auto evalWeight = [&](const uint32_t x, const uint32_t y) noexcept {
-                return mFilter->evaluate(coordOffset.x - static_cast<Float>(x), coordOffset.y - static_cast<Float>(y)) * weight;
+                return mFilter->evaluate(coordOffset.x - static_cast<Float>(x), coordOffset.y - static_cast<Float>(y)) * payload.weight;
             };
 
             const std::tuple<uint32_t, uint32_t, Float> points[4] = {
@@ -177,7 +177,7 @@ class Renderer final : public SourceNode {
                         }
 
                         Float base[3];
-                        mIntegrator->estimate(ray, intersection, *mAcceleration, *mLightSampler, sampleProvider, base);
+                        mIntegrator->estimate(ray, intersection, *mAcceleration, *mLightSampler, payload.sampleProvider, base);
                         // TODO: convert radiance to irradiance (W/(m^2)) or energy density (J/pixel) ?
                         writeData(base, usedSpectrumSize);
                     } break;
@@ -283,17 +283,18 @@ class Renderer final : public SourceNode {
 
         // TODO: sync frame
 
-        const auto& [width, height, frameCount, sampler, begin, fps, shutterOpen, shutterClose, channels, channelTotalSize, sensor,
-                     transform, rect] = mActions[actionIdx];
+        const auto& action = mActions[actionIdx];
 
-        const auto tileX = (rect.width + tileSize - 1) / tileSize;
-        const auto tileY = (rect.height + tileSize - 1) / tileSize;
-        const auto shutterTime = shutterClose - shutterOpen;
+        const auto tileX = (action.rect.width + tileSize - 1) / tileSize;
+        const auto tileY = (action.rect.height + tileSize - 1) / tileSize;
+        const auto shutterTime = action.shutterClose - action.shutterOpen;
 
         info(fmt::format("Updating scene for action {}, frame {}", actionIdx, frameIdx));
 
-        const TimeInterval shutterInterval{ static_cast<Float>(begin + static_cast<double>(frameIdx) / fps + shutterOpen),
-                                            static_cast<Float>(begin + static_cast<double>(frameIdx) / fps + shutterClose) };
+        const TimeInterval shutterInterval{
+            static_cast<Float>(action.begin + static_cast<double>(frameIdx) / action.fps + action.shutterOpen),
+                                            static_cast<Float>(action.begin + static_cast<double>(frameIdx) / action.fps +
+                                                               action.shutterClose) };
 
         tbb::parallel_for_each(mSceneObjects, [&](const auto& object) { object->update(shutterInterval); });
 
@@ -309,13 +310,13 @@ class Renderer final : public SourceNode {
         const auto progressBase = static_cast<double>(mFrameCount - 1) / static_cast<double>(mTotalFrameCount),
                    progressIncr = static_cast<double>((tileX * tileY + 1) * mTotalFrameCount);
 
-        const auto pixelStride = channelTotalSize + 1;
-        std::pmr::vector<std::atomic<Float>> filmData{ width * height * pixelStride, context().globalAllocator };
+        const auto pixelStride = action.channelTotalSize + 1;
+        std::pmr::vector<std::atomic<Float>> filmData{ action.width * action.height * pixelStride, context().globalAllocator };
 
         tbb::speculative_spin_mutex mutex;
 
         std::uint32_t tileCount = 0;
-        const auto tileSampler = sampler->prepare(frameIdx, width, height, frameCount);
+        const auto tileSampler = action.sampler->prepare(frameIdx, action.width, action.height, action.frameCount);
 
 #ifdef _DEBUG
         tbb::global_control limit{ tbb::global_control::max_allowed_parallelism, 1 };
@@ -324,20 +325,22 @@ class Renderer final : public SourceNode {
         const auto processTile = [&](const glm::uvec2 tile) {
             MemoryArena arena;
 
-            const auto x0 = static_cast<int32_t>(rect.left + tile.x * tileSize) - 1;
-            const auto y0 = static_cast<int32_t>(rect.top + tile.y * tileSize) - 1;
-            const auto x1 = 1 + std::min(static_cast<int32_t>(rect.width), static_cast<int32_t>(rect.left + (tile.x + 1) * tileSize));
-            const auto y1 = 1 + std::min(static_cast<int32_t>(rect.height), static_cast<int32_t>(rect.top + (tile.y + 1) * tileSize));
+            const auto x0 = static_cast<int32_t>(action.rect.left + tile.x * tileSize) - 1;
+            const auto y0 = static_cast<int32_t>(action.rect.top + tile.y * tileSize) - 1;
+            const auto x1 =
+                1 + std::min(static_cast<int32_t>(action.rect.width), static_cast<int32_t>(action.rect.left + (tile.x + 1) * tileSize));
+            const auto y1 =
+                1 + std::min(static_cast<int32_t>(action.rect.height), static_cast<int32_t>(action.rect.top + (tile.y + 1) * tileSize));
 
             const uint32_t tileWidth = x1 - x0, tileHeight = y1 - y0;
-            const auto res = renderTile(channels, pixelStride, x0, y0, tileWidth, tileHeight, transform, sensor, tileSampler,
-                                        static_cast<Float>(shutterTime));
+            const auto res = renderTile(action.channels, pixelStride, x0, y0, tileWidth, tileHeight, action.transform, action.sensor,
+                                        tileSampler, static_cast<Float>(shutterTime));
 
-            for(auto y = static_cast<uint32_t>(std::max(y0, 0)); y < std::min(static_cast<uint32_t>(y1), height); ++y)
-                for(auto x = static_cast<uint32_t>(std::max(x0, 0)); x < std::min(static_cast<uint32_t>(x1), width); ++x) {
+            for(auto y = static_cast<uint32_t>(std::max(y0, 0)); y < std::min(static_cast<uint32_t>(y1), action.height); ++y)
+                for(auto x = static_cast<uint32_t>(std::max(x0, 0)); x < std::min(static_cast<uint32_t>(x1), action.width); ++x) {
                     const auto px = x - x0, py = y - y0;
                     const auto src = res.data() + (py * tileWidth + px) * pixelStride;
-                    const auto dst = filmData.data() + (y * width + x) * pixelStride;
+                    const auto dst = filmData.data() + (y * action.width + x) * pixelStride;
                     for(uint32_t k = 0; k < pixelStride; ++k)
                         dst[k] += src[k];
                 }
@@ -354,19 +357,19 @@ class Renderer final : public SourceNode {
             },
             globalAffinityPartitioner);
 
-        std::pmr::vector<Float> weightedFilm{ width * height * channelTotalSize, context().globalAllocator };
+        std::pmr::vector<Float> weightedFilm{ action.width * action.height * action.channelTotalSize, context().globalAllocator };
 
         tbb::parallel_for(
-            tbb::blocked_range<uint32_t>{ 0, width * height },
+            tbb::blocked_range<uint32_t>{ 0, action.width * action.height },
             [&](const tbb::blocked_range<uint32_t>& range) {
                 for(uint32_t idx = range.begin(); idx != range.end(); ++idx) {
                     const auto base = filmData.data() + idx * pixelStride;
                     if(base[0] < 1e-9f)
                         continue;
-                    const auto dst = weightedFilm.data() + idx * channelTotalSize;
+                    const auto dst = weightedFilm.data() + idx * action.channelTotalSize;
 
                     const auto inverse = rcp(base[0].load());
-                    for(uint32_t k = 0; k < channelTotalSize; ++k)
+                    for(uint32_t k = 0; k < action.channelTotalSize; ++k)
                         dst[k] = base[k + 1].load() * inverse;
                 }
             },
@@ -374,9 +377,9 @@ class Renderer final : public SourceNode {
 
         mProgressReporter.update(static_cast<double>(mFrameCount) / static_cast<double>(mTotalFrameCount));
 
-        return makeRefCount<Frame>(
-            FrameMetadata{ width, height, actionIdx, frameIdx, channels, channelTotalSize, RenderGlobalSetting::get().spectrumType, true },
-            std::move(weightedFilm));
+        return makeRefCount<Frame>(FrameMetadata{ action.width, action.height, actionIdx, frameIdx, action.channels,
+                                                  action.channelTotalSize, RenderGlobalSetting::get().spectrumType, true },
+                                   std::move(weightedFilm));
     }
 
 public:

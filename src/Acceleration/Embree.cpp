@@ -184,7 +184,7 @@ public:
 
     Intersection processHitInfo(const Ray& ray, const RTCHit& hitInfo, const Distance distance) const {
         BoolCounter<StatsType::Intersection> counter;
-        if(distance.raw() != infinity) {  // NOLINT(clang-diagnostic-float-equal)
+        if(distance.raw() < infinity) {  // NOLINT(clang-diagnostic-float-equal)
             // surface
             counter.count(true);
 

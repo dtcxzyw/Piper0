@@ -7,12 +7,12 @@
 #include <ftxui/component/component_base.hpp>  // for ComponentBase
 #include <ftxui/component/receiver.hpp>        // for ReceiverImpl, MakeReceiver, Sender, SenderImpl, Receiver
 #include <ftxui/component/screen_interactive.hpp>
-#include <ftxui/dom/node.hpp>                         // for Node, Render
-#include <ftxui/screen/terminal.hpp>                  // for Size, Dimensions
-#include <initializer_list>                           // for initializer_list
-#include <iostream>                                   // for cout, ostream, basic_ostream, operator<<, endl, flush
-#include <stack>                                      // for stack
-#include <vector>                                     // for vector
+#include <ftxui/dom/node.hpp>         // for Node, Render
+#include <ftxui/screen/terminal.hpp>  // for Size, Dimensions
+#include <initializer_list>           // for initializer_list
+#include <iostream>                   // for cout, ostream, basic_ostream, operator<<, endl, flush
+#include <stack>                      // for stack
+#include <vector>                     // for vector
 
 #if defined(_WIN32)
 #define DEFINE_CONSOLEV2_PROPERTIES
@@ -25,14 +25,7 @@
 #error Must be compiled in UNICODE mode
 #endif
 #else
-#include <sys/select.h>  // for select, FD_ISSET, FD_SET, FD_ZERO, fd_set
 #include <termios.h>     // for tcsetattr, tcgetattr, cc_t
-#include <unistd.h>      // for STDIN_FILENO, read
-#endif
-
-// Quick exit is missing in standard CLang headers
-#if defined(__clang__) && defined(__APPLE__)
-#define quick_exit(a) exit(a)
 #endif
 
 namespace ftxui {
@@ -86,7 +79,7 @@ namespace ftxui {
             }
         }
 
-        auto installSignalHandler = [](const int sig, const SignalHandler handler) {
+        void installSignalHandler(const int sig, SignalHandler handler) {
             const auto oldSignalHandler = std::signal(sig, handler);
             onExitFunctions.push([&] { std::signal(sig, oldSignalHandler); });
         };
@@ -181,7 +174,6 @@ namespace ftxui {
         });
 
         enable({
-            // DECMode::kMouseVt200,
             DECMode::MouseAnyEvent,
             DECMode::MouseUtf8,
             DECMode::MouseSgrExtMode,

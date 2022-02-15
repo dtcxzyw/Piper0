@@ -63,6 +63,8 @@ namespace Piper {
 void mainGuarded(int argc, char** argv) {
     initFloatingPointEnvironment();
 
+    // TODO: disable Hyper-Threading ?
+
     std::string inputFile, outputDir, serverConfig;
     bool help = false;
 
@@ -256,6 +258,7 @@ void mainGuarded(int argc, char** argv) {
                 screen.render(container);
             }
         };
+        renderCallback();
 
         guard(render);
         running = false;

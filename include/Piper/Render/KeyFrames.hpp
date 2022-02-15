@@ -24,7 +24,7 @@
 
 PIPER_NAMESPACE_BEGIN
 
-enum class InterpolationCurve final { Hold, Linear };
+enum class InterpolationCurve { Hold, Linear };
 
 struct KeyFrame final {
     Float t;

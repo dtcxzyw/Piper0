@@ -88,17 +88,17 @@ public:
 
         std::pmr::vector<tbb::flow::function_node<Ref<Frame>, Ref<Frame>>> nodes{ context().localAllocator };
         nodes.reserve(mNodes.size());
-        for(auto& [node, prevIdx] : mNodes) {
+        for(auto& node : mNodes) {
             nodes.push_back({ g, 1, [&](Ref<Frame> frames) {
                                  try {
-                                     return node->transform(std::move(frames));
+                                     return node.first->transform(std::move(frames));
                                  } catch(const std::exception& ex) {
                                      fatal(fmt::format("{}: {}", typeid(ex).name(), ex.what()));
                                  }
                              } });
             auto& inserted = nodes.back();
-            if(prevIdx != noPrevNode)
-                tbb::flow::make_edge(nodes[prevIdx], inserted);
+            if(node.second != noPrevNode)
+                tbb::flow::make_edge(nodes[node.second], inserted);
         }
 
         for(uint32_t idx = 0; idx < frameCount; ++idx)
