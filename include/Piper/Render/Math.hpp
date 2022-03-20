@@ -95,6 +95,9 @@ constexpr auto pow(const T& x) noexcept {
     return Impl::PowCall<T, P>::eval(x);
 }
 
+inline struct UninitializedTag final {
+} uninitialized;
+
 #define PIPER_BIT_ENUM(TYPE)                                                                                        \
     constexpr bool match(const TYPE provide, const TYPE require) noexcept {                                         \
         return (static_cast<uint32_t>(provide) & static_cast<uint32_t>(require)) == static_cast<uint32_t>(provide); \
@@ -117,6 +120,7 @@ constexpr auto pow(const T& x) noexcept {
     constexpr explicit TYPE(const STORAGE& x) noexcept : mValue{ x } {} \
                                                                         \
 public:                                                                 \
+    constexpr explicit TYPE(UninitializedTag) noexcept {};              \
     constexpr const STORAGE& raw() const noexcept {                     \
         return mValue;                                                  \
     }                                                                   \

@@ -18,34 +18,98 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+#include <Piper/Core/Stats.hpp>
 #include <Piper/Render/ColorSpace.hpp>
 #include <Piper/Render/SpectrumUtil.hpp>
 #include <Piper/Render/Texture.hpp>
+#pragma warning(push, 0)
+#include <OpenImageIO/imagebuf.h>
+#include <OpenImageIO/imagebufalgo.h>
+#include <OpenImageIO/texture.h>
+#include <oneapi/tbb/enumerable_thread_specific.h>
+#pragma warning(pop)
 
 PIPER_NAMESPACE_BEGIN
 
-// TODO: parseType
-template <typename Setting>
-class BitMap : public ConstantTexture<Setting> {
-    PIPER_IMPORT_SETTINGS();
-
-
-    RGBSpectrum mSpectrum;
-
-public:
-    explicit BitMap(const Ref<ConfigNode>& node)
-        : mSpectrum{ RGBSpectrum::fromRaw(
-              convertRGB2StandardLinearRGB(parseVec3(node->get("Value"sv)), node->get("ColorSpace"sv)->as<std::string_view>())) } {}
-
-    Spectrum evaluate(const Wavelength& sampledWavelength) const noexcept override {
-        return spectrumCast<Spectrum>(mSpectrum, sampledWavelength);
-    }
-
-    [[nodiscard]] MonoSpectrum mean() const noexcept override {
-        return luminance(mSpectrum, {});
+struct TextureSystemDeleter final {
+    void operator()(OIIO::TextureSystem* ptr) const {
+        OIIO::TextureSystem::destroy(ptr);
     }
 };
 
-PIPER_REGISTER_WRAPPED_VARIANT(ConstantTexture2DWrapper, BitMap, Texture2D);
-PIPER_REGISTER_WRAPPED_VARIANT(ConstantSphericalTextureWrapper, BitMap, SphericalTexture);
+// TODO: ptex, video, mipmap, anisotropic, color space, etc.
+
+class TextureSystem final {
+    std::unique_ptr<OIIO::TextureSystem, TextureSystemDeleter> mSystem;
+    tbb::enumerable_thread_specific<OIIO::TextureSystem::Perthread*> mPerThread;
+    OIIO::TextureOpt mOptions;
+
+    OIIO::TextureSystem::Perthread* local() {
+        auto& ref = mPerThread.local();
+        if(ref == nullptr)
+            ref = mSystem->create_thread_info();
+        return ref;
+    }
+
+public:
+    TextureSystem() : mSystem{ OIIO::TextureSystem::create() } {}
+    TextureSystem(const TextureSystem&) = delete;
+    TextureSystem(TextureSystem&&) = delete;
+    TextureSystem& operator=(const TextureSystem&) = delete;
+    TextureSystem& operator=(TextureSystem&&) = delete;
+
+    ~TextureSystem() {
+        for(const auto ptr : mPerThread)
+            mSystem->destroy_thread_info(ptr);
+    }
+
+    OIIO::TextureSystem::TextureHandle* load(const std::string_view path) {
+        return mSystem->get_texture_handle({ path.data(), path.size() }, local());
+    }
+
+    void texture(OIIO::TextureSystem::TextureHandle* handle, const TexCoord texCoord, const int channels, Float* res) {
+        Counter<StatsType::Texture2D> counter;
+        [[maybe_unused]] const auto ok =
+            mSystem->texture(handle, local(), mOptions, texCoord.x, texCoord.y, 0.0f, 0.0f, 0.0f, 0.0f, channels, res);
+        assert(ok);
+    }
+
+    static TextureSystem& get() noexcept {
+        static TextureSystem system;
+        return system;
+    }
+};
+
+// TODO: parseType
+template <typename Setting>
+class BitMap : public Texture2D<Setting> {
+    PIPER_IMPORT_SETTINGS();
+
+    TextureSystem& mSystem;
+    OIIO::TextureSystem::TextureHandle* mHandle;
+
+public:
+    explicit BitMap(const Ref<ConfigNode>& node)
+        : mSystem{ TextureSystem::get() }, mHandle{ mSystem.load(node->get("FilePath"sv)->as<std::string_view>()) } {}
+
+    Spectrum evaluate(TexCoord texCoord, const Wavelength& sampledWavelength) const noexcept override {
+        if constexpr(std::is_same_v<Spectrum, MonoSpectrum>) {
+            MonoSpectrum res;
+            mSystem.texture(mHandle, texCoord, 1, &res);
+            return res;
+        } else {
+            RGBSpectrum res{ uninitialized };
+            static_assert(sizeof(RGBSpectrum) == 3 * sizeof(Float));
+            mSystem.texture(mHandle, texCoord, 3, reinterpret_cast<Float*>(&res));
+
+            if constexpr(std::is_same_v<Spectrum, RGBSpectrum>)
+                return res;
+            else {
+                return spectrumCast<Spectrum>(res, sampledWavelength);
+            }
+        }
+    }
+};
+
+PIPER_REGISTER_VARIANT(BitMap, Texture2D);
 PIPER_NAMESPACE_END

@@ -17,6 +17,7 @@ find_path(PCG_INCLUDE_DIRS "pcg_extras.hpp")
 find_package(assimp CONFIG REQUIRED)
 find_package(IlmBase CONFIG REQUIRED)
 find_package(OpenEXR CONFIG REQUIRED)
+find_package(OpenImageIO CONFIG REQUIRED)
 find_program(ISPC_EXECUTABLE ispc PATHS ${EMBREE_INCLUDE_DIRS}/../../../ispc/latest/bin/ DOC "Path to the ISPC executable.")
 file(GLOB_RECURSE PIPER_CLI_SRC "*.cpp")
 file(GLOB_RECURSE PIPER_CLI_ISPC_SRC "*.ispc")
@@ -126,6 +127,7 @@ target_link_libraries(PiperCLI PRIVATE simdjson::simdjson)
 target_link_libraries(PiperCLI PRIVATE assimp::assimp)
 target_link_libraries(PiperCLI PRIVATE IlmBase::Iex IlmBase::Half IlmBase::Imath IlmBase::IexMath)
 target_link_libraries(PiperCLI PRIVATE OpenEXR::IlmImf OpenEXR::IlmImfUtil OpenEXR::IlmImfConfig)
+target_link_libraries(PiperCLI PRIVATE OpenImageIO::OpenImageIO OpenImageIO::OpenImageIO_Util)
 
 add_custom_command(TARGET PiperCLI POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:OpenImageDenoise> $<TARGET_FILE_DIR:PiperCLI>

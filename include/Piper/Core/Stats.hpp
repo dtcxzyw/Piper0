@@ -20,6 +20,7 @@
 
 #pragma once
 #include <Piper/Config.hpp>
+#include <Piper/Core/Report.hpp>
 
 PIPER_NAMESPACE_BEGIN
 
@@ -34,6 +35,7 @@ enum class StatsType {
     ShadingBegin,
     ShadingEnd,
     TexturingBegin,
+    Texture2D,
     TexturingEnd,
 };
 
