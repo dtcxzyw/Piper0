@@ -21,7 +21,13 @@
 #include <Piper/Render/Acceleration.hpp>
 #include <Piper/Render/Material.hpp>
 #include <Piper/Render/Shape.hpp>
-#include <tiny_obj_loader.h>
+#pragma warning(push, 0)
+// NOTE: assimp -> Irrlicht.dll -> opengl32.dll will cause memory leak.
+#include <assimp/Importer.hpp>
+#include <assimp/postprocess.h>
+#include <assimp/scene.h>
+#include <assimp/vector3.h>
+#pragma warning(pop)
 
 PIPER_NAMESPACE_BEGIN
 
@@ -29,44 +35,52 @@ class TriangleMesh final : public Shape {
     Ref<PrimitiveGroup> mPrimitiveGroup;
     std::pmr::vector<glm::uvec3> mIndices{ context().globalAllocator };
     std::pmr::vector<Normal<FrameOfReference::Object>> mNormals{ context().globalAllocator };
+    std::pmr::vector<Normal<FrameOfReference::Object>> mTangents{ context().globalAllocator };
     std::pmr::vector<TexCoord> mTexCoords{ context().globalAllocator };
     Ref<MaterialBase> mSurface;
 
 public:
     explicit TriangleMesh(const Ref<ConfigNode>& node) {
         const auto path = node->get("Path"sv)->as<std::string_view>();
-        tinyobj::ObjReader reader;
-        tinyobj::ObjReaderConfig config;
-        config.triangulate = true;
-        config.vertex_color = false;
-        if(!reader.ParseFromFile(std::string{ path }, config))
-            fatal(fmt::format("Failed to load mesh {}", path));
 
-        const auto& attr = reader.GetAttrib();
-        const auto& shapes = reader.GetShapes();
-        const auto& vertices = attr.vertices;
-        const auto& normals = attr.normals;
-        const auto& texCoords = attr.texcoords;
-        if(shapes.size() != 1)
-            fatal("The number of shapes for mesh file must be 1.");
-        const auto& indices = shapes.front().mesh.indices;
+        Assimp::Importer importer;
+        const auto* scene =
+            importer.ReadFile(path.data(),
+                              aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_SortByPType | aiProcess_GenSmoothNormals |
+                                  aiProcess_FixInfacingNormals | aiProcess_ImproveCacheLocality | aiProcess_CalcTangentSpace);
+        if(!scene || scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE)
+            fatal(std::format("Failed to load scene {}: {}", path, importer.GetErrorString()));
+        if(scene->mNumMeshes != 1)
+            fatal("Only one mesh is supported.");
 
-        const auto verticesCount = static_cast<uint32_t>(vertices.size()) / 3;
-        const auto indicesCount = static_cast<uint32_t>(indices.size()) / 3;
+        const auto* mesh = scene->mMeshes[0];
+        const auto verticesCount = mesh->mNumVertices;
+        const auto trianglesCount = mesh->mNumFaces;
 
+        mIndices.resize(trianglesCount);
+        for(uint32_t idx = 0; idx < trianglesCount; ++idx) {
+            static_assert(sizeof(glm::uvec3) == 3 * sizeof(uint32_t));
+            mIndices[idx] = *reinterpret_cast<glm::uvec3*>(mesh->mFaces[idx].mIndices);
+        }
+
+        static_assert(sizeof(aiVector3D) == 3 * sizeof(Float));
+        static_assert(sizeof(Normal<FrameOfReference::Object>) == 3 * sizeof(Float));
         mNormals.resize(verticesCount);
-        memcpy(mNormals.data(), normals.data(), normals.size() * sizeof(Float));
+        memcpy(mNormals.data(), mesh->mNormals, verticesCount * sizeof(aiVector3D));
+        mTangents.resize(verticesCount);
+        memcpy(mTangents.data(), mesh->mTangents, verticesCount * sizeof(aiVector3D));
         mTexCoords.resize(verticesCount);
-        memcpy(mTexCoords.data(), texCoords.data(), texCoords.size() * sizeof(Float));
-        mIndices.resize(indicesCount);
-        for(uint32_t idx = 0; idx < mIndices.size(); ++idx)
-            mIndices[idx] = { indices[idx * 3].vertex_index, indices[idx * 3 + 1].vertex_index, indices[idx * 3 + 2].vertex_index };
+        for(uint32_t idx = 0; idx < verticesCount; ++idx) {
+            const auto texCoord = mesh->mTextureCoords[0][idx];
+            mTexCoords[idx] = { texCoord.x, texCoord.y };
+        }
 
         const auto& builder = RenderGlobalSetting::get().accelerationBuilder;
         mPrimitiveGroup = builder->buildFromTriangleMesh(
-            verticesCount, indicesCount,
+            verticesCount, trianglesCount,
             [&](void* verticesBuffer, void* indicesBuffer) {
-                memcpy(verticesBuffer, vertices.data(), vertices.size() * sizeof(Float));
+                static_assert(sizeof(aiVector3D) == 3 * sizeof(Float));
+                memcpy(verticesBuffer, mesh->mVertices, verticesCount * sizeof(aiVector3D));
                 static_assert(sizeof(glm::uvec3) == 3 * sizeof(uint32_t));
                 memcpy(indicesBuffer, mIndices.data(), mIndices.size() * sizeof(glm::uvec3));
             },
@@ -91,7 +105,8 @@ public:
                                       const uint32_t primitiveIndex) const noexcept override {
         const auto index = mIndices[primitiveIndex];
         const auto iu = index.x, iv = index.y, iw = index.z;
-        const auto wu = barycentric.x, wv = barycentric.y, ww = 1.0f - wu - wv;
+        // Please refer to https://github.com/embree/embree/blob/master/doc/src/api/RTC_GEOMETRY_TYPE_TRIANGLE.md
+        const auto wu = 1.0f - barycentric.x - barycentric.y, wv = barycentric.x, ww = barycentric.y;
         const auto lerp3 = [&](auto u, auto v, auto w) { return u * wu + v * wv + w * ww; };
 
         const auto texCoord = lerp3(mTexCoords[iu], mTexCoords[iv], mTexCoords[iw]);
@@ -99,14 +114,17 @@ public:
 
         auto lerpNormal = transform(
             Normal<FrameOfReference::Object>::fromRaw(glm::normalize(lerp3(mNormals[iu].raw(), mNormals[iv].raw(), mNormals[iw].raw()))));
-        if(dot(lerpNormal, geometryNormal) < 0.0f)
+        auto lerpTangent = transform(Normal<FrameOfReference::Object>::fromRaw(
+            glm::normalize(lerp3(mTangents[iu].raw(), mTangents[iv].raw(), mTangents[iw].raw()))));
+        if(dot(lerpNormal, geometryNormal) < 0.0f) {
             lerpNormal = -lerpNormal;
+            lerpTangent = -lerpTangent;
+        }
+
         // TODO: front/back?
 
         const auto normal = lerpNormal.raw();
-        constexpr auto ref0 = glm::vec3{ 1.0f, 0.0f, 0.0f }, ref1 = glm::vec3{ 0.0f, 1.0f, 0.0f };
-        const auto ref = std::fabs(glm::dot(normal, ref0)) < std::fabs(glm::dot(normal, ref1)) ? ref0 : ref1;
-        const auto tangent = glm::cross(normal, ref);
+        const auto tangent = lerpTangent.raw();
         const auto biTangent = glm::cross(normal, tangent);
 
         const auto matTBN = glm::mat3{ tangent, biTangent, normal };

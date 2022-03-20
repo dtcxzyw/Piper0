@@ -36,7 +36,8 @@ Context& context();
 
 class MemoryArena final {
     // std::pmr::monotonic_buffer_resource mAllocator{ context().scopedAllocator ? 0U : 4096U, context().localAllocator }; //TODO: FIXME
-    std::pmr::unsynchronized_pool_resource mAllocator{ context().localAllocator };
+    std::pmr::unsynchronized_pool_resource mProxyAllocator{ context().localAllocator };
+    tbb::cache_aligned_resource mAllocator{ &mProxyAllocator };
 
 public:
     MemoryArena() {
