@@ -215,14 +215,13 @@ class Renderer final : public SourceNode {
 
         const auto sampleXEnd = tileWidth - 2;
         const auto sampleYEnd = tileHeight - 2;
-        const auto localSampler = sampler->clone();
-        const auto sampleCount = localSampler->samples();
+        const auto sampleCount = sampler->samples();
 
         std::pmr::vector<PrimaryRay> primaryRays{ context().scopedAllocator };
         RayStream stream;
 
         const auto prepareRay = [&](const uint32_t filmX, const uint32_t filmY, const uint32_t sampleIdx, const uint32_t rayIdx) {
-            auto [sample, sampleProvider] = localSampler->generate(filmX, filmY, sampleIdx);
+            auto [sample, sampleProvider] = sampler->generate(filmX, filmY, sampleIdx);
 
             auto& payload = primaryRays[rayIdx];
             payload.filmCoord = sample;
@@ -293,8 +292,8 @@ class Renderer final : public SourceNode {
 
         const TimeInterval shutterInterval{
             static_cast<Float>(action.begin + static_cast<double>(frameIdx) / action.fps + action.shutterOpen),
-                                            static_cast<Float>(action.begin + static_cast<double>(frameIdx) / action.fps +
-                                                               action.shutterClose) };
+            static_cast<Float>(action.begin + static_cast<double>(frameIdx) / action.fps + action.shutterClose)
+        };
 
         tbb::parallel_for_each(mSceneObjects, [&](const auto& object) { object->update(shutterInterval); });
 

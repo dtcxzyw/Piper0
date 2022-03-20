@@ -84,7 +84,6 @@ class TileSampler : public RefCountBase {
 public:
     virtual uint32_t samples() const noexcept = 0;
     virtual std::pair<glm::vec2, SampleProvider> generate(uint32_t filmX, uint32_t filmY, uint32_t sampleIdx) const = 0;
-    virtual Ref<TileSampler> clone() const = 0;
 };
 
 class Sampler : public RefCountBase {

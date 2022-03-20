@@ -97,15 +97,6 @@ public:
         }
         return { glm::vec2{ rx, ry }, SampleProvider{ {}, index } };
     }
-
-    Ref<TileSampler> clone() const override {
-        const auto allocator = context().localAllocator;
-        return makeRefCount<SobolTileSampler>(
-            mDims, mSampleCount, mLogSize, mScramble, mMatrix32, LUT{ mC0Lower.cbegin(), mC0Lower.cend(), allocator },
-            LUT{ mC0Upper.cbegin(), mC0Upper.cend(), allocator }, LUT{ mC0LowerInverse.cbegin(), mC0LowerInverse.cend(), allocator },
-            LUT{ mC1Lower.cbegin(), mC1Lower.cend(), allocator }, LUT{ mC1Upper.cbegin(), mC1Upper.cend(), allocator },
-            LUT{ mC1UpperInverse.cbegin(), mC1UpperInverse.cend(), allocator });
-    }
 };
 
 class SobolSampler final : public Sampler {
