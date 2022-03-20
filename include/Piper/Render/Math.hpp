@@ -124,17 +124,7 @@ public:                                                                 \
         return TYPE{ x };                                               \
     }
 
-#define PIPER_GUARD_BASE_OP(TYPE)                                                \
-    constexpr TYPE operator+(const TYPE& rhs) const noexcept {                   \
-        return TYPE{ mValue + rhs.mValue };                                      \
-    }                                                                            \
-    constexpr TYPE& operator+=(const TYPE& rhs) noexcept {                       \
-        mValue += rhs.mValue;                                                    \
-        return *this;                                                            \
-    }                                                                            \
-    constexpr TYPE operator-(const TYPE& rhs) const noexcept {                   \
-        return TYPE{ mValue + rhs.mValue };                                      \
-    }                                                                            \
+#define PIPER_GUARD_SCALAR_MULTIPLY(TYPE)                                        \
     constexpr TYPE operator*(const Float rhs) const noexcept {                   \
         return TYPE{ mValue * rhs };                                             \
     }                                                                            \
@@ -144,6 +134,19 @@ public:                                                                 \
     friend constexpr TYPE operator*(const Float lhs, const TYPE& rhs) noexcept { \
         return TYPE{ rhs.mValue * lhs };                                         \
     }
+
+#define PIPER_GUARD_BASE_OP(TYPE)                              \
+    constexpr TYPE operator+(const TYPE& rhs) const noexcept { \
+        return TYPE{ mValue + rhs.mValue };                    \
+    }                                                          \
+    constexpr TYPE& operator+=(const TYPE& rhs) noexcept {     \
+        mValue += rhs.mValue;                                  \
+        return *this;                                          \
+    }                                                          \
+    constexpr TYPE operator-(const TYPE& rhs) const noexcept { \
+        return TYPE{ mValue + rhs.mValue };                    \
+    }                                                          \
+    PIPER_GUARD_SCALAR_MULTIPLY(TYPE)
 
 // TA*TB -> TC
 #define PIPER_GUARD_MULTIPLY(TA, TB, TC)                              \

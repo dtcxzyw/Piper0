@@ -32,6 +32,7 @@ PIPER_BIT_ENUM(PdfType)
 template <PdfType T>
 class InversePdf final {
     PIPER_GUARD_BASE(InversePdf, Float)
+    PIPER_GUARD_SCALAR_MULTIPLY(InversePdf)
 
     static constexpr InversePdf invalid() noexcept {
         return InversePdf{ 0.0f };
