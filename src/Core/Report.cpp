@@ -93,7 +93,7 @@ std::optional<Clock::time_point> ProgressReporter::endTime() {
 }
 std::optional<Clock::duration> ProgressReporter::eta() const {
     if(mEstimatedEnd)
-        return mEstimatedEnd.value() - Clock::now();
+        return std::max(Clock::duration{ 0 }, mEstimatedEnd.value() - Clock::now());
     return std::nullopt;
 }
 Clock::duration ProgressReporter::elapsed() const {

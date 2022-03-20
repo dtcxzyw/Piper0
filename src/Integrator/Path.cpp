@@ -67,11 +67,13 @@ public:
 
                         const auto wo = info.transform(-ray.direction);
                         const auto wi = info.transform(sampledLight.dir);
-                        if(!acceleration.occluded(Ray{ info.hit, sampledLight.dir, ray.t }, sampledLight.distance))
+                        if(sampledLight.valid() && !acceleration.occluded(Ray{ info.hit, sampledLight.dir, ray.t }, sampledLight.distance))
                             result += beta * bsdfSampler.evaluate(wo, wi) *
                                 (sampledLight.rad * (sampledLight.inversePdf * weight * std::fabs(wi.z())));  // TODO: use shading normal
 
                         const auto sampledBSDF = bsdfSampler.sample(sampler, wo);
+                        if(!sampledBSDF.valid())
+                            return;
 
                         beta = beta * sampledBSDF.f * (sampledBSDF.inversePdf * std::fabs(sampledBSDF.wi.z()));
                         ray.origin = info.hit;

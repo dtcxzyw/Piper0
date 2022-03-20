@@ -40,12 +40,12 @@ public:
         return nullptr;
     }
 
-   [[nodiscard]] virtual Power<MonoSpectrum> power() const noexcept = 0;
+    [[nodiscard]] virtual Power<MonoSpectrum> power() const noexcept = 0;
 };
 
 template <typename Spectrum>
 struct LightSample final {
-    Normal<FrameOfReference::World> dir;  // src -> hit
+    Direction<FrameOfReference::World> dir;  // src -> hit
     Radiance<Spectrum, PdfType::Light | PdfType::LightSampler> rad;
     InversePdf<PdfType::Light> inversePdf;
     Distance distance;
@@ -73,7 +73,8 @@ public:
                                         const Point<FrameOfReference::World>& pos) const noexcept = 0;
     [[nodiscard]] virtual InversePdf<PdfType::Light> pdf(Float t, const Wavelength& sampledWavelength,
                                                          const Point<FrameOfReference::World>& pos,
-                                                         const Normal<FrameOfReference::World>& dir, Distance distance) const noexcept = 0;
+                                                         const Direction<FrameOfReference::World>& dir,
+                                                         Distance distance) const noexcept = 0;
 };
 
 PIPER_NAMESPACE_END

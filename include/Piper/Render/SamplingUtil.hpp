@@ -42,10 +42,10 @@ inline glm::vec2 sampleConcentricDisk(glm::vec2 u) noexcept {
     return glm::vec2{ std::cos(theta), std::sin(theta) } * radius;
 }
 
-inline Normal<FrameOfReference::Shading> sampleCosineHemisphere(const glm::vec2 u) {
+inline Direction<FrameOfReference::Shading> sampleCosineHemisphere(const glm::vec2 u) {
     const auto coord = sampleConcentricDisk(u);
     const auto z = std::sqrt(1.0f - glm::dot(coord, coord));
-    return Normal<FrameOfReference::Shading>::fromRaw({ coord, z });
+    return Direction<FrameOfReference::Shading>::fromRaw({ coord, z });
 }
 
 inline uint32_t select(const Float* cdf, const Float* pdf, const uint32_t size, Float& u) {
@@ -60,9 +60,9 @@ inline uint32_t select(const Float* cdf, const Float* pdf, const uint32_t size, 
     return r;
 }
 
-inline Float calcGeometrySamplePdf(const Distance distance, const Normal<FrameOfReference::World>& wi,
-                                   const Normal<FrameOfReference::World>& n, const Area area) {
-    return distance * distance / (area * std::fabs(dot(n, wi)));
+inline Float calcGeometrySamplePdf(const Distance distance, const Direction<FrameOfReference::World>& wi,
+                                   const Direction<FrameOfReference::World>& n, const Area area) {
+    return sqr(distance) / (area * std::fabs(dot(n, wi)));
 }
 
 PIPER_NAMESPACE_END

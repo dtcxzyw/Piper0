@@ -35,7 +35,7 @@ class TriangleMesh final : public Shape {
     Ref<PrimitiveGroup> mPrimitiveGroup;
     std::pmr::vector<glm::uvec3> mIndices{ context().globalAllocator };
     std::pmr::vector<Normal<FrameOfReference::Object>> mNormals{ context().globalAllocator };
-    std::pmr::vector<Normal<FrameOfReference::Object>> mTangents{ context().globalAllocator };
+    std::pmr::vector<Direction<FrameOfReference::Object>> mTangents{ context().globalAllocator };
     std::pmr::vector<TexCoord> mTexCoords{ context().globalAllocator };
     Ref<MaterialBase> mSurface;
 
@@ -67,6 +67,7 @@ public:
         static_assert(sizeof(Normal<FrameOfReference::Object>) == 3 * sizeof(Float));
         mNormals.resize(verticesCount);
         memcpy(mNormals.data(), mesh->mNormals, verticesCount * sizeof(aiVector3D));
+        static_assert(sizeof(Direction<FrameOfReference::Object>) == 3 * sizeof(Float));
         mTangents.resize(verticesCount);
         memcpy(mTangents.data(), mesh->mTangents, verticesCount * sizeof(aiVector3D));
         mTexCoords.resize(verticesCount);
@@ -112,16 +113,10 @@ public:
         const auto texCoord = lerp3(mTexCoords[iu], mTexCoords[iv], mTexCoords[iw]);
         const auto normalizedTexCoord = texCoord - glm::floor(texCoord);
 
-        auto lerpNormal = transform(
+        const auto lerpNormal = transform(
             Normal<FrameOfReference::Object>::fromRaw(glm::normalize(lerp3(mNormals[iu].raw(), mNormals[iv].raw(), mNormals[iw].raw()))));
-        auto lerpTangent = transform(Normal<FrameOfReference::Object>::fromRaw(
+        const auto lerpTangent = transform(Direction<FrameOfReference::Object>::fromRaw(
             glm::normalize(lerp3(mTangents[iu].raw(), mTangents[iv].raw(), mTangents[iw].raw()))));
-        if(dot(lerpNormal, geometryNormal) < 0.0f) {
-            lerpNormal = -lerpNormal;
-            lerpTangent = -lerpTangent;
-        }
-
-        // TODO: front/back?
 
         const auto normal = lerpNormal.raw();
         const auto tangent = lerpTangent.raw();

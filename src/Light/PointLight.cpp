@@ -58,7 +58,7 @@ public:
     }
 
     [[nodiscard]] InversePdf<PdfType::Light> pdf(Float, const Wavelength&, const Point<FrameOfReference::World>&,
-                                                 const Normal<FrameOfReference::World>&, Distance) const noexcept override {
+                                                 const Direction<FrameOfReference::World>&, Distance) const noexcept override {
         return InversePdf<PdfType::Light>::invalid();
     }
 

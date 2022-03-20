@@ -20,8 +20,8 @@
 
 #pragma once
 #include <Piper/Render/RenderGlobalSetting.hpp>
-#include <Piper/Render/SamplingUtil.hpp>
 #include <Piper/Render/Sampler.hpp>
+#include <Piper/Render/SamplingUtil.hpp>
 
 PIPER_NAMESPACE_BEGIN
 
@@ -38,9 +38,9 @@ PIPER_BIT_ENUM(BxDFPart)
 
 enum class TransportMode : uint8_t { Radiance, Importance };
 
-#define PIPER_IMPORT_SHADING()                           \
-    using Direction = Normal<FrameOfReference::Shading>; \
-    using BSDFSample = BSDFSampleResult<Setting>;        \
+#define PIPER_IMPORT_SHADING()                                     \
+    using Direction = Piper::Direction<FrameOfReference::Shading>; \
+    using BSDFSample = BSDFSampleResult<Setting>;                  \
     using InversePdfValue = InversePdf<PdfType::BSDF>
 
 template <typename Setting>
@@ -52,6 +52,10 @@ struct BSDFSampleResult final {
     Rational<Spectrum, PdfType::BSDF> f;
     InversePdfValue inversePdf;
     BxDFPart part;
+
+    [[nodiscard]] bool valid() const noexcept {
+        return inversePdf.valid();
+    }
 };
 
 class BSDFBase : public RenderVariantBase {
@@ -68,12 +72,14 @@ public:
     virtual Rational<Spectrum> evaluate(const Direction& wo, const Direction& wi) const noexcept = 0;
 
     virtual BSDFSample sample(SampleProvider& sampler, const Direction& wo) const noexcept {
-        const auto wi = sampleCosineHemisphere(sampler.sampleVec2());
+        auto wi = sampleCosineHemisphere(sampler.sampleVec2());
+        if(wo.z() < 0.0f)
+            wi.flipZ();
         return { wi, importanceSampled<PdfType::BSDF>(this->evaluate(wo, wi)), this->inversePdf(wo, wi), this->part() };
     }
 
-    [[nodiscard]] virtual InversePdfValue inversePdf(const Direction&, const Direction& wi) const noexcept {
-        return wi.z() > 0.0f ? InversePdfValue::fromRaw(rcp(std::fabs(wi.z())) * pi) : InversePdfValue::invalid();
+    [[nodiscard]] virtual InversePdfValue inversePdf(const Direction& wo, const Direction& wi) const noexcept {
+        return wo.z() * wi.z() > 0.0f ? InversePdfValue::fromRaw(rcp(std::fabs(wi.z())) * pi) : InversePdfValue::invalid();
     }
 };
 

@@ -40,15 +40,15 @@ template <typename Setting>
 struct TextureSample final {
     PIPER_IMPORT_SETTINGS();
 
-    Normal<FrameOfReference::Object> dir;  // origin -> spherical surface
+    Direction<FrameOfReference::Object> dir;  // origin -> spherical surface
     Rational<Spectrum, PdfType::Texture> f;
     InversePdf<PdfType::Texture> inversePdf;
 };
 
-inline Normal<FrameOfReference::Object> sphericalMapping(const Float theta, const Float phi) noexcept {
+inline Direction<FrameOfReference::Object> sphericalMapping(const Float theta, const Float phi) noexcept {
     const auto cosTheta = std::cos(theta), sinTheta = std::sin(theta);
     const auto cosPhi = std::cos(phi), sinPhi = std::sin(phi);
-    return Normal<FrameOfReference::Object>::fromRaw(glm::vec3{
+    return Direction<FrameOfReference::Object>::fromRaw(glm::vec3{
         sinTheta * sinPhi,
         cosPhi,
         cosTheta * sinPhi,
@@ -64,7 +64,7 @@ public:
 
     virtual Spectrum evaluate(TexCoord texCoord, const Wavelength& sampledWavelength) const noexcept = 0;
 
-    Spectrum evaluate(const Normal<FrameOfReference::Object>& dir, const Wavelength& sampledWavelength) const noexcept {
+    Spectrum evaluate(const Direction<FrameOfReference::Object>& dir, const Wavelength& sampledWavelength) const noexcept {
         const auto theta = std::atan2(dir.x(), dir.z());
         const auto phi = std::acos(dir.y());
         return evaluate(TexCoord{ theta * invTwoPi + 0.5f, phi * invPi }, sampledWavelength);

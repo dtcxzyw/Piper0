@@ -84,6 +84,48 @@ constexpr auto operator-(const Point<F>& lhs, const Point<F>& rhs) noexcept {
     return Vector<F>::fromRaw(lhs.raw() - rhs.raw());
 }
 
+// normalized vector
+template <FrameOfReference F>
+class Direction final {
+    template <FrameOfReference A, FrameOfReference B>
+    friend class AffineTransform;
+    PIPER_GUARD_BASE(Direction, glm::vec3)
+    PIPER_GUARD_VEC3(Direction)
+
+    constexpr Vector<F> operator*(const Distance x) const noexcept {
+        return Vector<F>::fromRaw(mValue * x.raw());
+    }
+    constexpr Direction operator-() const noexcept {
+        return Direction{ -mValue };
+    }
+
+    template <FrameOfReference RealF = F>
+    requires(RealF == FrameOfReference::Shading) constexpr void flipZ() noexcept {
+        mValue.z = -mValue.z;
+    }
+
+    friend constexpr Float dot(const Direction& lhs, const Direction& rhs) noexcept {
+        return glm::dot(lhs.mValue, rhs.mValue);
+    }
+
+    friend constexpr Direction cross(const Direction& lhs, const Direction& rhs) noexcept {
+        return Direction{ glm::cross(lhs.mValue, rhs.mValue) };
+    }
+};
+
+template <FrameOfReference F>
+constexpr Distance dot(const Direction<F>& lhs, const Vector<F>& rhs) noexcept {
+    return Distance::fromRaw(glm::dot(lhs.raw(), rhs.raw()));
+}
+
+template <FrameOfReference F>
+std::pair<Direction<F>, DistanceSquare> direction(const Point<F>& src, const Point<F>& dst) {
+    const auto diff = dst - src;
+    const auto distSquare = DistanceSquare::fromRaw(glm::dot(diff.raw(), diff.raw()));
+    return { Direction<F>::fromRaw(diff.raw() * glm::inversesqrt(distSquare.raw())), distSquare };
+}
+
+// normal of shape, normalized
 template <FrameOfReference F>
 class Normal final {
     template <FrameOfReference A, FrameOfReference B>
@@ -91,32 +133,10 @@ class Normal final {
     PIPER_GUARD_BASE(Normal, glm::vec3)
     PIPER_GUARD_VEC3(Normal)
 
-    constexpr Vector<F> operator*(const Distance x) const noexcept {
-        return Vector<F>::fromRaw(mValue * x.raw());
-    }
-    constexpr Normal operator-() const noexcept {
-        return Normal{ -mValue };
-    }
-
-    friend constexpr Float dot(const Normal& lhs, const Normal& rhs) noexcept {
-        return glm::dot(lhs.mValue, rhs.mValue);
-    }
-    friend constexpr Normal cross(const Normal& lhs, const Normal& rhs) noexcept {
-        return Normal{ glm::cross(lhs.mValue, rhs.mValue) };
+    [[nodiscard]] constexpr Direction<F> asDirection() const noexcept {
+        return Direction<F>::fromRaw(mValue);
     }
 };
-
-template <FrameOfReference F>
-constexpr Distance dot(const Normal<F>& lhs, const Vector<F>& rhs) noexcept {
-    return Distance::fromRaw(glm::dot(lhs.raw(), rhs.raw()));
-}
-
-template <FrameOfReference F>
-std::pair<Normal<F>, DistanceSquare> direction(const Point<F>& src, const Point<F>& dst) {
-    const auto diff = dst - src;
-    const auto distSquare = DistanceSquare::fromRaw(glm::dot(diff.raw(), diff.raw()));
-    return { Normal<F>::fromRaw(diff.raw() * glm::inversesqrt(distSquare.raw())), distSquare };
-}
 
 template <FrameOfReference A, FrameOfReference B>
 class AffineTransform final {
@@ -146,6 +166,14 @@ public:
         return Vector<B>::fromRaw(glm::mat3{ mB2A } * x.raw());
     }
 
+    Direction<B> operator()(const Direction<A>& x) const noexcept {
+        return Direction<B>::fromRaw(glm::normalize(glm::mat3{ mA2B } * x.raw()));
+    }
+
+    Direction<A> operator()(const Direction<B>& x) const noexcept {
+        return Direction<A>::fromRaw(glm::normalize(glm::mat3{ mB2A } * x.raw()));
+    }
+
     Point<B> operator()(const Point<A>& x) const noexcept {
         return Point<B>::fromRaw(mA2B * glm::vec4{ x.raw(), 1.0f });
     }
@@ -155,11 +183,11 @@ public:
     }
 
     Normal<B> operator()(const Normal<A>& x) const noexcept {
-        return Normal<B>::fromRaw(glm::transpose(glm::mat3{ mB2A }) * x.raw());
+        return Normal<B>::fromRaw(glm::normalize(glm::transpose(glm::mat3{ mB2A }) * x.raw()));
     }
 
     Normal<A> operator()(const Normal<B>& x) const noexcept {
-        return Normal<A>::fromRaw(glm::transpose(glm::mat3{ mA2B }) * x.raw());
+        return Normal<A>::fromRaw(glm::normalize(glm::transpose(glm::mat3{ mA2B }) * x.raw()));
     }
 };
 
@@ -169,11 +197,11 @@ struct SRTTransform final {
     glm::quat rotation;
     glm::vec3 translation;
 
-    constexpr Normal<FrameOfReference::World> rotateOnly(const Normal<FrameOfReference::Object>& x) const noexcept {
-        return Normal<FrameOfReference::World>::fromRaw(rotation * x.raw());
+    constexpr Direction<FrameOfReference::World> rotateOnly(const Direction<FrameOfReference::Object>& x) const noexcept {
+        return Direction<FrameOfReference::World>::fromRaw(rotation * x.raw());
     }
-    constexpr Normal<FrameOfReference::Object> rotateOnly(const Normal<FrameOfReference::World>& x) const noexcept {
-        return Normal<FrameOfReference::Object>::fromRaw(glm::inverse(rotation) * x.raw());
+    constexpr Direction<FrameOfReference::Object> rotateOnly(const Direction<FrameOfReference::World>& x) const noexcept {
+        return Direction<FrameOfReference::Object>::fromRaw(glm::inverse(rotation) * x.raw());
     }
 };
 

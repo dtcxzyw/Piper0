@@ -18,8 +18,8 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include <Piper/Render/SamplingUtil.hpp>
 #include <Piper/Render/Sampler.hpp>
+#include <Piper/Render/SamplingUtil.hpp>
 #include <Piper/Render/Sensor.hpp>
 
 PIPER_NAMESPACE_BEGIN
@@ -27,7 +27,7 @@ PIPER_NAMESPACE_BEGIN
 class ThinLens final : public Sensor {
     glm::vec2 mSensorSize;
     Point<FrameOfReference::World> mLookAt;
-    Normal<FrameOfReference::World> mUpRef;
+    Direction<FrameOfReference::World> mUpRef;
     Distance mFocalLength;
     Distance mApertureRadius;
 
@@ -35,7 +35,7 @@ public:
     explicit ThinLens(const Ref<ConfigNode>& node)
         : mSensorSize{ parseSensorSize(node->get("SensorSize"sv)) }, mLookAt{ Point<FrameOfReference::World>::fromRaw(
                                                                          parseVec3(node->get("LookAt"sv))) },
-          mUpRef{ Normal<FrameOfReference::World>::fromRaw(glm::normalize(parseVec3(node->get("UpRef"sv)))) },
+          mUpRef{ Direction<FrameOfReference::World>::fromRaw(glm::normalize(parseVec3(node->get("UpRef"sv)))) },
           mFocalLength{ Distance::fromRaw(static_cast<Float>(node->get("FocalLength"sv)->as<double>() * 1e-3)) }, mApertureRadius{
               Distance::fromRaw(mFocalLength.raw() / static_cast<Float>(node->get("FStop"sv)->as<double>() * 2.0))
           } {}

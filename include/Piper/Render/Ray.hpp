@@ -26,7 +26,7 @@ PIPER_NAMESPACE_BEGIN
 
 struct Ray {
     Point<FrameOfReference::World> origin;
-    Normal<FrameOfReference::World> direction;
+    Direction<FrameOfReference::World> direction;
 
     Float t;
 };
