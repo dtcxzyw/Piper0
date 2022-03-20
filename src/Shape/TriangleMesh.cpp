@@ -67,13 +67,29 @@ public:
         static_assert(sizeof(Normal<FrameOfReference::Object>) == 3 * sizeof(Float));
         mNormals.resize(verticesCount);
         memcpy(mNormals.data(), mesh->mNormals, verticesCount * sizeof(aiVector3D));
-        static_assert(sizeof(Direction<FrameOfReference::Object>) == 3 * sizeof(Float));
+
         mTangents.resize(verticesCount);
-        memcpy(mTangents.data(), mesh->mTangents, verticesCount * sizeof(aiVector3D));
-        mTexCoords.resize(verticesCount);
-        for(uint32_t idx = 0; idx < verticesCount; ++idx) {
-            const auto texCoord = mesh->mTextureCoords[0][idx];
-            mTexCoords[idx] = { texCoord.x, texCoord.y };
+        if(mesh->HasTangentsAndBitangents()) {
+            static_assert(sizeof(Direction<FrameOfReference::Object>) == 3 * sizeof(Float));
+            memcpy(mTangents.data(), mesh->mTangents, verticesCount * sizeof(aiVector3D));
+        } else {
+            constexpr glm::vec3 refA{ 1.0, 0.0, 0.0 };
+            constexpr glm::vec3 refB{ 0.0, 1.0, 0.0 };
+            for(uint32_t idx = 0; idx < verticesCount; ++idx) {
+                const auto normal = mNormals[idx].raw();
+                const auto dotA = std::fabs(glm::dot(refA, normal));
+                const auto dotB = std::fabs(glm::dot(refB, normal));
+                const auto ref = dotA < dotB ? refA : refB;
+                mTangents[idx] = Direction<FrameOfReference::Object>::fromRaw(glm::cross(normal, ref));
+            }
+        }
+
+        if(mesh->HasTextureCoords(0)) {
+            mTexCoords.resize(verticesCount);
+            for(uint32_t idx = 0; idx < verticesCount; ++idx) {
+                const auto texCoord = mesh->mTextureCoords[0][idx];
+                mTexCoords[idx] = { texCoord.x, texCoord.y };
+            }
         }
 
         const auto& builder = RenderGlobalSetting::get().accelerationBuilder;
@@ -110,8 +126,11 @@ public:
         const auto wu = 1.0f - barycentric.x - barycentric.y, wv = barycentric.x, ww = barycentric.y;
         const auto lerp3 = [&](auto u, auto v, auto w) { return u * wu + v * wv + w * ww; };
 
-        const auto texCoord = lerp3(mTexCoords[iu], mTexCoords[iv], mTexCoords[iw]);
-        const auto normalizedTexCoord = texCoord - glm::floor(texCoord);
+        TexCoord texCoord{ 0.0f, 0.0f };
+        if(!mTexCoords.empty()) {
+            texCoord = lerp3(mTexCoords[iu], mTexCoords[iv], mTexCoords[iw]);
+            texCoord = texCoord - glm::floor(texCoord);
+        }
 
         const auto lerpNormal = transform(
             Normal<FrameOfReference::Object>::fromRaw(glm::normalize(lerp3(mNormals[iu].raw(), mNormals[iv].raw(), mNormals[iw].raw()))));
@@ -119,8 +138,9 @@ public:
             glm::normalize(lerp3(mTangents[iu].raw(), mTangents[iv].raw(), mTangents[iw].raw()))));
 
         const auto normal = lerpNormal.raw();
-        const auto tangent = lerpTangent.raw();
+        auto tangent = lerpTangent.raw();
         const auto biTangent = glm::cross(normal, tangent);
+        tangent = glm::cross(biTangent, normal);
 
         const auto matTBN = glm::mat3{ tangent, biTangent, normal };
         const AffineTransform<FrameOfReference::Object, FrameOfReference::Shading> frame{ glm::mat4{
@@ -133,7 +153,7 @@ public:
                            geometryNormal,
                            lerpNormal,
                            primitiveIndex,
-                           normalizedTexCoord,
+                           texCoord,
                            transform.inverse() * frame,
                            Handle<Material>{ mSurface.get() } };
     }

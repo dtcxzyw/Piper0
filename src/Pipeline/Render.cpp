@@ -304,7 +304,7 @@ class Renderer final : public SourceNode {
 
         info(fmt::format("Rendering scene for action {}, frame {}", actionIdx, frameIdx));
 
-        std::pmr::vector<glm::uvec2> blocks = generateSpiralTiles(tileX, tileY);
+        const std::pmr::vector<glm::uvec2> blocks = generateSpiralTiles(tileX, tileY);
 
         const auto progressBase = static_cast<double>(mFrameCount - 1) / static_cast<double>(mTotalFrameCount),
                    progressIncr = static_cast<double>((tileX * tileY + 1) * mTotalFrameCount);
@@ -318,7 +318,7 @@ class Renderer final : public SourceNode {
         const auto tileSampler = action.sampler->prepare(frameIdx, action.width, action.height, action.frameCount);
 
 #ifdef _DEBUG
-        tbb::global_control limit{ tbb::global_control::max_allowed_parallelism, 1 };
+        tbb::global_control limit{ tbb::global_control::max_allowed_parallelism, 2 };  // another thread for frontend
 #endif
 
         const auto processTile = [&](const glm::uvec2 tile) {
