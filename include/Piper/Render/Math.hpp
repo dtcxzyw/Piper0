@@ -52,6 +52,11 @@ glm::vec3 parseVec3(const Ref<ConfigAttr>& node);
 glm::quat parseQuat(const Ref<ConfigAttr>& node);
 void initFloatingPointEnvironment() noexcept;
 
+struct FloatingPointExceptionProbe final {
+    static void on() noexcept;
+    static void off() noexcept;
+};
+
 template <typename T>
 constexpr auto rcp(T x) noexcept {
     return static_cast<T>(1.0) / x;

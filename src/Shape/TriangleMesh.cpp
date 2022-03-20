@@ -50,45 +50,57 @@ public:
                                   aiProcess_FixInfacingNormals | aiProcess_ImproveCacheLocality | aiProcess_CalcTangentSpace);
         if(!scene || scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE)
             fatal(std::format("Failed to load scene {}: {}", path, importer.GetErrorString()));
-        if(scene->mNumMeshes != 1)
-            fatal("Only one mesh is supported.");
 
-        const auto* mesh = scene->mMeshes[0];
-        const auto verticesCount = mesh->mNumVertices;
-        const auto trianglesCount = mesh->mNumFaces;
-
-        mIndices.resize(trianglesCount);
-        for(uint32_t idx = 0; idx < trianglesCount; ++idx) {
-            static_assert(sizeof(glm::uvec3) == 3 * sizeof(uint32_t));
-            mIndices[idx] = *reinterpret_cast<glm::uvec3*>(mesh->mFaces[idx].mIndices);
+        uint32_t verticesCount = 0;
+        uint32_t trianglesCount = 0;
+        for(uint32_t k = 0; k < scene->mNumMeshes; ++k) {
+            verticesCount += scene->mMeshes[k]->mNumVertices;
+            trianglesCount += scene->mMeshes[k]->mNumFaces;
         }
 
         static_assert(sizeof(aiVector3D) == 3 * sizeof(Float));
         static_assert(sizeof(Normal<FrameOfReference::Object>) == 3 * sizeof(Float));
+        static_assert(sizeof(Direction<FrameOfReference::Object>) == 3 * sizeof(Float));
+        static_assert(sizeof(glm::uvec3) == 3 * sizeof(uint32_t));
+
+        mIndices.resize(trianglesCount);
         mNormals.resize(verticesCount);
-        memcpy(mNormals.data(), mesh->mNormals, verticesCount * sizeof(aiVector3D));
-
         mTangents.resize(verticesCount);
-        if(mesh->HasTangentsAndBitangents()) {
-            static_assert(sizeof(Direction<FrameOfReference::Object>) == 3 * sizeof(Float));
-            memcpy(mTangents.data(), mesh->mTangents, verticesCount * sizeof(aiVector3D));
-        } else {
-            constexpr glm::vec3 refA{ 1.0, 0.0, 0.0 };
-            constexpr glm::vec3 refB{ 0.0, 1.0, 0.0 };
-            for(uint32_t idx = 0; idx < verticesCount; ++idx) {
-                const auto normal = mNormals[idx].raw();
-                const auto dotA = std::fabs(glm::dot(refA, normal));
-                const auto dotB = std::fabs(glm::dot(refB, normal));
-                const auto ref = dotA < dotB ? refA : refB;
-                mTangents[idx] = Direction<FrameOfReference::Object>::fromRaw(glm::cross(normal, ref));
-            }
-        }
+        mTexCoords.resize(verticesCount);
 
-        if(mesh->HasTextureCoords(0)) {
-            mTexCoords.resize(verticesCount);
-            for(uint32_t idx = 0; idx < verticesCount; ++idx) {
-                const auto texCoord = mesh->mTextureCoords[0][idx];
-                mTexCoords[idx] = { texCoord.x, texCoord.y };
+        {
+            uint32_t faceOffset = 0;
+            uint32_t indexOffset = 0;
+            for(uint32_t k = 0; k < scene->mNumMeshes; ++k) {
+                const auto mesh = scene->mMeshes[k];
+                for(uint32_t idx = 0; idx < mesh->mNumFaces; ++idx)
+                    mIndices[faceOffset + idx] = indexOffset + *reinterpret_cast<glm::uvec3*>(mesh->mFaces[idx].mIndices);
+
+                memcpy(mNormals.data() + indexOffset, mesh->mNormals, mesh->mNumVertices * sizeof(aiVector3D));
+
+                if(mesh->HasTangentsAndBitangents()) {
+                    memcpy(mTangents.data() + indexOffset, mesh->mTangents, mesh->mNumVertices * sizeof(aiVector3D));
+                } else {
+                    constexpr glm::vec3 refA{ 1.0, 0.0, 0.0 };
+                    constexpr glm::vec3 refB{ 0.0, 1.0, 0.0 };
+                    for(uint32_t idx = 0; idx < mesh->mNumVertices; ++idx) {
+                        const auto normal = mNormals[indexOffset + idx].raw();
+                        const auto dotA = std::fabs(glm::dot(refA, normal));
+                        const auto dotB = std::fabs(glm::dot(refB, normal));
+                        const auto ref = dotA < dotB ? refA : refB;
+                        mTangents[indexOffset + idx] = Direction<FrameOfReference::Object>::fromRaw(glm::cross(normal, ref));
+                    }
+                }
+
+                if(mesh->HasTextureCoords(0)) {
+                    for(uint32_t idx = 0; idx < mesh->mNumVertices; ++idx) {
+                        const auto texCoord = mesh->mTextureCoords[0][idx];
+                        mTexCoords[indexOffset + idx] = { texCoord.x, texCoord.y };
+                    }
+                }
+
+                indexOffset += mesh->mNumVertices;
+                faceOffset += mesh->mNumFaces;
             }
         }
 
@@ -96,9 +108,14 @@ public:
         mPrimitiveGroup = builder->buildFromTriangleMesh(
             verticesCount, trianglesCount,
             [&](void* verticesBuffer, void* indicesBuffer) {
-                static_assert(sizeof(aiVector3D) == 3 * sizeof(Float));
-                memcpy(verticesBuffer, mesh->mVertices, verticesCount * sizeof(aiVector3D));
-                static_assert(sizeof(glm::uvec3) == 3 * sizeof(uint32_t));
+                uint32_t indexOffset = 0;
+                for(uint32_t k = 0; k < scene->mNumMeshes; ++k) {
+                    const auto mesh = scene->mMeshes[k];
+                    memcpy(static_cast<aiVector3D*>(verticesBuffer) + indexOffset, mesh->mVertices,
+                           mesh->mNumVertices * sizeof(aiVector3D));
+                    indexOffset += mesh->mNumVertices;
+                }
+
                 memcpy(indicesBuffer, mIndices.data(), mIndices.size() * sizeof(glm::uvec3));
             },
             *this);
@@ -126,11 +143,8 @@ public:
         const auto wu = 1.0f - barycentric.x - barycentric.y, wv = barycentric.x, ww = barycentric.y;
         const auto lerp3 = [&](auto u, auto v, auto w) { return u * wu + v * wv + w * ww; };
 
-        TexCoord texCoord{ 0.0f, 0.0f };
-        if(!mTexCoords.empty()) {
-            texCoord = lerp3(mTexCoords[iu], mTexCoords[iv], mTexCoords[iw]);
-            texCoord = texCoord - glm::floor(texCoord);
-        }
+        const auto texCoord = lerp3(mTexCoords[iu], mTexCoords[iv], mTexCoords[iw]);
+        const auto normalizedTexCoord = texCoord - glm::floor(texCoord);  // TODO: reduce normalization?
 
         const auto lerpNormal = transform(
             Normal<FrameOfReference::Object>::fromRaw(glm::normalize(lerp3(mNormals[iu].raw(), mNormals[iv].raw(), mNormals[iw].raw()))));
@@ -153,7 +167,7 @@ public:
                            geometryNormal,
                            lerpNormal,
                            primitiveIndex,
-                           texCoord,
+                           normalizedTexCoord,
                            transform.inverse() * frame,
                            Handle<Material>{ mSurface.get() } };
     }

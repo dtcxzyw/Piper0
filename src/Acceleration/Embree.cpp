@@ -214,7 +214,9 @@ public:
                             ray.direction.z(), ray.t, infinity, 0, 0, 0 },
                           {} };
 
+        FloatingPointExceptionProbe::off();
         rtcIntersect1(mScene, &ctx, &hit);
+        FloatingPointExceptionProbe::on();
 
         return processHitInfo(ray, hit.hit, Distance::fromRaw(hit.ray.tfar));
     }
@@ -232,7 +234,9 @@ public:
             };
         }
 
+        FloatingPointExceptionProbe::off();
         rtcIntersect1M(mScene, &ctx, hit.data(), static_cast<uint32_t>(hit.size()), sizeof(RTCRayHit));
+        FloatingPointExceptionProbe::on();
 
         std::pmr::vector<Intersection> res{ rayStream.size(), context().scopedAllocator };
 
@@ -260,8 +264,10 @@ public:
                     0,
                     0,
                     0 };
-
+        FloatingPointExceptionProbe::off();
         rtcOccluded1(mScene, &ctx, &ray);
+        FloatingPointExceptionProbe::on();
+
         return ray.tfar < dist.raw();
     }
 };

@@ -207,7 +207,7 @@ class Renderer final : public SourceNode {
         }
     }
 
-    std::pmr::vector<Float> renderTile(const std::pmr ::vector<Channel>& channels, const uint32_t pixelStride, const int32_t x0,
+    std::pmr::vector<Float> renderTile(const std::pmr::vector<Channel>& channels, const uint32_t pixelStride, const int32_t x0,
                                        const int32_t y0, const uint32_t tileWidth, const uint32_t tileHeight,
                                        const SensorNDCAffineTransform& transform, const Sensor* sensor, const Ref<TileSampler>& sampler,
                                        const Float shutterTime) {
@@ -318,7 +318,7 @@ class Renderer final : public SourceNode {
         const auto tileSampler = action.sampler->prepare(frameIdx, action.width, action.height, action.frameCount);
 
 #ifdef _DEBUG
-        tbb::global_control limit{ tbb::global_control::max_allowed_parallelism, 2 };  // another thread for frontend
+        tbb::global_control limit{ tbb::global_control::max_allowed_parallelism, 1 };
 #endif
 
         const auto processTile = [&](const glm::uvec2 tile) {
@@ -351,8 +351,10 @@ class Renderer final : public SourceNode {
         tbb::parallel_for(
             tbb::blocked_range<size_t>(0, blocks.size()),
             [&](const tbb::blocked_range<size_t>& r) {
+                FloatingPointExceptionProbe::on();
                 for(size_t idx = r.begin(); idx != r.end(); ++idx)
                     processTile(blocks[idx]);
+                FloatingPointExceptionProbe::off();
             },
             globalAffinityPartitioner);
 
