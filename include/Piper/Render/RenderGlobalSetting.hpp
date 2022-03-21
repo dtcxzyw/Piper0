@@ -88,7 +88,7 @@ public:
 
 using RSSMono = RenderStaticSetting<MonoSpectrum>;
 using RSSRGB = RenderStaticSetting<RGBSpectrum>;
-using RSSSpectral = RenderStaticSetting<SpectralSpectrum>;
+using RSSSpectral = RenderStaticSetting<SampledSpectrum>;
 /*
 using RSSMonoPolarized = RenderStaticSetting<MuellerMatrix<MonoSpectrum>>;
 using RSSRGBPolarized = RenderStaticSetting<MuellerMatrix<RGBSpectrum>>;

@@ -21,8 +21,8 @@
 #pragma once
 #include <Piper/Render/Math.hpp>
 #include <Piper/Render/Radiometry.hpp>
+#include <Piper/Render/Sampler.hpp>
 #include <Piper/Render/Transform.hpp>
-#include <complex>
 
 PIPER_NAMESPACE_BEGIN
 
@@ -86,6 +86,30 @@ auto sampleUniformSphere(const glm::vec2 u) noexcept {
 inline InversePdf<PdfType::None> powerHeuristic(const InversePdf<PdfType::Light | PdfType::LightSampler> fPdf,
                                                 const InversePdf<PdfType::BSDF> gPdf) noexcept {
     return InversePdf<PdfType::None>::fromRaw(sqr(gPdf.raw()) / (sqr(fPdf.raw()) + sqr(gPdf.raw())));
+}
+
+template <typename Wavelength, typename Spectrum>
+auto sampleWavelength(SampleProvider&) noexcept {
+    return std::make_pair(Wavelength{}, identity<Spectrum>());
+}
+
+// Based on "An Improved Technique for Full Spectral Rendering". J. WSCG 17(1-3): 9-16 (2009)
+// By Michal Radziszewski, Krzysztof Boryczko, Witold Alda
+// http://wscg.zcu.cz/WSCG2009/Papers_2009/!_2009_J_WSCG_No_1-3.zip
+
+template <>
+inline auto sampleWavelength<Float, Float>(SampleProvider& sampler) noexcept {
+    const auto lambda = 538.f - atanh(0.8569106254698279f - 1.8275019724092267f * sampler.sample()) * 138.88888888888889f;
+    const auto weight = /* 253.82f **/ sqr(std::cosh(0.0072f * (lambda - 538.f)));  // TODO: FIXME
+    return std::make_pair(lambda, weight);
+}
+
+template <>
+inline auto sampleWavelength<SampledSpectrum, SampledSpectrum>(SampleProvider& sampler) noexcept {
+    auto lambda = undefined<SampledSpectrum::VecType>(), weight = undefined<SampledSpectrum::VecType>();
+    for(int32_t idx = 0; idx < SampledSpectrum::nSamples; ++idx)
+        std::tie(lambda[idx], weight[idx]) = sampleWavelength<Float, Float>(sampler);
+    return std::make_pair(SampledSpectrum::fromRaw(lambda), SampledSpectrum::fromRaw(weight));
 }
 
 PIPER_NAMESPACE_END

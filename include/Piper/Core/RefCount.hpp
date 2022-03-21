@@ -28,7 +28,7 @@ PIPER_NAMESPACE_BEGIN
 template <typename T>
 class Ref;
 
-namespace impl {
+namespace Impl {
     constexpr struct OwnsTag {
     } owns;
 
@@ -42,7 +42,7 @@ class RefCountBase {
     template <typename T>
     friend class Ref;
 
-    friend struct impl::PostSetter;
+    friend struct Impl::PostSetter;
 
     void addRef() noexcept {
         ++mRefCount;
@@ -67,7 +67,7 @@ public:
     }
 };
 
-namespace impl {
+namespace Impl {
     struct PostSetter final {
         static void setAllocatedSize(RefCountBase* base, const size_t size) noexcept {
             base->mAllocatedSize = size;
@@ -89,7 +89,7 @@ public:
         if(mPtr)
             mPtr->addRef();
     }
-    explicit Ref(T* ptr, impl::OwnsTag) noexcept : mPtr{ ptr } {}
+    explicit Ref(T* ptr, Impl::OwnsTag) noexcept : mPtr{ ptr } {}
     ~Ref() noexcept {
         if(mPtr)
             mPtr->decRef();
@@ -176,7 +176,7 @@ template <RefCountable T, RefCountable U = T, typename... Args>
         throw;
     }
     const auto typedPtr = static_cast<U*>(ptr);
-    impl::PostSetter::setAllocatedSize(typedPtr, sizeof(T));
+    Impl::PostSetter::setAllocatedSize(typedPtr, sizeof(T));
     return Ref<U>{ typedPtr };
 }
 
@@ -184,7 +184,7 @@ template <typename T, typename U>
 Ref<T> dynamicCast(Ref<U> ptr) {
     if(const auto newPtr = dynamic_cast<T*>(ptr.get())) {
         ptr.release();
-        return Ref<T>{ newPtr, impl::owns };
+        return Ref<T>{ newPtr, Impl::owns };
     }
     return Ref<T>{};
 }

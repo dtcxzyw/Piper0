@@ -22,7 +22,7 @@
 
 PIPER_NAMESPACE_BEGIN
 
-SpectralSpectrum temperatureToSpectrum(Float temperature, const SpectralSpectrum& sampledWavelength) noexcept;
+SampledSpectrum temperatureToSpectrum(Float temperature, const SampledSpectrum& sampledWavelength) noexcept;
 
 template <typename Setting>
 class BlackBody final : public ConstantTexture<Setting> {

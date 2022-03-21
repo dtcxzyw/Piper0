@@ -77,7 +77,8 @@ public:
         Radiance<Spectrum> result = Radiance<Spectrum>::zero();
         Rational<Spectrum> beta = Rational<Spectrum>::identity();
 
-        Wavelength sampledWavelength = *reinterpret_cast<Wavelength*>(output);  // TODO
+        // TODO: sampling wavelength by outer integrator
+        const auto [sampledWavelength, weight] = sampleWavelength<Wavelength, Spectrum>(sampler);
         ShadingContext<Setting> ctx{ ray.t, sampledWavelength };
 
         uint32_t depth = 0;
@@ -132,9 +133,9 @@ public:
         Histogram<StatsType::TraceDepth>::count(depth);
 
         if constexpr(spectrumType<Spectrum>() == SpectrumType::Mono)
-            *output = luminance(result.raw(), sampledWavelength);
+            *output = luminance(result.raw() * weight, sampledWavelength);
         else
-            *reinterpret_cast<RGBSpectrum*>(output) = toRGB(result.raw(), sampledWavelength);
+            *reinterpret_cast<RGBSpectrum*>(output) = toRGB(result.raw() * weight, sampledWavelength);
     }
 };
 

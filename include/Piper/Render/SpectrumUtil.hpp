@@ -23,7 +23,9 @@
 
 PIPER_NAMESPACE_BEGIN
 
-namespace impl {
+namespace Impl {
+    SampledSpectrum fromRGB(const RGBSpectrum& u, const SampledSpectrum& w);
+
     template <SpectrumLike T, SpectrumLike U>
     struct SpectrumCastCall final {};
 
@@ -41,19 +43,32 @@ namespace impl {
         }
     };
 
-    template <SpectrumLike T>
-    struct SpectrumCastCall<T, SpectralSpectrum> final {
-        static SpectralSpectrum cast(const T& u, const WavelengthType<SpectralSpectrum>::Type& w) noexcept {
-            // TODO
-            return zero<SpectralSpectrum>();
+    template <>
+    struct SpectrumCastCall<MonoSpectrum, SampledSpectrum> final {
+        static SampledSpectrum cast(const MonoSpectrum& u, const SampledSpectrum&) noexcept {
+            return SampledSpectrum::fromScalar(u);
         }
     };
 
-}  // namespace impl
+    template <>
+    struct SpectrumCastCall<RGBSpectrum, SampledSpectrum> final {
+        static SampledSpectrum cast(const RGBSpectrum& u, const SampledSpectrum& w) noexcept {
+            return fromRGB(u, w);
+        }
+    };
+
+    template <>
+    struct SpectrumCastCall<SampledSpectrum, SampledSpectrum> final {
+        static SampledSpectrum cast(const SampledSpectrum& u, const SampledSpectrum&) noexcept {
+            return u;
+        }
+    };
+
+}  // namespace Impl
 
 template <SpectrumLike T, SpectrumLike U, typename Wavelength>
 auto spectrumCast(const U& u, const Wavelength& w) noexcept {
-    return impl::SpectrumCastCall<U, T>::cast(u, w);
+    return Impl::SpectrumCastCall<U, T>::cast(u, w);
 }
 
 enum class SpectrumParseType { Illuminant, Albedo };

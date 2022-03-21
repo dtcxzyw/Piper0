@@ -30,7 +30,7 @@ PIPER_NAMESPACE_BEGIN
 void FloatingPointExceptionProbe::on() noexcept {
 #ifdef PIPER_FLOATING_POINT_EXCEPTION_PROBE
 #ifdef PIPER_WINDOWS
-    _control87(_EM_DENORMAL | _EM_INEXACT, _MCW_EM);
+    _control87(_EM_DENORMAL | _EM_INEXACT | _EM_UNDERFLOW, _MCW_EM);
 #endif
 #endif
 }

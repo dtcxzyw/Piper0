@@ -68,15 +68,17 @@ class RGBSpectrum final {
     PIPER_GUARD_BASE_OP(RGBSpectrum)
 
     // Please refer to https://pbr-book.org/3ed-2018/Color_and_Radiometry/The_SampledSpectrum_Class
+    // NOTICE: transposed
     static constexpr glm::mat3 matXYZ2RGB = {
-        3.240479f,  -1.537150f, -0.498535f,  //
-        -0.969256f, 1.875991f,  0.041556f,   //
-        0.055648f,  -0.204043f, 1.057311f    //
+        3.240479f,  -0.969256f, 0.055648f,   //
+        -1.537150f, 1.875991f,  -0.204043f,  //
+        -0.498535f, 0.041556f,  1.057311f    //
     };
+
     static constexpr glm::mat3 matRGB2XYZ = {
-        0.412453f, 0.357580f, 0.180423f,  //
-        0.212671f, 0.715160f, 0.072169f,  //
-        0.019334f, 0.119193f, 0.950227f   //
+        0.412453f, 0.212671f, 0.019334f,  //
+        0.357580f, 0.715160f, 0.119193f,  //
+        0.180423f, 0.072169f, 0.950227f   //
     };
 
     static constexpr RGBSpectrum fromScalar(const Float x) noexcept {
@@ -144,48 +146,48 @@ constexpr SpectrumType spectrumType<MonoSpectrum>() noexcept {
 constexpr auto sampleWavelengthMin = 360.0f;
 constexpr auto sampleWavelengthMax = 830.0f;
 
-class SpectralSpectrum final {
+class SampledSpectrum final {
 public:
     static constexpr auto nSamples = 4;
     using VecType = glm::vec<nSamples, Float>;
 
 private:
-    PIPER_GUARD_BASE(SpectralSpectrum, VecType)
-    PIPER_GUARD_BASE_OP(SpectralSpectrum)
-    PIPER_GUARD_ELEMENT_VISE_MULTIPLY(SpectralSpectrum)
+    PIPER_GUARD_BASE(SampledSpectrum, VecType)
+    PIPER_GUARD_BASE_OP(SampledSpectrum)
+    PIPER_GUARD_ELEMENT_VISE_MULTIPLY(SampledSpectrum)
 
-    static constexpr SpectralSpectrum fromScalar(const Float x) noexcept {
-        return SpectralSpectrum{ VecType{ x } };
+    static constexpr SampledSpectrum fromScalar(const Float x) noexcept {
+        return SampledSpectrum{ VecType{ x } };
     }
 };
 
-Float luminance(const SpectralSpectrum& x, const SpectralSpectrum& sampledWavelengths) noexcept;
-RGBSpectrum toRGB(const SpectralSpectrum& x, const SpectralSpectrum& sampledWavelengths) noexcept;
+Float luminance(const SampledSpectrum& x, const SampledSpectrum& sampledWavelengths) noexcept;
+RGBSpectrum toRGB(const SampledSpectrum& x, const SampledSpectrum& sampledWavelengths) noexcept;
 
-inline Float maxComponentValue(const SpectralSpectrum& x) noexcept {
+inline Float maxComponentValue(const SampledSpectrum& x) noexcept {
+    static_assert(SampledSpectrum::nSamples == 4);
     const auto vec = x.raw();
-    static_assert(std::is_same_v<std::decay_t<decltype(vec)>, glm::vec4>);
     return std::fmax(std::fmax(vec.x, vec.y), std::fmax(vec.z, vec.w));
 }
 
 template <>
-struct WavelengthType<SpectralSpectrum> final {
-    using Type = SpectralSpectrum;
+struct WavelengthType<SampledSpectrum> final {
+    using Type = SampledSpectrum;
 };
 
 template <>
-constexpr SpectrumType spectrumType<SpectralSpectrum>() noexcept {
+constexpr SpectrumType spectrumType<SampledSpectrum>() noexcept {
     return SpectrumType::LinearRGB;
 }
 
 template <>
-constexpr SpectralSpectrum zero<SpectralSpectrum>() noexcept {
-    return SpectralSpectrum::fromScalar(0.0f);
+constexpr SampledSpectrum zero<SampledSpectrum>() noexcept {
+    return SampledSpectrum::fromScalar(0.0f);
 }
 
 template <>
-constexpr SpectralSpectrum identity<SpectralSpectrum>() noexcept {
-    return SpectralSpectrum::fromScalar(1.0f);
+constexpr SampledSpectrum identity<SampledSpectrum>() noexcept {
+    return SampledSpectrum::fromScalar(1.0f);
 }
 
 constexpr uint32_t spectrumSize(const SpectrumType type) noexcept {

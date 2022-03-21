@@ -269,9 +269,9 @@ static constexpr Float expandLum(const T& x, const T& w, std::index_sequence<I..
     return ((wavelength2Y(w[I]) * x[I]) + ...) / static_cast<Float>(Samples);
 }
 
-Float luminance(const SpectralSpectrum& x, const SpectralSpectrum& sampledWavelengths) noexcept {
-    constexpr auto indices = std::make_index_sequence<SpectralSpectrum::nSamples>{};
-    return expandLum<SpectralSpectrum::nSamples>(x.raw(), sampledWavelengths.raw(), indices);
+Float luminance(const SampledSpectrum& x, const SampledSpectrum& sampledWavelengths) noexcept {
+    constexpr auto indices = std::make_index_sequence<SampledSpectrum::nSamples>{};
+    return expandLum<SampledSpectrum::nSamples>(x.raw(), sampledWavelengths.raw(), indices);
 }
 
 template <size_t Samples, typename T, size_t... I>
@@ -279,9 +279,9 @@ static glm::vec3 expandXYZ(const T& x, const T& w, std::index_sequence<I...>) {
     return ((wavelength2XYZ(w[I]) * x[I]) + ...) / static_cast<Float>(Samples);
 }
 
-RGBSpectrum toRGB(const SpectralSpectrum& x, const SpectralSpectrum& sampledWavelengths) noexcept {
-    constexpr auto indices = std::make_index_sequence<SpectralSpectrum::nSamples>{};
-    const auto xyz = expandXYZ<SpectralSpectrum::nSamples>(x.raw(), sampledWavelengths.raw(), indices);
+RGBSpectrum toRGB(const SampledSpectrum& x, const SampledSpectrum& sampledWavelengths) noexcept {
+    constexpr auto indices = std::make_index_sequence<SampledSpectrum::nSamples>{};
+    const auto xyz = expandXYZ<SampledSpectrum::nSamples>(x.raw(), sampledWavelengths.raw(), indices);
     return RGBSpectrum::fromRaw(RGBSpectrum::matXYZ2RGB * xyz);
 }
 
@@ -308,9 +308,22 @@ static auto expandBlackBody(const Float temperature, const T& x, std::index_sequ
     return T{ (blackBody(temperature, x[I]), ...) };
 }
 
-SpectralSpectrum temperatureToSpectrum(const Float temperature, const SpectralSpectrum& sampledWavelength) noexcept {
-    constexpr auto indices = std::make_index_sequence<SpectralSpectrum::nSamples>{};
-    return SpectralSpectrum::fromRaw(expandBlackBody<SpectralSpectrum::nSamples>(temperature, sampledWavelength.raw(), indices));
+SampledSpectrum temperatureToSpectrum(const Float temperature, const SampledSpectrum& sampledWavelength) noexcept {
+    constexpr auto indices = std::make_index_sequence<SampledSpectrum::nSamples>{};
+    return SampledSpectrum::fromRaw(expandBlackBody<SampledSpectrum::nSamples>(temperature, sampledWavelength.raw(), indices));
 }
+
+namespace Impl {
+    SampledSpectrum fromRGB(const RGBSpectrum& u, const SampledSpectrum& w) {
+        // TODO:FIXME
+        const auto vec = w.raw();
+        const auto xyz = RGBSpectrum::matRGB2XYZ * u.raw();
+        glm::vec4 res;
+        for(int32_t idx = 0; idx < SampledSpectrum::nSamples; ++idx)
+            res[idx] = glm::dot(xyz, wavelength2XYZ(vec[idx]));
+
+        return SampledSpectrum::fromRaw(res);
+    }
+}  // namespace Impl
 
 PIPER_NAMESPACE_END
