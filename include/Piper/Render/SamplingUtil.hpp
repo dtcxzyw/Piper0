@@ -44,7 +44,7 @@ inline glm::vec2 sampleConcentricDisk(glm::vec2 u) noexcept {
 
 inline Direction<FrameOfReference::Shading> sampleCosineHemisphere(const glm::vec2 u) {
     const auto coord = sampleConcentricDisk(u);
-    const auto z = std::sqrt(1.0f - glm::dot(coord, coord));
+    const auto z = safeSqrt(1.0f - glm::dot(coord, coord));
     return Direction<FrameOfReference::Shading>::fromRaw({ coord, z });
 }
 
@@ -66,7 +66,7 @@ inline Float calcGeometrySamplePdf(const Distance distance, const Direction<Fram
 }
 
 inline auto cosineHemispherePdf(const Float cosTheta) {
-    return InversePdf<PdfType::BSDF>::fromRaw(rcp(cosTheta) * pi);
+    return cosTheta > epsilon ? InversePdf<PdfType::BSDF>::fromRaw(rcp(cosTheta) * pi) : InversePdf<PdfType::BSDF>::invalid();
 }
 
 PIPER_NAMESPACE_END

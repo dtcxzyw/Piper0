@@ -28,14 +28,14 @@
 PIPER_NAMESPACE_BEGIN
 
 void FloatingPointExceptionProbe::on() noexcept {
-#ifdef _DEBUG
+#ifdef PIPER_FLOATING_POINT_EXCEPTION_PROBE
 #ifdef PIPER_WINDOWS
     _control87(_EM_DENORMAL | _EM_INEXACT, _MCW_EM);
 #endif
 #endif
 }
 void FloatingPointExceptionProbe::off() noexcept {
-#ifdef _DEBUG
+#ifdef PIPER_FLOATING_POINT_EXCEPTION_PROBE
 #ifdef PIPER_WINDOWS
     _control87(_MCW_EM, _MCW_EM);
 #endif
@@ -43,10 +43,8 @@ void FloatingPointExceptionProbe::off() noexcept {
 }
 
 void initFloatingPointEnvironment() noexcept {
-#ifndef _DEBUG
     _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
     _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
-#endif
 }
 
 glm::vec2 parseVec2(const Ref<ConfigAttr>& node) {

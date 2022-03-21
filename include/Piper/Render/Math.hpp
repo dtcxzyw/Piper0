@@ -62,6 +62,10 @@ constexpr auto rcp(T x) noexcept {
     return static_cast<T>(1.0) / x;
 }
 
+inline Float safeSqrt(const Float x) noexcept {
+    return std::sqrt(std::fmax(x, 0.0f));
+}
+
 template <typename T>
 constexpr auto sqr(T x) noexcept {
     return x * x;
