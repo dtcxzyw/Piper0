@@ -183,10 +183,9 @@ public:
     }
 
     Intersection processHitInfo(const Ray& ray, const RTCHit& hitInfo, const Distance distance) const {
-        BoolCounter<StatsType::Intersection> counter;
         if(distance.raw() < infinity) {  // NOLINT(clang-diagnostic-float-equal)
             // surface
-            counter.count(true);
+            BoolCounter<StatsType::Intersection>::count(true);
 
             const auto geo = rtcGetGeometry(mScene, hitInfo.instID[0]);
             const auto& shape = *static_cast<const Shape*>(rtcGetGeometryUserData(geo));
@@ -202,7 +201,7 @@ public:
         }
 
         // missing
-        counter.count(false);
+        BoolCounter<StatsType::Intersection>::count(false);
         return std::monostate{};
     }
 

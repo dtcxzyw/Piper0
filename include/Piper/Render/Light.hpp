@@ -19,9 +19,12 @@
 */
 
 #pragma once
+#include <Piper/Render/Intersection.hpp>
 #include <Piper/Render/Radiometry.hpp>
+#include <Piper/Render/Ray.hpp>
 #include <Piper/Render/RenderGlobalSetting.hpp>
 #include <Piper/Render/SceneObject.hpp>
+#include <Piper/Render/ShadingContext.hpp>
 
 PIPER_NAMESPACE_BEGIN
 
@@ -39,21 +42,36 @@ public:
 };
 
 template <typename Spectrum>
-struct LightSample final {
+struct LightLiSample final {
     Direction<FrameOfReference::World> dir;  // src -> hit
     Radiance<Spectrum, PdfType::Light | PdfType::LightSampler> rad;
     InversePdf<PdfType::Light> inversePdf;
     Distance distance;
 
-    static LightSample invalid() noexcept {
-        return LightSample{ {},
-                            Radiance<Spectrum, PdfType::Light>::fromRaw(zero<Spectrum>()),
-                            InversePdf<PdfType::Light>::invalid(),
-                            Distance::fromRaw(0.0f) };
+    static LightLiSample invalid() noexcept {
+        return LightLiSample{ Direction<FrameOfReference::World>::undefined(), Radiance<Spectrum, PdfType::Light>::undefined(),
+                              InversePdf<PdfType::Light>::invalid(), Distance::undefined() };
     }
 
     [[nodiscard]] bool valid() const noexcept {
         return inversePdf.valid();
+    }
+};
+
+template <typename Spectrum>
+struct LightLeSample final {
+    Ray ray;
+    Intensity<Spectrum> intensity;
+    InversePdf<PdfType::LightPos> inversePdfPos;
+    InversePdf<PdfType::LightDir> inversePdfDir;
+
+    static LightLeSample invalid() noexcept {
+        return LightLeSample{ Ray::undefined(), Intensity<Spectrum>::undefined(), InversePdf<PdfType::LightPos>::invalid(),
+                              InversePdf<PdfType::LightDir>::undefined() };
+    }
+
+    [[nodiscard]] bool valid() const noexcept {
+        return inversePdfPos.valid() || inversePdfDir.valid();
     }
 };
 
@@ -62,14 +80,26 @@ class Light : public TypedRenderVariantBase<Setting, LightBase> {
 public:
     PIPER_IMPORT_SETTINGS();
 
-    virtual LightSample<Spectrum> sample(Float t, const Wavelength& sampledWavelength, const Point<FrameOfReference::World>& pos,
-                                         SampleProvider& sampler) const noexcept = 0;
-    virtual Radiance<Spectrum> evaluate(Float t, const Wavelength& sampledWavelength,
-                                        const Point<FrameOfReference::World>& pos) const noexcept = 0;
-    [[nodiscard]] virtual InversePdf<PdfType::Light> pdf(Float t, const Wavelength& sampledWavelength,
-                                                         const Point<FrameOfReference::World>& pos,
-                                                         const Direction<FrameOfReference::World>& dir,
-                                                         Distance distance) const noexcept = 0;
+    virtual LightLiSample<Spectrum> sampleLi(const ShadingContext<Setting>& ctx, const Point<FrameOfReference::World>& pos,
+                                             SampleProvider& sampler) const noexcept = 0;
+    virtual InversePdf<PdfType::Light> inversePdfLi(const ShadingContext<Setting>& ctx,
+                                                    const Direction<FrameOfReference::World>& wi) const noexcept = 0;
+    virtual LightLeSample<Spectrum> sampleLe(const ShadingContext<Setting>& ctx, SampleProvider& sampler) const noexcept = 0;
+    virtual std::pair<InversePdf<PdfType::LightPos>, InversePdf<PdfType::LightDir>> pdfLe(const ShadingContext<Setting>& ctx,
+                                                                                          const Ray& ray) const noexcept = 0;
+    // InfiniteLights only
+    virtual Radiance<Spectrum> evalLe(const ShadingContext<Setting>& ctx, const Ray& ray) const noexcept {
+        return Radiance<Spectrum>::zero();
+    }
+    // AreaLights only
+    virtual Radiance<Spectrum> evalL(const ShadingContext<Setting>& ctx, const Intersection& intersection) const noexcept {
+        return Radiance<Spectrum>::zero();
+    }
+
+    virtual std::pair<InversePdf<PdfType::LightPos>, InversePdf<PdfType::LightDir>>
+    inversePdfLe(const ShadingContext<Setting>& ctx, const Intersection& intersection, const Ray& ray) const noexcept {
+        return { InversePdf<PdfType::LightPos>::invalid(), InversePdf<PdfType::LightDir>::invalid() };
+    }
 };
 
 PIPER_NAMESPACE_END

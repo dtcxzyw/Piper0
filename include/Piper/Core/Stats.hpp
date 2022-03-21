@@ -42,15 +42,25 @@ enum class StatsType {
 class LocalStatsBase {
 public:
     LocalStatsBase();
+    LocalStatsBase(const LocalStatsBase&) = delete;
+    LocalStatsBase(LocalStatsBase&&) = delete;
+    LocalStatsBase& operator=(LocalStatsBase&&) = delete;
+    LocalStatsBase& operator=(const LocalStatsBase&) = delete;
+
     virtual void accumulate() = 0;
     virtual ~LocalStatsBase() = default;
 };
+
 class StatsBase {
 protected:
     StatsType mType;
 
 public:
     explicit StatsBase(StatsType type);
+    StatsBase(const StatsBase&) = delete;
+    StatsBase(StatsBase&&) = delete;
+    StatsBase& operator=(StatsBase&&) = delete;
+    StatsBase& operator=(const StatsBase&) = delete;
 
     [[nodiscard]] StatsType type() const noexcept {
         return mType;
@@ -96,14 +106,10 @@ class Counter final {
     }
 
 public:
-    Counter() {
+    Counter() = delete;
+    static void count() noexcept {
         localBase().count();
     }
-
-    Counter(const Counter&) = delete;
-    Counter(Counter&&) = delete;
-    Counter& operator=(const Counter&) = delete;
-    Counter& operator=(Counter&&) = delete;
 };
 
 class BoolCounterBase final : public StatsBase {
@@ -145,15 +151,10 @@ class BoolCounter final {
     }
 
 public:
-    BoolCounter() = default;
-    void count(const bool res) noexcept {
+    BoolCounter() = delete;
+    static void count(const bool res) noexcept {
         localBase().count(res);
     }
-
-    BoolCounter(const BoolCounter&) = delete;
-    BoolCounter(BoolCounter&&) = delete;
-    BoolCounter& operator=(const BoolCounter&) = delete;
-    BoolCounter& operator=(BoolCounter&&) = delete;
 };
 
 class HistogramBase final : public StatsBase {
@@ -175,7 +176,7 @@ class LocalHistogramBase final : public LocalStatsBase {
 public:
     explicit LocalHistogramBase(HistogramBase& base) : mBase{ base } {}
     void count(const uint32_t idx) noexcept {
-        ++mCount[idx];
+        ++mCount[std::min(63U, idx)];
     }
     void accumulate() override {
         mBase.add(mCount);
@@ -194,13 +195,10 @@ class Histogram final {
     }
 
 public:
-    explicit Histogram(const uint32_t idx) {
+    Histogram() = delete;
+    static void count(const uint32_t idx) noexcept {
         localBase().count(idx);
     }
-    Histogram(const Histogram&) = delete;
-    Histogram(Histogram&&) = delete;
-    Histogram& operator=(const Histogram&) = delete;
-    Histogram& operator=(Histogram&&) = delete;
 };
 
 class TimerBase final : public StatsBase {

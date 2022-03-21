@@ -25,18 +25,25 @@ PIPER_NAMESPACE_BEGIN
 
 class UniformLightSampler final : public LightSampler {
     std::pmr::vector<Handle<Light>> mLights{ context().globalAllocator };
+    std::pmr::vector<Handle<Light>> mInfiniteLights{ context().globalAllocator };
 
 public:
     explicit UniformLightSampler(const Ref<ConfigNode>&) {}
     void preprocess(const std::pmr::vector<LightBase*>& lights) override {
         mLights.clear();
         mLights.reserve(lights.size());
-        for(const auto light : lights)
+        for(const auto light : lights) {
             mLights.push_back(Handle<Light>{ light });
+            if(match(light->attributes(), LightAttributes::Infinite))
+                mInfiniteLights.push_back(Handle<Light>{ light });
+        }
     }
-    std::pair<Handle<Light>, InversePdf<PdfType::LightSampler>> sample(SampleProvider& sampler) const override {
+    std::pair<Handle<Light>, InversePdf<PdfType::LightSampler>> sample(SampleProvider& sampler) const noexcept override {
         const auto idx = sampler.sampleIdx(static_cast<uint32_t>(mLights.size()));
         return { mLights[idx], InversePdf<PdfType::LightSampler>::fromRaw(static_cast<Float>(mLights.size())) };
+    }
+    std::span<const Handle<Light>> infiniteLights() const noexcept override {
+        return { mInfiniteLights.data(), mInfiniteLights.size() };
     }
 };
 

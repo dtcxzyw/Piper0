@@ -26,7 +26,16 @@
 
 PIPER_NAMESPACE_BEGIN
 
-enum class PdfType { None = 0, BSDF = 1 << 0, Light = 1 << 1, LightSampler = 1 << 2, Texture = 1 << 3, All = (1 << 4) - 1 };
+enum class PdfType {
+    None = 0,
+    BSDF = 1 << 0,
+    Light = 1 << 1,
+    LightSampler = 1 << 2,
+    Texture = 1 << 3,
+    LightPos = 1 << 4,
+    LightDir = 1 << 5,
+    All = (1 << 6) - 1
+};
 PIPER_BIT_ENUM(PdfType)
 
 template <PdfType T>
@@ -36,6 +45,10 @@ class InversePdf final {
 
     static constexpr InversePdf invalid() noexcept {
         return InversePdf{ 0.0f };
+    }
+
+    static constexpr InversePdf identity() noexcept {
+        return InversePdf{ 1.0f };
     }
 
     [[nodiscard]] bool valid() const noexcept {

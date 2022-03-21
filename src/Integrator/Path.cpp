@@ -18,6 +18,7 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+#include <Piper/Core/Stats.hpp>
 #include <Piper/Render/Acceleration.hpp>
 #include <Piper/Render/Integrator.hpp>
 #include <Piper/Render/LightSampler.hpp>
@@ -45,45 +46,47 @@ public:
 
         Wavelength sampledWavelength = *reinterpret_cast<Wavelength*>(output);  // TODO
 
-        const auto sample = [&] {
-            for(uint32_t idx = 0; idx < mMaxDepth; ++idx) {
-                // ReSharper disable once CppDefaultCaseNotHandledInSwitchStatement
-                switch(intersection.index()) {
-                    case 0: {
-                        // TODO: sample infinite lights
-                        return;
-                    }
-                    case 1: {
-                        const auto& info = std::get<SurfaceHit>(intersection);
+        uint32_t depth = 0;
 
-                        const auto& material = info.surface.as<Setting>();
-                        const auto bsdf = material.evaluate(sampledWavelength, info);
+        while(true) {
 
-                        const auto [selectedLight, weight] = lightSampler.sample(sampler);
-                        const auto sampledLight = selectedLight.as<Setting>().sample(ray.t, sampledWavelength, info.hit, sampler);
-
-                        // for(auto& x : acceleration.occlusions()) {}
-
-                        const auto wo = -ray.direction;
-                        const auto wi = sampledLight.dir;
-                        if(sampledLight.valid() && !acceleration.occluded(Ray{ info.hit, sampledLight.dir, ray.t }, sampledLight.distance))
-                            result += beta * bsdf.evaluate(wo, wi) *
-                                (sampledLight.rad * (sampledLight.inversePdf * weight * absDot(info.shadingNormal, wi)));
-
-                        const auto sampledBSDF = bsdf.sample(sampler, wo);
-                        if(!sampledBSDF.valid())
-                            return;
-
-                        beta = beta * sampledBSDF.f * (sampledBSDF.inversePdf * absDot(info.shadingNormal, sampledBSDF.wi));
-                        ray.origin = info.hit;
-                        ray.direction = sampledBSDF.wi;
-                        intersection = acceleration.trace(ray);
-                    } break;
+            if(intersection.index() == 0) {
+                // TODO: sample infinite lights
+                for(auto light : lightSampler.infiniteLights()) {
                 }
+                break;
             }
-        };
 
-        sample();
+            const auto& info = std::get<SurfaceHit>(intersection);
+
+            const auto& material = info.surface.as<Setting>();
+            const auto bsdf = material.evaluate(sampledWavelength, info);
+
+            const auto [selectedLight, weight] = lightSampler.sample(sampler);
+            const auto sampledLight = selectedLight.as<Setting>().sampleLi({ ray.t, sampledWavelength }, info.hit, sampler);
+
+            // for(auto& x : acceleration.occlusions()) {}
+
+            const auto wo = -ray.direction;
+            const auto wi = sampledLight.dir;
+            if(sampledLight.valid() && !acceleration.occluded(Ray{ info.hit, sampledLight.dir, ray.t }, sampledLight.distance))
+                result +=
+                    beta * bsdf.evaluate(wo, wi) * (sampledLight.rad * (sampledLight.inversePdf * weight * absDot(info.shadingNormal, wi)));
+
+            if(depth++ == mMaxDepth)
+                return;
+
+            const auto sampledBSDF = bsdf.sample(sampler, wo);
+            if(!sampledBSDF.valid())
+                return;
+
+            beta = beta * sampledBSDF.f * (sampledBSDF.inversePdf * absDot(info.shadingNormal, sampledBSDF.wi));
+            ray.origin = info.hit;
+            ray.direction = sampledBSDF.wi;
+            intersection = acceleration.trace(ray);
+        }
+
+        Histogram<StatsType::TraceDepth>::count(depth);
 
         if constexpr(spectrumType<Spectrum>() == SpectrumType::Mono)
             *output = luminance(result.raw(), sampledWavelength);

@@ -20,21 +20,15 @@
 
 #pragma once
 #include <Piper/Render/RenderGlobalSetting.hpp>
-#include <Piper/Render/Transform.hpp>
 
 PIPER_NAMESPACE_BEGIN
 
-struct Ray final {
-    Point<FrameOfReference::World> origin;
-    Direction<FrameOfReference::World> direction;
+template <typename Setting>
+struct ShadingContext final {
+    PIPER_IMPORT_SETTINGS();
 
     Float t;
-
-    static constexpr Ray undefined() noexcept {
-        return Ray{ Point<FrameOfReference::World>::undefined(), Direction<FrameOfReference::World>::undefined(), 0.0f };
-    }
+    Wavelength sampledWavelength;
 };
-
-using RayStream = std::pmr::vector<Ray>;
 
 PIPER_NAMESPACE_END

@@ -32,7 +32,6 @@ struct SurfaceHit final {
     Direction<FrameOfReference::World> dpdu;
     uint32_t primitiveIdx;
     TexCoord texCoord;
-    // AffineTransform<FrameOfReference::World, FrameOfReference::Object> transform;
 
     Handle<Material> surface;
 };

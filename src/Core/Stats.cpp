@@ -87,7 +87,7 @@ void CounterBase::print() {
 void HistogramBase::print() {
     const auto end = std::ranges::find(std::as_const(mCount), 0);
     const auto sum = std::accumulate(mCount.cbegin(), end, 0ULL);
-    info(fmt::format("{}: {}", magic_enum::enum_name(mType), sum));
+    info(fmt::format("{}: {} count", magic_enum::enum_name(mType), sum));
     if(sum == 0)
         return;
     info("===========================================");

@@ -226,6 +226,8 @@ struct SRTTransform final {
     constexpr Direction<FrameOfReference::Object> rotateOnly(const Direction<FrameOfReference::World>& x) const noexcept {
         return Direction<FrameOfReference::Object>::fromRaw(glm::inverse(rotation) * x.raw());
     }
+
+    // AffineTransform<FrameOfReference::Object, FrameOfReference::World> toAffine() const noexcept {}
 };
 
 inline SRTTransform lerp(const SRTTransform& lhs, const SRTTransform& rhs, const Float u) noexcept {

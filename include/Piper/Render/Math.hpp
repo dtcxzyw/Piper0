@@ -111,17 +111,17 @@ constexpr T undefined() noexcept {
 
 template <>
 constexpr Float undefined<Float>() noexcept {
-    return 0.0f;
+    return std::numeric_limits<Float>::signaling_NaN();
 }
 
 template <>
 constexpr glm::vec3 undefined<glm::vec3>() noexcept {
-    return glm::vec3{};
+    return glm::vec3{ std::numeric_limits<Float>::signaling_NaN() };
 }
 
 template <>
 constexpr glm::vec4 undefined<glm::vec4>() noexcept {
-    return glm::vec4{};
+    return glm::vec4{ std::numeric_limits<Float>::signaling_NaN() };
 }
 
 #define PIPER_BIT_ENUM(TYPE)                                                                                        \

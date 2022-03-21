@@ -68,7 +68,7 @@ public:
     }
 
     void texture(OIIO::TextureSystem::TextureHandle* handle, const TexCoord texCoord, const int channels, Float* res) {
-        Counter<StatsType::Texture2D> counter;
+        Counter<StatsType::Texture2D>::count();
         [[maybe_unused]] const auto ok =
             mSystem->texture(handle, local(), mOptions, texCoord.x, texCoord.y, 0.0f, 0.0f, 0.0f, 0.0f, channels, res);
         assert(ok);

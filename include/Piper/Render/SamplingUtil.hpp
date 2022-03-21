@@ -42,13 +42,13 @@ inline glm::vec2 sampleConcentricDisk(glm::vec2 u) noexcept {
     return glm::vec2{ std::cos(theta), std::sin(theta) } * radius;
 }
 
-inline Direction<FrameOfReference::Shading> sampleCosineHemisphere(const glm::vec2 u) {
+inline Direction<FrameOfReference::Shading> sampleCosineHemisphere(const glm::vec2 u) noexcept {
     const auto coord = sampleConcentricDisk(u);
     const auto z = safeSqrt(1.0f - glm::dot(coord, coord));
     return Direction<FrameOfReference::Shading>::fromRaw({ coord, z });
 }
 
-inline uint32_t select(const Float* cdf, const Float* pdf, const uint32_t size, Float& u) {
+inline uint32_t select(const Float* cdf, const Float* pdf, const uint32_t size, Float& u) noexcept {
     uint32_t l = 0, r = size;  //[l,r)
     while(l < r) {
         if(const auto mid = (l + r) >> 1; u >= cdf[mid]) {
@@ -61,12 +61,25 @@ inline uint32_t select(const Float* cdf, const Float* pdf, const uint32_t size, 
 }
 
 inline Float calcGeometrySamplePdf(const Distance distance, const Direction<FrameOfReference::World>& wi,
-                                   const Direction<FrameOfReference::World>& n, const Area area) {
+                                   const Direction<FrameOfReference::World>& n, const Area area) noexcept {
     return sqr(distance) / (area * std::fabs(dot(n, wi)));
 }
 
-inline auto cosineHemispherePdf(const Float cosTheta) {
+inline auto cosineHemispherePdf(const Float cosTheta) noexcept {
     return cosTheta > epsilon ? InversePdf<PdfType::BSDF>::fromRaw(rcp(cosTheta) * pi) : InversePdf<PdfType::BSDF>::invalid();
+}
+
+template <PdfType T>
+constexpr auto uniformSpherePdf() noexcept {
+    return InversePdf<T>::fromRaw(fourPi);
+}
+
+template <FrameOfReference F>
+auto sampleUniformSphere(const glm::vec2 u) noexcept {
+    const auto z = 1.0f - 2.0f * u.x;
+    const auto r = safeSqrt(1.0f - sqr(z));
+    const auto phi = twoPi * u.y;
+    return Direction<F>::fromRaw(glm::vec3{ r * std::cos(phi), r * std::sin(phi), z });
 }
 
 PIPER_NAMESPACE_END

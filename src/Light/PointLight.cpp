@@ -42,24 +42,30 @@ public:
         mTransform = resolveTransform(keyFrames, timeInterval);
     }
 
-    LightSample<Spectrum> sample(const Float t, const Wavelength& sampledWavelength, const Point<FrameOfReference::World>& pos,
-                                 SampleProvider&) const noexcept override {
-        const auto transform = mTransform(t);
+    LightLiSample<Spectrum> sampleLi(const ShadingContext<Setting>& ctx, const Point<FrameOfReference::World>& pos,
+                                     SampleProvider& sampler) const noexcept override {
+        const auto transform = mTransform(ctx.t);
         const auto lightSource = Point<FrameOfReference::World>::fromRaw(transform.translation);
         const auto [dir, dist2] = direction(pos, lightSource);
-        const auto intensity = mIntensity->evaluate(transform.rotateOnly(dir), sampledWavelength);
-        const auto radiance =
-            importanceSampled<PdfType::Light | PdfType::LightSampler>(Intensity<Spectrum>::fromRaw(intensity).toRadiance(dist2));
-        return LightSample<Spectrum>{ dir, radiance, InversePdf<PdfType::Light>::fromRaw(1.0f), sqrt(dist2) };
+        const auto intensity = Intensity<Spectrum>::fromRaw(mIntensity->evaluate(transform.rotateOnly(dir), ctx.sampledWavelength));
+        const auto radiance = importanceSampled<PdfType::Light | PdfType::LightSampler>(intensity.toRadiance(dist2));
+        return LightLiSample<Spectrum>{ dir, radiance, InversePdf<PdfType::Light>::identity(), sqrt(dist2) };
     }
-
-    Radiance<Spectrum> evaluate(const Float, const Wavelength&, const Point<FrameOfReference::World>&) const noexcept override {
-        return Radiance<Spectrum>::zero();
-    }
-
-    [[nodiscard]] InversePdf<PdfType::Light> pdf(Float, const Wavelength&, const Point<FrameOfReference::World>&,
-                                                 const Direction<FrameOfReference::World>&, Distance) const noexcept override {
+    InversePdf<PdfType::Light> inversePdfLi(const ShadingContext<Setting>& ctx,
+                                            const Direction<FrameOfReference::World>& wi) const noexcept override {
         return InversePdf<PdfType::Light>::invalid();
+    }
+    LightLeSample<Spectrum> sampleLe(const ShadingContext<Setting>& ctx, SampleProvider& sampler) const noexcept override {
+        const auto transform = mTransform(ctx.t);
+        const auto dir = sampleUniformSphere<FrameOfReference::World>(sampler.sampleVec2());
+        const auto lightSource = Point<FrameOfReference::World>::fromRaw(transform.translation);
+        const Ray ray{ lightSource, dir, ctx.t };
+        const auto intensity = Intensity<Spectrum>::fromRaw(mIntensity->evaluate(transform.rotateOnly(-dir), ctx.sampledWavelength));
+        return LightLeSample<Spectrum>{ ray, intensity, InversePdf<PdfType::LightPos>::identity(), uniformSpherePdf<PdfType::LightDir>() };
+    }
+    std::pair<InversePdf<PdfType::LightPos>, InversePdf<PdfType::LightDir>> pdfLe(const ShadingContext<Setting>& ctx,
+                                                                                  const Ray& ray) const noexcept override {
+        return { InversePdf<PdfType::LightPos>::invalid(), uniformSpherePdf<PdfType::LightDir>() };
     }
 
     [[nodiscard]] Power<MonoSpectrum> power() const noexcept override {
