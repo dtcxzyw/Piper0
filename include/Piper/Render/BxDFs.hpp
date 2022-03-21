@@ -34,6 +34,10 @@ class LambertianBxDF final : public BxDF<Setting> {
 public:
     explicit LambertianBxDF(const Rational<Spectrum>& reflectance) : mReflectance{ reflectance } {}
 
+    [[nodiscard]] BxDFPart part() const noexcept override {
+        return BxDFPart::DiffuseReflection;
+    }
+
     Rational<Spectrum> evaluate(const Direction& wo, const Direction& wi, TransportMode) const noexcept override {
         if(!sameHemisphere(wo, wi))
             return Rational<Spectrum>::zero();
@@ -69,6 +73,10 @@ class DielectricBxDF final : public BxDF<Setting> {
 
 public:
     explicit DielectricBxDF(const Rational<Spectrum>& reflectance) : mReflectance{ reflectance } {}
+
+    [[nodiscard]] BxDFPart part() const noexcept override {
+        return BxDFPart::Glossy | BxDFPart::Reflection | BxDFPart::Transmission;  // TODO: FIXME
+    }
 
     Rational<Spectrum> evaluate(const Direction& wo, const Direction& wi, TransportMode) const noexcept override {
         if(!sameHemisphere(wo, wi))

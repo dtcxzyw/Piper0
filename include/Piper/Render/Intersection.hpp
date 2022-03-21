@@ -27,13 +27,17 @@ PIPER_NAMESPACE_BEGIN
 struct SurfaceHit final {
     Point<FrameOfReference::World> hit;
     Distance distance;
-    Normal<FrameOfReference::World> geometryNormal;  // NOTICE: always outer
-    Normal<FrameOfReference::World> shadingNormal;   // NOTICE: always outer
+    Normal<FrameOfReference::World> geometryNormal;
+    Normal<FrameOfReference::World> shadingNormal;  // NOTICE: always outer
     Direction<FrameOfReference::World> dpdu;
     uint32_t primitiveIdx;
     TexCoord texCoord;
 
     Handle<Material> surface;
+
+    [[nodiscard]] Point<FrameOfReference::World> offsetOrigin(const bool reflection) const noexcept {
+        return hit + geometryNormal.asDirection() * Distance::fromRaw(reflection ? epsilon : -epsilon);
+    }
 };
 
 using Intersection = std::variant<std::monostate, SurfaceHit>;

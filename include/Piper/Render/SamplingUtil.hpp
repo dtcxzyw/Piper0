@@ -82,4 +82,10 @@ auto sampleUniformSphere(const glm::vec2 u) noexcept {
     return Direction<F>::fromRaw(glm::vec3{ r * std::cos(phi), r * std::sin(phi), z });
 }
 
+// NOTICE: nf = ng =1
+inline InversePdf<PdfType::None> powerHeuristic(const InversePdf<PdfType::Light | PdfType::LightSampler> fPdf,
+                                                const InversePdf<PdfType::BSDF> gPdf) noexcept {
+    return InversePdf<PdfType::None>::fromRaw(sqr(gPdf.raw()) / (sqr(fPdf.raw()) + sqr(gPdf.raw())));
+}
+
 PIPER_NAMESPACE_END

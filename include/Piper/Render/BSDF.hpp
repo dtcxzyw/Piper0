@@ -49,6 +49,10 @@ enum class BxDFPart {
 
 PIPER_BIT_ENUM(BxDFPart)
 
+constexpr bool hasNonSpecular(const BxDFPart part) noexcept {
+    return static_cast<bool>(part & (BxDFPart::Diffuse | BxDFPart::Glossy));
+}
+
 enum class TransportMode : uint8_t { Radiance, Importance };
 
 #define PIPER_IMPORT_SHADING()                                               \
@@ -76,7 +80,10 @@ struct BSDFSampleResult final {
     }
 };
 
-class BxDFBase : public RenderVariantBase {};
+class BxDFBase : public RenderVariantBase {
+public:
+    virtual BxDFPart part() const noexcept = 0;
+};
 
 template <typename Setting>
 class BxDF : public TypedRenderVariantBase<Setting, BxDFBase> {
@@ -134,6 +141,10 @@ public:
         : mFrame{ shadingFrame } {
         static_assert(sizeof(T) <= maxBxDFSize);
         memcpy(mBxDFStorage, &bxdf, sizeof(T));
+    }
+
+    [[nodiscard]] BxDFPart part() const noexcept {
+        return cast()->part();
     }
 
     BSDFSampleResult<Setting, FrameOfReference::World> sample(SampleProvider& sampler, const Piper::Direction<FrameOfReference::World>& wo,
