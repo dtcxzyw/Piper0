@@ -152,7 +152,7 @@ public:
                                       const Piper::Direction<FrameOfReference::World>& wi,
                                       TransportMode transportMode = TransportMode::Radiance,
                                       BxDFDirection sampleDirection = BxDFDirection::All) const noexcept {
-        return cast()->pdf(mFrame(wo), mFrame(wi), transportMode, sampleDirection);
+        return cast()->inversePdf(mFrame(wo), mFrame(wi), transportMode, sampleDirection);
     }
 };
 
