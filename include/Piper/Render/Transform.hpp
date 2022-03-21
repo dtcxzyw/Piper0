@@ -108,6 +108,10 @@ class Direction final {
         return glm::dot(lhs.mValue, rhs.mValue);
     }
 
+    friend constexpr Float absDot(const Direction& lhs, const Direction& rhs) noexcept {
+        return std::fabs(glm::dot(lhs.mValue, rhs.mValue));
+    }
+
     friend constexpr Direction cross(const Direction& lhs, const Direction& rhs) noexcept {
         return Direction{ glm::cross(lhs.mValue, rhs.mValue) };
     }
@@ -137,6 +141,16 @@ class Normal final {
         return Direction<F>::fromRaw(mValue);
     }
 };
+
+template <FrameOfReference F>
+constexpr Float absDot(const Direction<F>& lhs, const Normal<F>& rhs) noexcept {
+    return std::fabs(glm::dot(lhs.raw(), rhs.raw()));
+}
+
+template <FrameOfReference F>
+constexpr Float absDot(const Normal<F>& lhs, const Direction<F>& rhs) noexcept {
+    return std::fabs(glm::dot(lhs.raw(), rhs.raw()));
+}
 
 template <FrameOfReference A, FrameOfReference B>
 class AffineTransform final {

@@ -57,27 +57,26 @@ public:
                         const auto& info = std::get<SurfaceHit>(intersection);
 
                         const auto& material = info.surface.as<Setting>();
-                        BSDFArray<Setting> bsdfSampler;
-                        material.evaluate(sampledWavelength, info, bsdfSampler);
+                        const auto bsdf = material.evaluate(sampledWavelength, info);
 
                         const auto [selectedLight, weight] = lightSampler.sample(sampler);
                         const auto sampledLight = selectedLight.as<Setting>().sample(ray.t, sampledWavelength, info.hit, sampler);
 
                         // for(auto& x : acceleration.occlusions()) {}
 
-                        const auto wo = info.transform(-ray.direction);
-                        const auto wi = info.transform(sampledLight.dir);
+                        const auto wo = -ray.direction;
+                        const auto wi = sampledLight.dir;
                         if(sampledLight.valid() && !acceleration.occluded(Ray{ info.hit, sampledLight.dir, ray.t }, sampledLight.distance))
-                            result += beta * bsdfSampler.evaluate(wo, wi) *
-                                (sampledLight.rad * (sampledLight.inversePdf * weight * std::fabs(wi.z())));  // TODO: use shading normal
+                            result += beta * bsdf.evaluate(wo, wi) *
+                                (sampledLight.rad * (sampledLight.inversePdf * weight * absDot(info.shadingNormal, wi)));
 
-                        const auto sampledBSDF = bsdfSampler.sample(sampler, wo);
+                        const auto sampledBSDF = bsdf.sample(sampler, wo);
                         if(!sampledBSDF.valid())
                             return;
 
-                        beta = beta * sampledBSDF.f * (sampledBSDF.inversePdf * std::fabs(sampledBSDF.wi.z()));
+                        beta = beta * sampledBSDF.f * (sampledBSDF.inversePdf * absDot(info.shadingNormal, sampledBSDF.wi));
                         ray.origin = info.hit;
-                        ray.direction = info.transform(sampledBSDF.wi);
+                        ray.direction = sampledBSDF.wi;
                         intersection = acceleration.trace(ray);
                     } break;
                 }

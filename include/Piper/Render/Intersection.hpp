@@ -27,11 +27,12 @@ PIPER_NAMESPACE_BEGIN
 struct SurfaceHit final {
     Point<FrameOfReference::World> hit;
     Distance distance;
-    Normal<FrameOfReference::World> geometryNormal;      // NOTICE: always outer
-    Normal<FrameOfReference::World> lerpGeometryNormal;  // NOTICE: always outer
+    Normal<FrameOfReference::World> geometryNormal;  // NOTICE: always outer
+    Normal<FrameOfReference::World> shadingNormal;   // NOTICE: always outer
+    Direction<FrameOfReference::World> dpdu;
     uint32_t primitiveIdx;
     TexCoord texCoord;
-    AffineTransform<FrameOfReference::World, FrameOfReference::Shading> transform;
+    // AffineTransform<FrameOfReference::World, FrameOfReference::Object> transform;
 
     Handle<Material> surface;
 };

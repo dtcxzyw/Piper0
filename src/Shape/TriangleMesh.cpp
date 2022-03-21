@@ -151,24 +151,9 @@ public:
         const auto lerpTangent = transform(Direction<FrameOfReference::Object>::fromRaw(
             glm::normalize(lerp3(mTangents[iu].raw(), mTangents[iv].raw(), mTangents[iw].raw()))));
 
-        const auto normal = lerpNormal.raw();
-        auto tangent = lerpTangent.raw();
-        const auto biTangent = glm::cross(normal, tangent);
-        tangent = glm::cross(biTangent, normal);
-
-        const auto matTBN = glm::mat3{ tangent, biTangent, normal };
-        const AffineTransform<FrameOfReference::Object, FrameOfReference::Shading> frame{ glm::mat4{
-                                                                                              glm::transpose(matTBN),
-                                                                                          },
-                                                                                          glm::mat4{ matTBN } };
-
-        return SurfaceHit{ ray.origin + ray.direction * hitDistance,
-                           hitDistance,
-                           geometryNormal,
-                           lerpNormal,
-                           primitiveIndex,
+        return SurfaceHit{ ray.origin + ray.direction * hitDistance, hitDistance, geometryNormal, lerpNormal, lerpTangent, primitiveIndex,
                            normalizedTexCoord,
-                           transform.inverse() * frame,
+                           // transform.inverse(),
                            Handle<Material>{ mSurface.get() } };
     }
 };

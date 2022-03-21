@@ -25,14 +25,14 @@
 PIPER_NAMESPACE_BEGIN
 
 template <typename Setting>
-class LambertianBSDF final : public BSDF<Setting> {
+class LambertianBxDF final : public BxDF<Setting> {
     PIPER_IMPORT_SETTINGS();
     PIPER_IMPORT_SHADING();
 
     Rational<Spectrum> mReflectance;
 
 public:
-    explicit LambertianBSDF(const Rational<Spectrum>& reflectance) : mReflectance{ reflectance } {}
+    explicit LambertianBxDF(const Rational<Spectrum>& reflectance) : mReflectance{ reflectance } {}
 
     [[nodiscard]] BxDFPart part() const noexcept override {
         return BxDFPart::Diffuse | BxDFPart::Reflection;
@@ -53,9 +53,10 @@ public:
     explicit Diffuse(const Ref<ConfigNode>& node)
         : mReflectance{ this->template make<Texture2D>(node->get("Reflectance"sv)->as<Ref<ConfigNode>>()) } {}
 
-    void evaluate(const Wavelength& sampledWavelength, const SurfaceHit& intersection, BSDFArray<Setting>& res) const noexcept override {
-        res.emplace(
-            LambertianBSDF<Setting>{ Rational<Spectrum>::fromRaw(mReflectance->evaluate(intersection.texCoord, sampledWavelength)) });
+    BSDF<Setting> evaluate(const Wavelength& sampledWavelength, const SurfaceHit& intersection) const noexcept override {
+        return BSDF<Setting>{ ShadingFrame{ intersection.shadingNormal.asDirection(), intersection.dpdu },
+                              LambertianBxDF<Setting>{
+                                  Rational<Spectrum>::fromRaw(mReflectance->evaluate(intersection.texCoord, sampledWavelength)) } };
     }
 };
 

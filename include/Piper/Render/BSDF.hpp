@@ -38,17 +38,17 @@ PIPER_BIT_ENUM(BxDFPart)
 
 enum class TransportMode : uint8_t { Radiance, Importance };
 
-#define PIPER_IMPORT_SHADING()                                     \
-    using Direction = Piper::Direction<FrameOfReference::Shading>; \
-    using BSDFSample = BSDFSampleResult<Setting>;                  \
+#define PIPER_IMPORT_SHADING()                                               \
+    using Direction = Piper::Direction<FrameOfReference::Shading>;           \
+    using BSDFSample = BSDFSampleResult<Setting, FrameOfReference::Shading>; \
     using InversePdfValue = InversePdf<PdfType::BSDF>
 
-template <typename Setting>
+template <typename Setting, FrameOfReference F>
 struct BSDFSampleResult final {
     PIPER_IMPORT_SETTINGS();
     PIPER_IMPORT_SHADING();
 
-    Direction wi;
+    Piper::Direction<F> wi;
     Rational<Spectrum, PdfType::BSDF> f;
     InversePdfValue inversePdf;
     BxDFPart part;
@@ -58,13 +58,13 @@ struct BSDFSampleResult final {
     }
 };
 
-class BSDFBase : public RenderVariantBase {
+class BxDFBase : public RenderVariantBase {
 public:
     virtual BxDFPart part() const noexcept = 0;
 };
 
 template <typename Setting>
-class BSDF : public TypedRenderVariantBase<Setting, BSDFBase> {
+class BxDF : public TypedRenderVariantBase<Setting, BxDFBase> {
 public:
     PIPER_IMPORT_SETTINGS();
     PIPER_IMPORT_SHADING();
@@ -83,39 +83,71 @@ public:
     }
 };
 
+class ShadingFrame final {
+    glm::mat3 mMatTBN{};
+
+public:
+    ShadingFrame(const Direction<FrameOfReference::World> shadingNormal, const Direction<FrameOfReference::World> dpdu) noexcept {
+        const auto normal = shadingNormal.raw();
+        auto tangent = dpdu.raw();
+        const auto biTangent = glm::cross(normal, tangent);
+        tangent = glm::cross(biTangent, normal);
+        mMatTBN = { tangent, biTangent, normal };
+    }
+
+    Direction<FrameOfReference::Shading> operator()(const Direction<FrameOfReference::World>& x) const noexcept {
+        return Direction<FrameOfReference::Shading>::fromRaw(x.raw() * mMatTBN);
+    }
+
+    Direction<FrameOfReference::World> operator()(const Direction<FrameOfReference::Shading>& x) const noexcept {
+        return Direction<FrameOfReference::World>::fromRaw(mMatTBN * x.raw());
+    }
+
+    [[nodiscard]] Direction<FrameOfReference::World> shadingNormal() const noexcept {
+        return Direction<FrameOfReference::World>::fromRaw(mMatTBN[2]);
+    }
+};
+
 template <typename Setting>
-class BSDFArray final {
+class BSDF final {
     PIPER_IMPORT_SETTINGS();
     PIPER_IMPORT_SHADING();
 
-    static constexpr uint32_t maxBSDFCount = 8;
-    static constexpr uint32_t maxBSDFSize = 64;
+    static constexpr uint32_t maxBxDFSize = 256;
 
-    std::byte mBSDFStorage[maxBSDFCount * maxBSDFSize]{};
-    uint32_t mBSDFCount = 0;
+    ShadingFrame mFrame;
+    std::byte mBxDFStorage[maxBxDFSize]{};
 
-    [[nodiscard]] const BSDF<Setting>* locate(const uint32_t idx) const noexcept {
-        return reinterpret_cast<const BSDF<Setting>*>(mBSDFStorage + idx * maxBSDFSize);
+    [[nodiscard]] const BxDF<Setting>* cast() const noexcept {
+        return reinterpret_cast<const BxDF<Setting>*>(mBxDFStorage);
     }
 
 public:
     template <typename T>
-    requires std::is_base_of_v<BSDF<Setting>, std::decay_t<T>>
-    void emplace(const T& storage) {
-        static_assert(sizeof(T) <= maxBSDFSize);
-        memcpy(mBSDFStorage + mBSDFCount * maxBSDFSize, &storage, sizeof(T));
-        ++mBSDFCount;
+    requires std::is_base_of_v<BxDF<Setting>, std::decay_t<T>> BSDF(const ShadingFrame& shadingFrame, const T& bxdf)
+        : mFrame{ shadingFrame } {
+        static_assert(sizeof(T) <= maxBxDFSize);
+        memcpy(mBxDFStorage, &bxdf, sizeof(T));
     }
 
-    BSDFSample sample(SampleProvider& sampler, const Direction& wo) const noexcept {
-        return locate(0)->sample(sampler, wo);
-    }
-    Rational<Spectrum> evaluate(const Direction& wo, const Direction& wi) const noexcept {
-        return locate(0)->evaluate(wo, wi);
+    [[nodiscard]] Piper::Direction<FrameOfReference::World> shadingNormal() const noexcept {
+        return mFrame.shadingNormal();
     }
 
-    [[nodiscard]] InversePdfValue pdf(const Direction& wo, const Direction& wi) const noexcept {
-        return locate(0)->pdf(wo, wi);
+    BSDFSampleResult<Setting, FrameOfReference::World> sample(SampleProvider& sampler,
+                                                              const Piper::Direction<FrameOfReference::World>& wo) const noexcept {
+        const auto res = cast()->sample(sampler, mFrame(wo));
+        return BSDFSampleResult<Setting, FrameOfReference::World>{ mFrame(res.wi), res.f, res.inversePdf, res.part };
+    }
+
+    Rational<Spectrum> evaluate(const Piper::Direction<FrameOfReference::World>& wo,
+                                const Piper::Direction<FrameOfReference::World>& wi) const noexcept {
+        return cast()->evaluate(mFrame(wo), mFrame(wi));
+    }
+
+    [[nodiscard]] InversePdfValue pdf(const Piper::Direction<FrameOfReference::World>& wo,
+                                      const Piper::Direction<FrameOfReference::World>& wi) const noexcept {
+        return cast()->pdf(mFrame(wo), mFrame(wi));
     }
 };
 
