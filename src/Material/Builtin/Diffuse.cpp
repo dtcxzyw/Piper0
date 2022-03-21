@@ -18,46 +18,11 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include <Piper/Render/BSDF.hpp>
+#include <Piper/Render/BxDFs.hpp>
 #include <Piper/Render/Material.hpp>
 #include <Piper/Render/Texture.hpp>
 
 PIPER_NAMESPACE_BEGIN
-
-template <typename Setting>
-class LambertianBxDF final : public BxDF<Setting> {
-    PIPER_IMPORT_SETTINGS();
-    PIPER_IMPORT_SHADING();
-
-    Rational<Spectrum> mReflectance;
-
-public:
-    explicit LambertianBxDF(const Rational<Spectrum>& reflectance) : mReflectance{ reflectance } {}
-
-    Rational<Spectrum> evaluate(const Direction& wo, const Direction& wi, TransportMode) const noexcept override {
-        if(!sameHemisphere(wo, wi))
-            return Rational<Spectrum>::zero();
-        return mReflectance * invPi;
-    }
-
-    BSDFSample sample(SampleProvider& sampler, const Direction& wo, const TransportMode transportMode,
-                      const BxDFDirection sampleDirection) const noexcept override {
-        if(!match(sampleDirection, BxDFDirection::Reflection))
-            return BSDFSample::invalid();
-        auto wi = sampleCosineHemisphere(sampler.sampleVec2());
-        if(wo.z() < 0.0f)
-            wi.flipZ();
-        return { wi, importanceSampled<PdfType::BSDF>(evaluate(wo, wi, transportMode)), cosineHemispherePdf(absCosTheta(wi)),
-                 BxDFPart::DiffuseReflection };
-    }
-
-    [[nodiscard]] InversePdfValue inversePdf(const Direction& wo, const Direction& wi, const TransportMode transportMode,
-                                             const BxDFDirection sampleDirection) const noexcept override {
-        if(!match(sampleDirection, BxDFDirection::Reflection) || !sameHemisphere(wo, wi))
-            return InversePdfValue::invalid();
-        return cosineHemispherePdf(absCosTheta(wi));
-    }
-};
 
 template <typename Setting>
 class Diffuse final : public Material<Setting> {
@@ -71,9 +36,12 @@ public:
         : mReflectance{ this->template make<Texture2D>(node->get("Reflectance"sv)->as<Ref<ConfigNode>>()) } {}
 
     BSDF<Setting> evaluate(const Wavelength& sampledWavelength, const SurfaceHit& intersection) const noexcept override {
-        return BSDF<Setting>{ ShadingFrame{ intersection.shadingNormal.asDirection(), intersection.dpdu },
-                              LambertianBxDF<Setting>{
-                                  Rational<Spectrum>::fromRaw(mReflectance->evaluate(intersection.texCoord, sampledWavelength)) } };
+        return BSDF<Setting>{
+            ShadingFrame{ intersection.shadingNormal.asDirection(), intersection.dpdu },
+            LambertianBxDF<Setting>{
+                Rational<Spectrum>::fromRaw(mReflectance->evaluate(intersection.texCoord, sampledWavelength))
+            }
+        };
     }
 };
 
