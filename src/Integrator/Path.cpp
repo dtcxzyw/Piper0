@@ -47,6 +47,7 @@ public:
         Wavelength sampledWavelength = *reinterpret_cast<Wavelength*>(output);  // TODO
 
         uint32_t depth = 0;
+        Float etaScale = 1;
 
         while(true) {
 
@@ -81,6 +82,16 @@ public:
                 return;
 
             beta = beta * sampledBSDF.f * (sampledBSDF.inversePdf * absDot(info.shadingNormal, sampledBSDF.wi));
+
+            // Russian roulette
+            const auto rrBeta = maxComponentValue(beta.raw()) * etaScale;
+            if(rrBeta < 0.95f && depth > 1) {
+                const auto q = std::fmax(0.0f, 1.0f - rrBeta);
+                if(sampler.sample() < q)
+                    break;
+                beta /= 1.0f - q;
+            }
+
             ray.origin = info.hit;
             ray.direction = sampledBSDF.wi;
             intersection = acceleration.trace(ray);

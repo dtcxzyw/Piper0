@@ -42,6 +42,8 @@ template <typename T>
 constexpr T identity() noexcept = delete;
 template <typename T>
 constexpr T zero() noexcept = delete;
+template <typename T>
+constexpr Float maxComponentValue(const T&) noexcept;
 
 template <typename T>
 concept SpectrumLike = requires(const T& x, Float y, const typename WavelengthType<T>::Type& w) {
@@ -53,6 +55,7 @@ concept SpectrumLike = requires(const T& x, Float y, const typename WavelengthTy
     { spectrumType<T>() } -> std::convertible_to<SpectrumType>;
     { identity<T>() } -> std::convertible_to<T>;
     { zero<T>() } -> std::convertible_to<T>;
+    { maxComponentValue<T>(x) } -> std::convertible_to<Float>;
     typename WavelengthType<T>::Type;
 };
 
@@ -84,6 +87,11 @@ class RGBSpectrum final {
 
 Float luminance(const RGBSpectrum& x, const std::monostate&) noexcept;
 
+inline Float maxComponentValue(const RGBSpectrum& x) noexcept {
+    const auto vec = x.raw();
+    return std::fmax(vec.x, std::fmax(vec.y, vec.z));
+}
+
 constexpr const RGBSpectrum& toRGB(const RGBSpectrum& x, const std::monostate&) noexcept {
     return x;
 }
@@ -109,6 +117,10 @@ constexpr RGBSpectrum toRGB(const MonoSpectrum x, const std::monostate&) noexcep
 }
 
 constexpr Float luminance(const MonoSpectrum x, const std::monostate&) noexcept {
+    return x;
+}
+
+constexpr Float maxComponentValue(const MonoSpectrum x) noexcept {
     return x;
 }
 
@@ -149,6 +161,12 @@ private:
 
 Float luminance(const SpectralSpectrum& x, const SpectralSpectrum& sampledWavelengths) noexcept;
 RGBSpectrum toRGB(const SpectralSpectrum& x, const SpectralSpectrum& sampledWavelengths) noexcept;
+
+inline Float maxComponentValue(const SpectralSpectrum& x) noexcept {
+    const auto vec = x.raw();
+    static_assert(std::is_same_v<std::decay_t<decltype(vec)>, glm::vec4>);
+    return std::fmax(std::fmax(vec.x, vec.y), std::fmax(vec.z, vec.w));
+}
 
 template <>
 struct WavelengthType<SpectralSpectrum> final {

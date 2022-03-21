@@ -165,6 +165,14 @@ public:                                                                 \
     }                                                                            \
     friend constexpr TYPE operator*(const Float lhs, const TYPE& rhs) noexcept { \
         return TYPE{ rhs.mValue * lhs };                                         \
+    }                                                                            \
+    constexpr TYPE& operator*=(const Float rhs) noexcept {                       \
+        mValue *= rhs;                                                           \
+        return *this;                                                            \
+    }                                                                            \
+    constexpr TYPE operator/=(const Float rhs) noexcept {                  \
+        mValue *= rcp(rhs);                                                      \
+        return *this;                                                            \
     }
 
 #define PIPER_GUARD_BASE_OP(TYPE)                              \
