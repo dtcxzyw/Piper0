@@ -194,8 +194,11 @@ public:
             rtcGetGeometryTransform(geo, ray.t, RTC_FORMAT_FLOAT4X4_COLUMN_MAJOR, glm::value_ptr(mat));
             const AffineTransform<FrameOfReference::Object, FrameOfReference::World> trans{ mat };
             // NOTICE: Ng_x/y/z are not normalized!!!
-            const auto geometryNormal =
+            auto geometryNormal =
                 Normal<FrameOfReference::World>::fromRaw(glm::normalize(glm::vec3{ hitInfo.Ng_x, hitInfo.Ng_y, hitInfo.Ng_z }));
+
+            if(dot(geometryNormal.asDirection(), ray.direction) > 0.0f)
+                geometryNormal = -geometryNormal;
 
             return shape.generateIntersection(ray, distance, trans, geometryNormal, { hitInfo.u, hitInfo.v }, hitInfo.primID);
         }

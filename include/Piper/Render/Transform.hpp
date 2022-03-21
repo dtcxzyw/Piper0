@@ -146,6 +146,10 @@ class Normal final {
     PIPER_GUARD_BASE(Normal, glm::vec3)
     PIPER_GUARD_VEC3(Normal)
 
+    constexpr Normal operator-() const noexcept {
+        return Normal{ -mValue };
+    }
+
     [[nodiscard]] constexpr Direction<F> asDirection() const noexcept {
         return Direction<F>::fromRaw(mValue);
     }

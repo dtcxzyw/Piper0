@@ -27,8 +27,8 @@ PIPER_NAMESPACE_BEGIN
 struct SurfaceHit final {
     Point<FrameOfReference::World> hit;
     Distance distance;
-    Normal<FrameOfReference::World> geometryNormal;
-    Normal<FrameOfReference::World> shadingNormal;  // NOTICE: always outer
+    Normal<FrameOfReference::World> geometryNormal;  // NOTICE: in the same hemisphere with wo
+    Normal<FrameOfReference::World> shadingNormal;   // NOTICE: always outer
     Direction<FrameOfReference::World> dpdu;
     uint32_t primitiveIdx;
     TexCoord texCoord;
