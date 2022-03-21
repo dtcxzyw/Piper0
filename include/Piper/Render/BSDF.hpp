@@ -25,12 +25,25 @@
 
 PIPER_NAMESPACE_BEGIN
 
+enum class BxDFDirection { Reflection = 1 << 0, Transmission = 1 << 1, All = (1 << 2) - 1 };
+
+PIPER_BIT_ENUM(BxDFDirection)
+
 enum class BxDFPart {
+    None = 0,
     Reflection = 1 << 0,
     Transmission = 1 << 1,
     Diffuse = 1 << 2,
     Specular = 1 << 3,
     Glossy = 1 << 4,
+
+    DiffuseReflection = Diffuse | Reflection,
+    DiffuseTransmission = Diffuse | Transmission,
+    SpecularReflection = Specular | Reflection,
+    SpecularTransmission = Specular | Transmission,
+    GlossyReflection = Glossy | Reflection,
+    GlossyTransmission = Glossy | Transmission,
+
     All = (1 << 5) - 1
 };
 
@@ -56,12 +69,14 @@ struct BSDFSampleResult final {
     [[nodiscard]] bool valid() const noexcept {
         return inversePdf.valid();
     }
+
+    [[nodiscard]] constexpr static BSDFSampleResult invalid() noexcept {
+        return { Piper::Direction<F>::undefined(), Rational<Spectrum, PdfType::BSDF>::undefined(), InversePdf<PdfType::BSDF>::invalid(),
+                 BxDFPart::None };
+    }
 };
 
-class BxDFBase : public RenderVariantBase {
-public:
-    virtual BxDFPart part() const noexcept = 0;
-};
+class BxDFBase : public RenderVariantBase {};
 
 template <typename Setting>
 class BxDF : public TypedRenderVariantBase<Setting, BxDFBase> {
@@ -69,18 +84,13 @@ public:
     PIPER_IMPORT_SETTINGS();
     PIPER_IMPORT_SHADING();
 
-    virtual Rational<Spectrum> evaluate(const Direction& wo, const Direction& wi) const noexcept = 0;
+    virtual Rational<Spectrum> evaluate(const Direction& wo, const Direction& wi, TransportMode transportMode) const noexcept = 0;
 
-    virtual BSDFSample sample(SampleProvider& sampler, const Direction& wo) const noexcept {
-        auto wi = sampleCosineHemisphere(sampler.sampleVec2());
-        if(wo.z() < 0.0f)
-            wi.flipZ();
-        return { wi, importanceSampled<PdfType::BSDF>(this->evaluate(wo, wi)), this->inversePdf(wo, wi), this->part() };
-    }
+    virtual BSDFSample sample(SampleProvider& sampler, const Direction& wo, TransportMode transportMode = TransportMode::Radiance,
+                              BxDFDirection sampleDirection = BxDFDirection::All) const noexcept = 0;
 
-    [[nodiscard]] virtual InversePdfValue inversePdf(const Direction& wo, const Direction& wi) const noexcept {
-        return wo.z() * wi.z() > 0.0f ? InversePdfValue::fromRaw(rcp(std::fabs(wi.z())) * pi) : InversePdfValue::invalid();
-    }
+    [[nodiscard]] virtual InversePdfValue inversePdf(const Direction& wo, const Direction& wi, TransportMode transportMode,
+                                                     BxDFDirection sampleDirection = BxDFDirection::All) const noexcept = 0;
 };
 
 class ShadingFrame final {
@@ -101,10 +111,6 @@ public:
 
     Direction<FrameOfReference::World> operator()(const Direction<FrameOfReference::Shading>& x) const noexcept {
         return Direction<FrameOfReference::World>::fromRaw(mMatTBN * x.raw());
-    }
-
-    [[nodiscard]] Direction<FrameOfReference::World> shadingNormal() const noexcept {
-        return Direction<FrameOfReference::World>::fromRaw(mMatTBN[2]);
     }
 };
 
@@ -130,24 +136,23 @@ public:
         memcpy(mBxDFStorage, &bxdf, sizeof(T));
     }
 
-    [[nodiscard]] Piper::Direction<FrameOfReference::World> shadingNormal() const noexcept {
-        return mFrame.shadingNormal();
-    }
-
-    BSDFSampleResult<Setting, FrameOfReference::World> sample(SampleProvider& sampler,
-                                                              const Piper::Direction<FrameOfReference::World>& wo) const noexcept {
-        const auto res = cast()->sample(sampler, mFrame(wo));
+    BSDFSampleResult<Setting, FrameOfReference::World> sample(SampleProvider& sampler, const Piper::Direction<FrameOfReference::World>& wo,
+                                                              TransportMode transportMode = TransportMode::Radiance,
+                                                              BxDFDirection sampleDirection = BxDFDirection::All) const noexcept {
+        const auto res = cast()->sample(sampler, mFrame(wo), transportMode, sampleDirection);
         return BSDFSampleResult<Setting, FrameOfReference::World>{ mFrame(res.wi), res.f, res.inversePdf, res.part };
     }
 
-    Rational<Spectrum> evaluate(const Piper::Direction<FrameOfReference::World>& wo,
-                                const Piper::Direction<FrameOfReference::World>& wi) const noexcept {
-        return cast()->evaluate(mFrame(wo), mFrame(wi));
+    Rational<Spectrum> evaluate(const Piper::Direction<FrameOfReference::World>& wo, const Piper::Direction<FrameOfReference::World>& wi,
+                                TransportMode transportMode = TransportMode::Radiance) const noexcept {
+        return cast()->evaluate(mFrame(wo), mFrame(wi), transportMode);
     }
 
     [[nodiscard]] InversePdfValue pdf(const Piper::Direction<FrameOfReference::World>& wo,
-                                      const Piper::Direction<FrameOfReference::World>& wi) const noexcept {
-        return cast()->pdf(mFrame(wo), mFrame(wi));
+                                      const Piper::Direction<FrameOfReference::World>& wi,
+                                      TransportMode transportMode = TransportMode::Radiance,
+                                      BxDFDirection sampleDirection = BxDFDirection::All) const noexcept {
+        return cast()->pdf(mFrame(wo), mFrame(wi), transportMode, sampleDirection);
     }
 };
 

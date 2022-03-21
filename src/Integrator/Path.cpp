@@ -41,7 +41,7 @@ public:
         Intersection intersection = intersectionInit;
 
         Radiance<Spectrum> result = Radiance<Spectrum>::zero();
-        Rational<Spectrum> beta = Rational<Spectrum>::fromRaw(identity<Spectrum>());
+        Rational<Spectrum> beta = Rational<Spectrum>::identity();
 
         Wavelength sampledWavelength = *reinterpret_cast<Wavelength*>(output);  // TODO
 

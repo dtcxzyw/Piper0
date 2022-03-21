@@ -80,6 +80,14 @@ template <SpectrumLike Spectrum, PdfType Pdf = PdfType::None>
 class Rational final {
     PIPER_GUARD_BASE(Rational, Spectrum)
     PIPER_GUARD_BASE_OP(Rational)
+
+    static constexpr Rational<Spectrum> zero() noexcept {
+        return fromRaw(Piper::zero<Spectrum>());
+    }
+
+    static constexpr Rational<Spectrum> identity() noexcept {
+        return fromRaw(Piper::identity<Spectrum>());
+    }
 };
 
 template <SpectrumLike Spectrum, PdfType A, PdfType B>

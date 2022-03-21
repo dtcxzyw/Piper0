@@ -112,6 +112,15 @@ class Direction final {
         return std::fabs(glm::dot(lhs.mValue, rhs.mValue));
     }
 
+    friend constexpr bool sameHemisphere(const Direction& lhs, const Direction& rhs) noexcept {
+        return lhs.z() * rhs.z() > 0.0f;
+    }
+
+    template <FrameOfReference RealF = F>
+    requires(RealF == FrameOfReference::Shading) friend constexpr Float absCosTheta(const Direction& x) noexcept {
+        return std::fabs(x.z());
+    }
+
     friend constexpr Direction cross(const Direction& lhs, const Direction& rhs) noexcept {
         return Direction{ glm::cross(lhs.mValue, rhs.mValue) };
     }

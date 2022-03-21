@@ -20,7 +20,6 @@
 
 #pragma once
 #include <Piper/Render/Intersection.hpp>
-#include <Piper/Render/Ray.hpp>
 #include <Piper/Render/SceneObject.hpp>
 
 PIPER_NAMESPACE_BEGIN

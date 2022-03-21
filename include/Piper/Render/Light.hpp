@@ -25,13 +25,8 @@
 
 PIPER_NAMESPACE_BEGIN
 
-enum class LightAttributes : uint32_t { None = 0, Delta = 1, Infinite = 2, Area = 4 };
-constexpr bool match(LightAttributes provide, LightAttributes require) {
-    return (static_cast<uint32_t>(provide) & static_cast<uint32_t>(require)) == static_cast<uint32_t>(provide);
-}
-constexpr LightAttributes operator|(LightAttributes a, LightAttributes b) {
-    return static_cast<LightAttributes>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
-}
+enum class LightAttributes : uint32_t { None = 0, Delta = 1 << 0, Infinite = 1 << 1, Area = 1 << 2, All = (1 << 3) - 1 };
+PIPER_BIT_ENUM(LightAttributes)
 
 class LightBase : public SceneObjectComponent {
 public:

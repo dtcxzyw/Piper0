@@ -34,11 +34,28 @@ class LambertianBxDF final : public BxDF<Setting> {
 public:
     explicit LambertianBxDF(const Rational<Spectrum>& reflectance) : mReflectance{ reflectance } {}
 
-    [[nodiscard]] BxDFPart part() const noexcept override {
-        return BxDFPart::Diffuse | BxDFPart::Reflection;
-    }
-    Rational<Spectrum> evaluate(const Direction&, const Direction&) const noexcept override {
+    Rational<Spectrum> evaluate(const Direction& wo, const Direction& wi, TransportMode) const noexcept override {
+        if(!sameHemisphere(wo, wi))
+            return Rational<Spectrum>::zero();
         return mReflectance * invPi;
+    }
+
+    BSDFSample sample(SampleProvider& sampler, const Direction& wo, const TransportMode transportMode,
+                      const BxDFDirection sampleDirection) const noexcept override {
+        if(!match(sampleDirection, BxDFDirection::Reflection))
+            return BSDFSample::invalid();
+        auto wi = sampleCosineHemisphere(sampler.sampleVec2());
+        if(wo.z() < 0.0f)
+            wi.flipZ();
+        return { wi, importanceSampled<PdfType::BSDF>(evaluate(wo, wi, transportMode)), cosineHemispherePdf(absCosTheta(wi)),
+                 BxDFPart::DiffuseReflection };
+    }
+
+    [[nodiscard]] InversePdfValue inversePdf(const Direction& wo, const Direction& wi, const TransportMode transportMode,
+                                             const BxDFDirection sampleDirection) const noexcept override {
+        if(!match(sampleDirection, BxDFDirection::Reflection) || !sameHemisphere(wo, wi))
+            return InversePdfValue::invalid();
+        return cosineHemispherePdf(absCosTheta(wi));
     }
 };
 

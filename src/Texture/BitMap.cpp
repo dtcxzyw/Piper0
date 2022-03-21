@@ -92,13 +92,13 @@ public:
     explicit BitMap(const Ref<ConfigNode>& node)
         : mSystem{ TextureSystem::get() }, mHandle{ mSystem.load(node->get("FilePath"sv)->as<std::string_view>()) } {}
 
-    Spectrum evaluate(TexCoord texCoord, const Wavelength& sampledWavelength) const noexcept override {
+    Spectrum evaluate(const TexCoord texCoord, const Wavelength& sampledWavelength) const noexcept override {
         if constexpr(std::is_same_v<Spectrum, MonoSpectrum>) {
             MonoSpectrum res;
             mSystem.texture(mHandle, texCoord, 1, &res);
             return res;
         } else {
-            RGBSpectrum res{ uninitialized };
+            RGBSpectrum res = RGBSpectrum::undefined();
             static_assert(sizeof(RGBSpectrum) == 3 * sizeof(Float));
             mSystem.texture(mHandle, texCoord, 3, reinterpret_cast<Float*>(&res));
 

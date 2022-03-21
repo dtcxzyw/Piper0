@@ -100,12 +100,29 @@ constexpr auto pow(const T& x) noexcept {
     return Impl::PowCall<T, P>::eval(x);
 }
 
-inline struct UninitializedTag final {
-} uninitialized;
+template <typename T>
+constexpr T undefined() noexcept {
+    return T::undefined();
+}
+
+template <>
+constexpr Float undefined<Float>() noexcept {
+    return 0.0f;
+}
+
+template <>
+constexpr glm::vec3 undefined<glm::vec3>() noexcept {
+    return glm::vec3{};
+}
+
+template <>
+constexpr glm::vec4 undefined<glm::vec4>() noexcept {
+    return glm::vec4{};
+}
 
 #define PIPER_BIT_ENUM(TYPE)                                                                                        \
     constexpr bool match(const TYPE provide, const TYPE require) noexcept {                                         \
-        return (static_cast<uint32_t>(provide) & static_cast<uint32_t>(require)) == static_cast<uint32_t>(provide); \
+        return (static_cast<uint32_t>(provide) & static_cast<uint32_t>(require)) == static_cast<uint32_t>(require); \
     }                                                                                                               \
     constexpr TYPE operator&(const TYPE a, const TYPE b) noexcept {                                                 \
         return static_cast<TYPE>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));                              \
@@ -125,9 +142,11 @@ inline struct UninitializedTag final {
     constexpr explicit TYPE(const STORAGE& x) noexcept : mValue{ x } {} \
                                                                         \
 public:                                                                 \
-    constexpr explicit TYPE(UninitializedTag) noexcept {};              \
     constexpr const STORAGE& raw() const noexcept {                     \
         return mValue;                                                  \
+    }                                                                   \
+    static constexpr TYPE undefined() noexcept {                        \
+        return TYPE{ Piper::undefined<STORAGE>() };                     \
     }                                                                   \
     static constexpr TYPE fromRaw(const STORAGE& x) noexcept {          \
         return TYPE{ x };                                               \

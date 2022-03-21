@@ -65,4 +65,8 @@ inline Float calcGeometrySamplePdf(const Distance distance, const Direction<Fram
     return sqr(distance) / (area * std::fabs(dot(n, wi)));
 }
 
+inline auto cosineHemispherePdf(const Float cosTheta) {
+    return InversePdf<PdfType::BSDF>::fromRaw(rcp(cosTheta) * pi);
+}
+
 PIPER_NAMESPACE_END
