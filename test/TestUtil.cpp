@@ -19,25 +19,23 @@
 */
 
 #pragma once
-
-#include <Piper/Render/Math.hpp>
-#include <pcg_random.hpp>
-#include <random>
+#include <Piper/Render/TestUtil.hpp>
+#include <chrono>
 
 PIPER_NAMESPACE_BEGIN
 
-using RandomEngine = pcg64;
-
-inline Float sample(RandomEngine& eng) {
-    return std::fmin(oneMinusEpsilon, std::generate_canonical<Float, std::numeric_limits<size_t>::max()>(eng));
+double simpson(const double* table, const uint32_t size, const double width) noexcept {
+    const auto n = (size - 1) / 2;
+    double sum = table[0] + table[2ULL * n];
+    for(uint32_t idx = 0; idx < n; ++idx)
+        sum += 4.0 * table[2 * idx + 1] + 2.0 * table[2 * idx + 2];
+    return width * sum / static_cast<double>(6 * n);
 }
 
-// Please refer to https://prng.di.unimi.it/splitmix64.c
-constexpr uint64_t seeding(const uint64_t x) {
-    uint64_t z = (x + 0x9e3779b97f4a7c15);
-    z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9;
-    z = (z ^ (z >> 27)) * 0x94d049bb133111eb;
-    return z ^ (z >> 31);
+SampleProvider& testSampler() noexcept {
+    static MemoryArena arena;
+    static SampleProvider sampler{ {}, 0ULL };
+    return sampler;
 }
 
 PIPER_NAMESPACE_END

@@ -19,7 +19,7 @@
 */
 
 #pragma once
-#include <PIper/Core/ConfigNode.hpp>
+#include <Piper/Core/ConfigNode.hpp>
 #include <Piper/Core/RefCount.hpp>
 #include <Piper/Core/Report.hpp>
 #include <oneapi/tbb/concurrent_unordered_map.h>

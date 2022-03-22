@@ -100,6 +100,8 @@ auto sampleWavelength(SampleProvider&) noexcept {
 template <>
 inline auto sampleWavelength<Float, Float>(SampleProvider& sampler) noexcept {
     const auto lambda = 538.0f - std::atanh(0.8569106254698279f - 1.8275019724092267f * sampler.sample()) * 138.88888888888889f;
+    if(lambda < 360.0f || lambda > 830.0f)
+        return std::make_pair(lambda, 0.0f);
     const auto weight = 253.82f * sqr(std::cosh(0.0072f * (lambda - 538.0f)));
     return std::make_pair(lambda, weight);
 }

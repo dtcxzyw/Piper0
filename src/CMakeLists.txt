@@ -19,8 +19,10 @@ find_package(IlmBase CONFIG REQUIRED)
 find_package(OpenEXR CONFIG REQUIRED)
 find_package(OpenImageIO CONFIG REQUIRED)
 find_program(ISPC_EXECUTABLE ispc PATHS ${EMBREE_INCLUDE_DIRS}/../../../ispc/latest/bin/ DOC "Path to the ISPC executable.")
-file(GLOB_RECURSE PIPER_CLI_SRC "*.cpp")
-file(GLOB_RECURSE PIPER_CLI_ISPC_SRC "*.ispc")
+file(GLOB_RECURSE PIPER_SRC "*.cpp")
+file(GLOB_RECURSE PIPER_CLI_SRC "CLI/*.cpp")
+list(REMOVE_ITEM PIPER_SRC ${PIPER_CLI_SRC})
+file(GLOB_RECURSE PIPER_ISPC_SRC "*.ispc")
 
 set(ISPC_TARGETS "avx2;avx512skx-i32x16")
 
@@ -54,7 +56,7 @@ ENDIF()
 SET(ISPC_OBJECTS "")
 SET(ISPC_ADDITIONAL_ARGS "")
 
-FOREACH(src ${PIPER_CLI_ISPC_SRC})
+FOREACH(src ${PIPER_ISPC_SRC})
     GET_FILENAME_COMPONENT(fname ${src} NAME_WE)
     GET_FILENAME_COMPONENT(dir ${src} PATH)
 
@@ -119,23 +121,26 @@ add_custom_command(TARGET PiperRGB2SpecOpt POST_BUILD
 COMMAND PiperRGB2SpecOpt 128
 DEPENDS PiperRGB2SpecOpt)
 
-add_executable(PiperCLI ${PIPER_CLI_SRC} ${ISPC_OBJECTS})
+add_library(Piper ${PIPER_SRC} ${ISPC_OBJECTS})
+target_include_directories(Piper PUBLIC ${PCG_INCLUDE_DIRS})
+target_link_libraries(Piper PUBLIC range-v3 range-v3-meta range-v3::meta range-v3-concepts)
+target_link_libraries(Piper PUBLIC TBB::tbb TBB::tbbmalloc TBB::tbbmalloc_proxy)
+target_link_libraries(Piper PUBLIC glm::glm)
+target_link_libraries(Piper PUBLIC fmt::fmt)
+target_link_libraries(Piper PUBLIC magic_enum::magic_enum)
+target_link_libraries(Piper PRIVATE OpenColorIO::OpenColorIO)
+target_link_libraries(Piper PRIVATE OpenImageDenoise embree)
+target_link_libraries(Piper PRIVATE simdjson::simdjson)
+target_link_libraries(Piper PRIVATE assimp::assimp)
+target_link_libraries(Piper PRIVATE IlmBase::Iex IlmBase::Half IlmBase::Imath IlmBase::IexMath)
+target_link_libraries(Piper PRIVATE OpenEXR::IlmImf OpenEXR::IlmImfUtil OpenEXR::IlmImfConfig)
+target_link_libraries(Piper PRIVATE OpenImageIO::OpenImageIO OpenImageIO::OpenImageIO_Util)
+
+add_executable(PiperCLI ${PIPER_CLI_SRC} $<TARGET_OBJECTS:Piper>) #NOTICE: directly link objects for static factory
 target_include_directories(PiperCLI PRIVATE ${RANG_INCLUDE_DIRS})
-target_include_directories(PiperCLI PRIVATE ${PCG_INCLUDE_DIRS})
-target_link_libraries(PiperCLI PRIVATE range-v3 range-v3-meta range-v3::meta range-v3-concepts)
-target_link_libraries(PiperCLI PRIVATE TBB::tbb TBB::tbbmalloc TBB::tbbmalloc_proxy)
-target_link_libraries(PiperCLI PRIVATE glm::glm)
 target_link_libraries(PiperCLI PRIVATE cxxopts::cxxopts)
 target_link_libraries(PiperCLI PRIVATE ftxui::dom ftxui::screen ftxui::component)
-target_link_libraries(PiperCLI PRIVATE fmt::fmt)
-target_link_libraries(PiperCLI PRIVATE magic_enum::magic_enum)
-target_link_libraries(PiperCLI PRIVATE OpenColorIO::OpenColorIO)
-target_link_libraries(PiperCLI PRIVATE OpenImageDenoise embree)
-target_link_libraries(PiperCLI PRIVATE simdjson::simdjson)
-target_link_libraries(PiperCLI PRIVATE assimp::assimp)
-target_link_libraries(PiperCLI PRIVATE IlmBase::Iex IlmBase::Half IlmBase::Imath IlmBase::IexMath)
-target_link_libraries(PiperCLI PRIVATE OpenEXR::IlmImf OpenEXR::IlmImfUtil OpenEXR::IlmImfConfig)
-target_link_libraries(PiperCLI PRIVATE OpenImageIO::OpenImageIO OpenImageIO::OpenImageIO_Util)
+target_link_libraries(PiperCLI PRIVATE Piper)
 
 add_custom_command(TARGET PiperCLI POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:OpenImageDenoise> $<TARGET_FILE_DIR:PiperCLI>

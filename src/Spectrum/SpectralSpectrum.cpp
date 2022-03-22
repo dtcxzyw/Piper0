@@ -40,7 +40,8 @@ static glm::vec3 expandXYZ(const T& x, const T& w, std::index_sequence<I...>) {
 
 RGBSpectrum toRGB(const SampledSpectrum& x, const SampledSpectrum& sampledWavelengths) noexcept {
     constexpr auto indices = std::make_index_sequence<SampledSpectrum::nSamples>{};
-    const auto xyz = expandXYZ<SampledSpectrum::nSamples>(x.raw(), sampledWavelengths.raw(), indices);
+    constexpr auto scale = static_cast<Float>(static_cast<double>(wavelengthMax - wavelengthMin) / integralOfY);
+    const auto xyz = expandXYZ<SampledSpectrum::nSamples>(x.raw(), sampledWavelengths.raw(), indices) * scale;
     return RGBSpectrum::fromRaw(glm::max(RGBSpectrum::matXYZ2RGB * xyz, glm::zero<glm::vec3>()));
 }
 
@@ -82,21 +83,5 @@ RGBSpectrum temperatureToSpectrum(const Float temperature) noexcept {
     return RGBSpectrum::fromRaw(
         glm::max(RGBSpectrum::matXYZ2RGB * glm::vec3{ xyz / static_cast<double>(spectralLUTSize) }, glm::zero<glm::vec3>()));
 }
-
-static constexpr double simpson(const double* table, const uint32_t size, const double width) {
-    const auto n = (size - 1) / 2;
-    double sum = table[0] + table[2ULL * n];
-    for(uint32_t idx = 0; idx < n; ++idx)
-        sum += 4.0 * table[2 * idx + 1] + 2.0 * table[2 * idx + 2];
-    return width * sum / static_cast<double>(6 * n);
-}
-
-static constexpr double integrateY() noexcept {
-    static_assert((spectralLUTSize & 1) == 1);
-    return simpson(colorMatchingFunctionY, spectralLUTSize, static_cast<double>(wavelengthMax - wavelengthMin));
-}
-
-// TODO: move to unit test
-static_assert(glm::abs(integralOfY - integrateY()) < 1e-8);
 
 PIPER_NAMESPACE_END
