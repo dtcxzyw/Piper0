@@ -29,33 +29,18 @@ class Dielectric final : public Material<Setting> {
     PIPER_IMPORT_SETTINGS();
     PIPER_IMPORT_SHADING();
 
-    Float eta = 1.5f;
-    Float uRoughness, vRoughness;
-    bool remapRoughness = true;
+    Ref<Texture2D<Setting>> mReflectance;
 
 public:
-    explicit Dielectric(const Ref<ConfigNode>& node) {
-        if(const auto ptr = node->tryGet("Eta"sv))
-            eta = (*ptr)->as<double>();
-
-        if(const auto ptr = node->tryGet("RoughnessU"sv))
-            uRoughness = (*ptr)->as<double>();
-        else
-            uRoughness = node->get("Roughness"sv)->as<double>();
-
-        if(const auto ptr = node->tryGet("RoughnessV"sv))
-            vRoughness = (*ptr)->as<double>();
-        else
-            vRoughness = node->get("Roughness"sv)->as<double>();
-
-        if(const auto ptr = node->tryGet("RemapRoughness"sv))
-            remapRoughness = (*ptr)->as<bool>();
-    }
+    explicit Dielectric(const Ref<ConfigNode>& node)
+        : mReflectance{ this->template make<Texture2D>(node->get("Reflectance"sv)->as<Ref<ConfigNode>>()) } {}
 
     BSDF<Setting> evaluate(const Wavelength& sampledWavelength, const SurfaceHit& intersection) const noexcept override {
         return BSDF<Setting>{
             ShadingFrame{ intersection.shadingNormal.asDirection(), intersection.dpdu },
-            DielectricBxDF<Setting>{ eta, uRoughness, vRoughness, remapRoughness }
+            DielectricBxDF<Setting>{
+                Rational<Spectrum>::fromRaw(mReflectance->evaluate(intersection.texCoord, sampledWavelength))
+            }
         };
     }
 };
