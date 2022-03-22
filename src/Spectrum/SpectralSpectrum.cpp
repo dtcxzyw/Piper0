@@ -44,7 +44,8 @@ RGBSpectrum toRGB(const SampledSpectrum& x, const SampledSpectrum& sampledWavele
     return RGBSpectrum::fromRaw(RGBSpectrum::matXYZ2RGB * xyz);
 }
 
-static Float blackBody(const Float temperature, const Float lambdaNm) noexcept {
+// FIXME: scale
+static double blackBody(const double temperature, const double lambdaNm) noexcept {
     // Planck constant h
     // Please refer to https://physics.nist.gov/cgi-bin/cuu/Value?h
     constexpr auto h = 6.626'070'15e-34;  // J/Hz
@@ -55,21 +56,31 @@ static Float blackBody(const Float temperature, const Float lambdaNm) noexcept {
     // Please refer to https://physics.nist.gov/cgi-bin/cuu/Value?k
     constexpr auto k = 1.380'649e-23;  // J/K
 
-    constexpr auto k1 = static_cast<Float>(2.0 * h * c * c);
-    constexpr auto k2 = static_cast<Float>(h * c / k);
-    const auto lambda = lambdaNm * 1e-9f;
+    constexpr auto k1 = 1e-9 * 2.0 * h * c * c;
+    constexpr auto k2 = h * c / k;
+    const auto lambda = lambdaNm * 1e-9;
 
-    return k1 * pow<5>(lambda) * (exp(k2 / (lambda * temperature)) - 1.0f);
+    return k1 / (pow<5>(lambda) * (std::exp(k2 / (lambda * temperature)) - 1.0));
 }
 
 template <size_t Samples, typename T, size_t... I>
 static auto expandBlackBody(const Float temperature, const T& x, std::index_sequence<I...>) {
-    return T{ (blackBody(temperature, x[I]), ...) };
+    return T{ (static_cast<Float>(blackBody(static_cast<double>(temperature), static_cast<double>(x[I]))), ...) };
 }
 
 SampledSpectrum temperatureToSpectrum(const Float temperature, const SampledSpectrum& sampledWavelength) noexcept {
     constexpr auto indices = std::make_index_sequence<SampledSpectrum::nSamples>{};
     return SampledSpectrum::fromRaw(expandBlackBody<SampledSpectrum::nSamples>(temperature, sampledWavelength.raw(), indices));
+}
+
+RGBSpectrum temperatureToSpectrum(const Float temperature) noexcept {
+    auto xyz = glm::zero<glm::dvec3>();
+    for(uint32_t idx = 0; idx < spectralLUTSize; ++idx) {
+        const auto lambda = static_cast<double>(wavelengthMin + idx);
+        const auto scale = blackBody(static_cast<double>(temperature), lambda);
+        xyz += scale * glm::dvec3{ colorMatchingFunctionX[idx], colorMatchingFunctionY[idx], colorMatchingFunctionZ[idx] };
+    }
+    return RGBSpectrum::fromRaw(RGBSpectrum::matXYZ2RGB * glm::vec3{ xyz / static_cast<double>(spectralLUTSize) });
 }
 
 PIPER_NAMESPACE_END

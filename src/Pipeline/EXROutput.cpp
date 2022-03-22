@@ -52,33 +52,40 @@ public:
         for(const auto channel : metadata.channels) {
             pathResolver["${Channel}"] = magic_enum::enum_name(channel);
 
-            if(channel == Channel::Full) {
-                if(!metadata.isHDR)
-                    fatal("LDR images are not supported by EXR output node.");
-                if(metadata.spectrumType != SpectrumType::LinearRGB)
-                    PIPER_NOT_IMPLEMENTED();
+            if(!(channel == Channel::Full || channel == Channel::Direct || channel == Channel::Indirect))
+                fatal("Non-HDR images are not supported by EXR output node.");
+            if(!metadata.isHDR)
+                fatal("LDR images are not supported by EXR output node.");
 
-                const auto pixelCount = metadata.width * metadata.height;
-                std::pmr::vector<Imf::Rgba> buffer{ pixelCount, context().scopedAllocator };
+            const auto pixelCount = metadata.width * metadata.height;
+            std::pmr::vector<Imf::Rgba> buffer{ pixelCount, context().scopedAllocator };
+            if(metadata.spectrumType == SpectrumType::LinearRGB) {
                 tbb::parallel_for(
                     tbb::blocked_range<uint32_t>{ 0, pixelCount },
                     [&](const tbb::blocked_range<uint32_t>& range) {
                         for(auto idx = range.begin(); idx != range.end(); ++idx) {
-                            const auto src = frame->data() + idx * metadata.pixelStride + stride;
+                            const auto src = frame->data() + static_cast<size_t>(idx * metadata.pixelStride + stride);
                             buffer[idx] = Imf::Rgba{ src[0], src[1], src[2] };
                         }
                     },
                     globalAffinityPartitioner);
-
-                const auto fileName = resolveString(mOutputPath, pathResolver);
-                Imf::RgbaOutputFile file{ fileName.c_str(), static_cast<int32_t>(metadata.width), static_cast<int32_t>(metadata.height),
-                                          Imf::WRITE_RGB };
-                file.setFrameBuffer(buffer.data(), 1, metadata.width);
-                file.writePixels(static_cast<int32_t>(metadata.height));
-
             } else {
-                PIPER_NOT_IMPLEMENTED();
+                tbb::parallel_for(
+                    tbb::blocked_range<uint32_t>{ 0, pixelCount },
+                    [&](const tbb::blocked_range<uint32_t>& range) {
+                        for(auto idx = range.begin(); idx != range.end(); ++idx) {
+                            const auto src = frame->data() + static_cast<size_t>(idx * metadata.pixelStride + stride);
+                            buffer[idx] = Imf::Rgba{ src[0], src[0], src[0] };
+                        }
+                    },
+                    globalAffinityPartitioner);
             }
+
+            const auto fileName = resolveString(mOutputPath, pathResolver);
+            Imf::RgbaOutputFile file{ fileName.c_str(), static_cast<int32_t>(metadata.width), static_cast<int32_t>(metadata.height),
+                                      metadata.spectrumType == SpectrumType::LinearRGB ? Imf::WRITE_RGB : Imf::WRITE_Y };
+            file.setFrameBuffer(buffer.data(), 1, metadata.width);
+            file.writePixels(static_cast<int32_t>(metadata.height));
 
             stride += channelSize(channel, metadata.spectrumType);
         }

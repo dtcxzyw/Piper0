@@ -115,6 +115,9 @@ add_executable(PiperRGB2SpecOpt Spectrum/RGB2SpecOpt.cpp)
 target_compile_definitions(PiperRGB2SpecOpt PRIVATE PIPER_RGB2SPEC_OPT_STANDALONE)
 target_link_libraries(PiperRGB2SpecOpt PRIVATE TBB::tbb TBB::tbbmalloc TBB::tbbmalloc_proxy)
 target_link_libraries(PiperRGB2SpecOpt PRIVATE glm::glm)
+add_custom_command(TARGET PiperRGB2SpecOpt POST_BUILD
+COMMAND PiperRGB2SpecOpt 128
+DEPENDS PiperRGB2SpecOpt)
 
 add_executable(PiperCLI ${PIPER_CLI_SRC} ${ISPC_OBJECTS})
 target_include_directories(PiperCLI PRIVATE ${RANG_INCLUDE_DIRS})
@@ -133,10 +136,6 @@ target_link_libraries(PiperCLI PRIVATE assimp::assimp)
 target_link_libraries(PiperCLI PRIVATE IlmBase::Iex IlmBase::Half IlmBase::Imath IlmBase::IexMath)
 target_link_libraries(PiperCLI PRIVATE OpenEXR::IlmImf OpenEXR::IlmImfUtil OpenEXR::IlmImfConfig)
 target_link_libraries(PiperCLI PRIVATE OpenImageIO::OpenImageIO OpenImageIO::OpenImageIO_Util)
-
-add_custom_command(TARGET PiperCLI POST_BUILD 
-COMMAND PiperRGB2SpecOpt 128
-DEPENDS PiperRGB2SpecOpt)
 
 add_custom_command(TARGET PiperCLI POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:OpenImageDenoise> $<TARGET_FILE_DIR:PiperCLI>

@@ -18,35 +18,46 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+#include <Piper/Render/SpectrumUtil.hpp>
 #include <Piper/Render/Texture.hpp>
 
 PIPER_NAMESPACE_BEGIN
 
 SampledSpectrum temperatureToSpectrum(Float temperature, const SampledSpectrum& sampledWavelength) noexcept;
+RGBSpectrum temperatureToSpectrum(Float temperature) noexcept;
 
 template <typename Setting>
 class BlackBody final : public ConstantTexture<Setting> {
     PIPER_IMPORT_SETTINGS();
     Float mTemperature;
     Float mScale;
+    Float mMean;
+
+    std::optional<Spectrum> mCached;
 
 public:
     explicit BlackBody(const Ref<ConfigNode>& node)
         : mTemperature{ static_cast<Float>(node->get("Temperature"sv)->as<double>()) }, mScale{ static_cast<Float>(
-                                                                                            node->get("Scale"sv)->as<double>()) } {}
+                                                                                            node->get("Scale"sv)->as<double>()) } {
+        mMean = luminance(temperatureToSpectrum(mTemperature), std::monostate{});
+
+        if constexpr(!std::is_same_v<Spectrum, SampledSpectrum>)
+            mCached = spectrumCast<Spectrum>(temperatureToSpectrum(mTemperature), Wavelength{}) * mScale;
+    }
 
     Spectrum evaluate(const Wavelength& sampledWavelength) const noexcept override {
-        return temperatureToSpectrum(mTemperature, sampledWavelength) * mScale;
+        if constexpr(std::is_same_v<Spectrum, SampledSpectrum>)
+            return spectrumCast<Spectrum>(temperatureToSpectrum(mTemperature, sampledWavelength), sampledWavelength) * mScale;
+        else
+            return mCached.value();
     }
 
     [[nodiscard]] MonoSpectrum mean() const noexcept override {
-        // TODO
-        return mScale;
+        return mMean;
     }
 };
 
-// TODO: other variant
-PIPER_REGISTER_WRAPPED_VARIANT_IMPL(ConstantTexture2DWrapper, BlackBody, Texture2D, RSSSpectral);
-PIPER_REGISTER_WRAPPED_VARIANT_IMPL(ConstantSphericalTextureWrapper, BlackBody, SphericalTexture, RSSSpectral);
+// PIPER_REGISTER_WRAPPED_VARIANT(ConstantTexture2DWrapper, BlackBody, Texture2D);
+PIPER_REGISTER_WRAPPED_VARIANT(ConstantSphericalTextureWrapper, BlackBody, SphericalTexture);
 
 PIPER_NAMESPACE_END
