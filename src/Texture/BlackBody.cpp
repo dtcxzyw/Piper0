@@ -57,7 +57,6 @@ public:
     }
 };
 
-// PIPER_REGISTER_WRAPPED_VARIANT(ConstantTexture2DWrapper, BlackBody, Texture2D);
 PIPER_REGISTER_WRAPPED_VARIANT(ConstantSphericalTextureWrapper, BlackBody, SphericalTexture);
 
 PIPER_NAMESPACE_END

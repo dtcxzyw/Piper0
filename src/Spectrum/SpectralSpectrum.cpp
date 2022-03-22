@@ -41,10 +41,9 @@ static glm::vec3 expandXYZ(const T& x, const T& w, std::index_sequence<I...>) {
 RGBSpectrum toRGB(const SampledSpectrum& x, const SampledSpectrum& sampledWavelengths) noexcept {
     constexpr auto indices = std::make_index_sequence<SampledSpectrum::nSamples>{};
     const auto xyz = expandXYZ<SampledSpectrum::nSamples>(x.raw(), sampledWavelengths.raw(), indices);
-    return RGBSpectrum::fromRaw(RGBSpectrum::matXYZ2RGB * xyz);
+    return RGBSpectrum::fromRaw(glm::max(RGBSpectrum::matXYZ2RGB * xyz, glm::zero<glm::vec3>()));
 }
 
-// FIXME: scale
 static double blackBody(const double temperature, const double lambdaNm) noexcept {
     // Planck constant h
     // Please refer to https://physics.nist.gov/cgi-bin/cuu/Value?h
@@ -56,7 +55,7 @@ static double blackBody(const double temperature, const double lambdaNm) noexcep
     // Please refer to https://physics.nist.gov/cgi-bin/cuu/Value?k
     constexpr auto k = 1.380'649e-23;  // J/K
 
-    constexpr auto k1 = 1e-9 * 2.0 * h * c * c;
+    constexpr auto k1 = 1e-9 * 2.0 * h * c * c;  // NOTICE: per unit wavelength (nm^-1)
     constexpr auto k2 = h * c / k;
     const auto lambda = lambdaNm * 1e-9;
 
@@ -80,7 +79,24 @@ RGBSpectrum temperatureToSpectrum(const Float temperature) noexcept {
         const auto scale = blackBody(static_cast<double>(temperature), lambda);
         xyz += scale * glm::dvec3{ colorMatchingFunctionX[idx], colorMatchingFunctionY[idx], colorMatchingFunctionZ[idx] };
     }
-    return RGBSpectrum::fromRaw(RGBSpectrum::matXYZ2RGB * glm::vec3{ xyz / static_cast<double>(spectralLUTSize) });
+    return RGBSpectrum::fromRaw(
+        glm::max(RGBSpectrum::matXYZ2RGB * glm::vec3{ xyz / static_cast<double>(spectralLUTSize) }, glm::zero<glm::vec3>()));
 }
+
+static constexpr double simpson(const double* table, const uint32_t size, const double width) {
+    const auto n = (size - 1) / 2;
+    double sum = table[0] + table[2ULL * n];
+    for(uint32_t idx = 0; idx < n; ++idx)
+        sum += 4.0 * table[2 * idx + 1] + 2.0 * table[2 * idx + 2];
+    return width * sum / static_cast<double>(6 * n);
+}
+
+static constexpr double integrateY() noexcept {
+    static_assert((spectralLUTSize & 1) == 1);
+    return simpson(colorMatchingFunctionY, spectralLUTSize, static_cast<double>(wavelengthMax - wavelengthMin));
+}
+
+// TODO: move to unit test
+static_assert(glm::abs(integralOfY - integrateY()) < 1e-8);
 
 PIPER_NAMESPACE_END

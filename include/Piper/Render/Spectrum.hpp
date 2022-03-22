@@ -59,6 +59,8 @@ concept SpectrumLike = requires(const T& x, Float y, const typename WavelengthTy
     typename WavelengthType<T>::Type;
 };
 
+static constexpr double integralOfY = 106.856911375752;
+
 // ITU-R Rec. BT.709 linear RGB, used by pbrt/mitsuba
 // Please refer to section "1 opto-electronic conversion" of https://www.itu.int/rec/R-REC-BT.709-6-201506-I/en
 static constexpr const char* nameOfStandardLinearRGB = "lin_rec709";  // TODO: check again
@@ -142,9 +144,6 @@ constexpr SpectrumType spectrumType<MonoSpectrum>() noexcept {
 }
 
 // TODO: single wavelength sampling
-
-constexpr auto sampleWavelengthMin = 360.0f;
-constexpr auto sampleWavelengthMax = 830.0f;
 
 class SampledSpectrum final {
 public:
