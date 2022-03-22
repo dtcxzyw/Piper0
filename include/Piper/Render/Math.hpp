@@ -86,7 +86,7 @@ namespace Impl {
     struct PowCall final {
         static constexpr T eval(const T& x) noexcept {
             const auto halfPow = PowCall<T, P / 2>::eval(x);
-            return P & 1 ? halfPow * halfPow : halfPow * halfPow * x;
+            return P & 1 ? halfPow * halfPow * x : halfPow * halfPow;
         }
     };
 
@@ -170,7 +170,7 @@ public:                                                                 \
         mValue *= rhs;                                                           \
         return *this;                                                            \
     }                                                                            \
-    constexpr TYPE operator/=(const Float rhs) noexcept {                  \
+    constexpr TYPE operator/=(const Float rhs) noexcept {                        \
         mValue *= rcp(rhs);                                                      \
         return *this;                                                            \
     }
