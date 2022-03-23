@@ -19,8 +19,8 @@
 */
 
 #pragma once
-#include <Piper/Core/Report.hpp>
 #include <Piper/Render/BSDF.hpp>
+#include <Piper/Core/Report.hpp>
 
 PIPER_NAMESPACE_BEGIN
 
@@ -155,7 +155,7 @@ inline bool Refract(glm::vec3 wi, glm::vec3 N, Float Eta, Float* etap, glm::vec3
     if(sin2Theta_t >= 1)
         return false;
     Float cosTheta_t = sqrt(std::max<Float>(0.0f, 1 - sin2Theta_t));
-    *wt = -wi / eta + (cosTheta_i / eta - cosTheta_t) * n;
+    *wt = Normalize(- wi / eta + (cosTheta_i / eta - cosTheta_t) * n);
     if(etap)
         *etap = eta;
     return true;
@@ -165,7 +165,7 @@ inline glm::vec3 Reflect(const glm::vec3 wo, glm::vec3 n) {
     return -wo + 2 * dot(wo, n) * n;
 }
 
-// TrowbridgeReitzDistribution
+// Trowbridge-Reitz Distribution
 template <typename Setting>
 class TrowbridgeReitzDistribution {
     PIPER_IMPORT_SETTINGS();
@@ -183,21 +183,21 @@ public:
         if(std::isinf(tan2Theta))
             return 0;
         Float cos4Theta = sqr(Cos2Theta(wm.raw()));
-        if(cos4Theta < 1e-16f)
+        if(cos4Theta < powf(epsilon, 4.0f))
             return 0;
         Float e = tan2Theta * (sqr(CosPhi(wm.raw()) / alpha_x) + sqr(SinPhi(wm.raw()) / alpha_y));
         return 1 / (pi * alpha_x * alpha_y * cos4Theta * sqr(1 + e));
     }
 
     bool EffectivelySmooth() const {
-        return std::max<Float>(alpha_x, alpha_y) < epsilon;
+        return std::max<Float>(alpha_x, alpha_y) < epsilon * epsilon;
     }
 
     Float Lambda(const Direction& w) const {
         Float tan2Theta = Tan2Theta(w.raw());
         if(std::isinf(tan2Theta))
             return 0;
-        Float alpha2 = sqr(CosPhi(w.raw()) / alpha_x) + sqr(SinPhi(w.raw()) / alpha_y);
+        Float alpha2 = sqr(CosPhi(w.raw()) * alpha_x) + sqr(SinPhi(w.raw()) * alpha_y);
         return (std::sqrt(1 + alpha2 * tan2Theta) - 1) / 2;
     }
 
@@ -221,7 +221,7 @@ public:
         Direction wh = Direction::fromRaw(Normalize(glm::vec3(alpha_x * w.x(), alpha_y * w.y(), w.z())));
         if(wh.z() < 0.0f)
             wh.flipZ();
-        Direction T1 = (wh.z() < 0.99999f) ? Direction::fromRaw(Normalize(cross(glm::vec3(1, 0, 0), wh.raw()))) :
+        Direction T1 = (wh.z() < 0.99999f) ? Direction::fromRaw(Normalize(cross(glm::vec3(0, 0, 1), wh.raw()))) :
                                              Direction::fromRaw(glm::vec3(1, 0, 0));
         Direction T2 = cross(wh, T1);
         glm::vec2 p = sampleUniformDisk(u);
@@ -233,7 +233,8 @@ public:
     }
 
     static Float RoughnessToAlpha(Float roughness) {
-        return std::sqrt(roughness);
+        const auto x = std::log(fmax(roughness, epsilon));
+        return (((0.000640711f * x + 0.0171201f) * x + 0.1734f) * x + 0.819955f) * x + 1.62142f;
     }
 
     void Regularize() {
@@ -254,19 +255,13 @@ class DielectricBxDF final : public BxDF<Setting> {
     TrowbridgeReitzDistribution<Setting> mfDistrib;
 
 public:
-    explicit DielectricBxDF(Float Eta, Float uRoughness, Float vRoughness, bool remapRoughness) {
-        eta = Eta;
-        // Float urough = texEval(uRoughness, ctx), vrough = texEval(vRoughness, ctx);
-        Float urough = uRoughness, vrough = vRoughness;
-        if(remapRoughness) {
-            urough = TrowbridgeReitzDistribution<Setting>::RoughnessToAlpha(urough);
-            vrough = TrowbridgeReitzDistribution<Setting>::RoughnessToAlpha(vrough);
-        }
-        mfDistrib = TrowbridgeReitzDistribution<Setting>(urough, vrough);
-    }
+    explicit DielectricBxDF(Float Eta, TrowbridgeReitzDistribution<Setting> MfDistrib) : eta(Eta), mfDistrib(MfDistrib) {}
 
     [[nodiscard]] BxDFPart part() const noexcept override {
-        return BxDFPart::Glossy | BxDFPart::Reflection | BxDFPart::Transmission;  // TODO: FIXME
+        if(eta == 1 || mfDistrib.EffectivelySmooth())
+            return BxDFPart::Specular| BxDFPart::Reflection | BxDFPart::Transmission;  // TODO: FIXME
+        else
+            return BxDFPart::Glossy | BxDFPart::Reflection | BxDFPart::Transmission;
     }
 
     Rational<Spectrum> evaluate(const Direction& wo, const Direction& wi, TransportMode transportMode) const noexcept override {
@@ -278,10 +273,10 @@ public:
         Float etap = 1.0f;
         if(!reflect)
             etap = cosTheta_o > 0 ? eta : (1 / eta);
-        Direction wm = Direction::fromRaw(wi.raw() * etap + wo.raw());
+        Direction wm = Direction::fromRaw(Normalize(wi.raw() * etap + wo.raw()));
         if(cosTheta_i == 0 || cosTheta_o == 0 || sqr(wm.x()) + sqr(wm.y()) + sqr(wm.z()) == 0)
             return Rational<Spectrum>::zero();
-        wm = Direction::fromRaw(FaceForward(Normalize(wm.raw()), glm::vec3(0, 0, 1)));
+        wm = Direction::fromRaw(FaceForward(wm.raw(), glm::vec3(0, 0, 1)));
 
         if(dot(wm, wi) * cosTheta_i < 0 || dot(wm, wo) * cosTheta_o < 0)
             return Rational<Spectrum>::zero();
@@ -315,6 +310,7 @@ public:
             if(sampler.sample() < pr / (pr + pt)) {
                 Direction wi = Direction::fromRaw(glm::vec3(-wo.x(), -wo.y(), wo.z()));
                 Float ft = R / AbsCosTheta(wi.raw());
+
                 return { wi, importanceSampled<PdfType::BSDF>(ft * Rational<Spectrum>::identity()),
                          InversePdfValue::fromRaw((pr + pt) / pr), BxDFPart::SpecularReflection };
             } else {
@@ -328,7 +324,7 @@ public:
                 Float ft = T / AbsCosTheta(wi.raw());
                 if(transportMode == TransportMode::Radiance)
                     ft /= sqr(etap);
-
+                
                 return { wi, importanceSampled<PdfType::BSDF>(ft * Rational<Spectrum>::identity()),
                          InversePdfValue::fromRaw((pr + pt) / pt), BxDFPart::SpecularTransmission };
             }
@@ -352,11 +348,13 @@ public:
 
                 pdf = mfDistrib.PDF(wo, wm) / std::max<Float>(epsilon, 4 * absDot(wo, wm)) * pr / (pr + pt);
                 Float ft = mfDistrib.D(wm) * mfDistrib.G(wo, wi) * R / (4 * CosTheta(wi.raw()) * CosTheta(wo.raw()));
+               
                 return { wi, importanceSampled<PdfType::BSDF>(ft * Rational<Spectrum>::identity()), InversePdfValue::fromRaw(1 / pdf),
                          BxDFPart::GlossyReflection };
             } else {
                 Float etap;
                 glm::vec3 wiraw;
+                // info(std::to_string(wm.x()) + ", " + std::to_string(wm.y()) + ", " + std::to_string(wm.z()));
                 bool tir = !Refract(wo.raw(), wm.raw(), eta, &etap, &wiraw);
                 Direction wi = Direction::fromRaw(wiraw);
                 if(sameHemisphere(wo, wi) || wi.z() == 0 || tir)
@@ -368,9 +366,10 @@ public:
 
                 Float ft = T * mfDistrib.D(wm) * mfDistrib.G(wo, wi) *
                     std::abs(dot(wi, wm) * dot(wo, wm) / (CosTheta(wi.raw()) * CosTheta(wo.raw()) * denom));
+                
                 if(transportMode == TransportMode::Radiance)
                     ft /= sqr(etap);
-
+                
                 return { wi, importanceSampled<PdfType::BSDF>(ft * Rational<Spectrum>::identity()), InversePdfValue::fromRaw(1 / pdf),
                          BxDFPart::GlossyTransmission };
             }

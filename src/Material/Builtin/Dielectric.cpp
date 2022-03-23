@@ -35,26 +35,25 @@ class Dielectric final : public Material<Setting> {
 
 public:
     explicit Dielectric(const Ref<ConfigNode>& node) {
-        if(const auto ptr = node->tryGet("Eta"sv))
-            eta = (*ptr)->as<double>();
-
-        if(const auto ptr = node->tryGet("RoughnessU"sv))
-            uRoughness = (*ptr)->as<double>();
-        else
-            uRoughness = node->get("Roughness"sv)->as<double>();
-
-        if(const auto ptr = node->tryGet("RoughnessV"sv))
-            vRoughness = (*ptr)->as<double>();
-        else
-            vRoughness = node->get("Roughness"sv)->as<double>();
-
-        if(const auto ptr = node->tryGet("RemapRoughness"sv))
-            remapRoughness = (*ptr)->as<bool>();
+        if(const auto ptr = node->tryGet("Eta"sv)) eta = (*ptr)->as<double>();
+        if(const auto ptr = node->tryGet("RoughnessU"sv)) uRoughness = (*ptr)->as<double>(); else uRoughness = node->get("Roughness"sv)->as<double>();
+        if(const auto ptr = node->tryGet("RoughnessV"sv)) vRoughness = (*ptr)->as<double>(); else vRoughness = node->get("Roughness"sv)->as<double>();
+        if(const auto ptr = node->tryGet("RemapRoughness"sv)) remapRoughness = (*ptr)->as<bool>();
     }
 
     BSDF<Setting> evaluate(const Wavelength& sampledWavelength, const SurfaceHit& intersection) const noexcept override {
-        return BSDF<Setting>{ ShadingFrame{ intersection.shadingNormal.asDirection(), intersection.dpdu },
-                              DielectricBxDF<Setting>{ eta, uRoughness, vRoughness, remapRoughness } };
+        Float urough = uRoughness, vrough = vRoughness;
+        if(remapRoughness) {
+            urough = TrowbridgeReitzDistribution<Setting>::RoughnessToAlpha(urough);
+            vrough = TrowbridgeReitzDistribution<Setting>::RoughnessToAlpha(vrough);
+        }
+        return BSDF<Setting>{
+            ShadingFrame{ intersection.shadingNormal.asDirection(), intersection.dpdu },
+            DielectricBxDF<Setting>{
+                eta,
+                TrowbridgeReitzDistribution<Setting>(urough, vrough)
+            }
+        };
     }
 };
 
