@@ -55,6 +55,10 @@ public:
             }
         };
     }
+
+    [[nodiscard]] RGBSpectrum estimateAlbedo(const SurfaceHit&) const noexcept override {
+        return identity<RGBSpectrum>();
+    }
 };
 
 PIPER_REGISTER_VARIANT(Dielectric, Material);

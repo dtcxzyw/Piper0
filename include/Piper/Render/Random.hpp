@@ -26,7 +26,7 @@
 
 PIPER_NAMESPACE_BEGIN
 
-using RandomEngine = pcg32_fast;
+using RandomEngine = pcg64;
 
 inline Float sample(RandomEngine& eng) {
     return std::fmin(oneMinusEpsilon, std::generate_canonical<Float, std::numeric_limits<size_t>::max()>(eng));

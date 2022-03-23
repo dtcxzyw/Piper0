@@ -40,11 +40,11 @@ static glm::vec3 expandXYZ(const T& x, const T& w, std::index_sequence<I...>) {
 
 RGBSpectrum toRGB(const SampledSpectrum& x, const SampledSpectrum& sampledWavelengths) noexcept {
     constexpr auto indices = std::make_index_sequence<SampledSpectrum::nSamples>{};
-    const auto xyz = expandXYZ<SampledSpectrum::nSamples>(x.raw(), sampledWavelengths.raw(), indices);
-    return RGBSpectrum::fromRaw(RGBSpectrum::matXYZ2RGB * xyz);
+    constexpr auto scale = static_cast<Float>(static_cast<double>(wavelengthMax - wavelengthMin) / integralOfY);
+    const auto xyz = expandXYZ<SampledSpectrum::nSamples>(x.raw(), sampledWavelengths.raw(), indices) * scale;
+    return RGBSpectrum::fromRaw(glm::max(RGBSpectrum::matXYZ2RGB * xyz, glm::zero<glm::vec3>()));
 }
 
-// FIXME: scale
 static double blackBody(const double temperature, const double lambdaNm) noexcept {
     // Planck constant h
     // Please refer to https://physics.nist.gov/cgi-bin/cuu/Value?h
@@ -56,7 +56,7 @@ static double blackBody(const double temperature, const double lambdaNm) noexcep
     // Please refer to https://physics.nist.gov/cgi-bin/cuu/Value?k
     constexpr auto k = 1.380'649e-23;  // J/K
 
-    constexpr auto k1 = 1e-9 * 2.0 * h * c * c;
+    constexpr auto k1 = 1e-9 * 2.0 * h * c * c;  // NOTICE: per unit wavelength (nm^-1)
     constexpr auto k2 = h * c / k;
     const auto lambda = lambdaNm * 1e-9;
 
@@ -65,7 +65,8 @@ static double blackBody(const double temperature, const double lambdaNm) noexcep
 
 template <size_t Samples, typename T, size_t... I>
 static auto expandBlackBody(const Float temperature, const T& x, std::index_sequence<I...>) {
-    return T{ (static_cast<Float>(blackBody(static_cast<double>(temperature), static_cast<double>(x[I]))), ...) };
+    return T{ (static_cast<Float>(blackBody(static_cast<double>(temperature), static_cast<double>(x[I]))), ...) } /
+        static_cast<Float>(Samples);
 }
 
 SampledSpectrum temperatureToSpectrum(const Float temperature, const SampledSpectrum& sampledWavelength) noexcept {
@@ -80,7 +81,8 @@ RGBSpectrum temperatureToSpectrum(const Float temperature) noexcept {
         const auto scale = blackBody(static_cast<double>(temperature), lambda);
         xyz += scale * glm::dvec3{ colorMatchingFunctionX[idx], colorMatchingFunctionY[idx], colorMatchingFunctionZ[idx] };
     }
-    return RGBSpectrum::fromRaw(RGBSpectrum::matXYZ2RGB * glm::vec3{ xyz / static_cast<double>(spectralLUTSize) });
+    return RGBSpectrum::fromRaw(
+        glm::max(RGBSpectrum::matXYZ2RGB * glm::vec3{ xyz / static_cast<double>(spectralLUTSize) }, glm::zero<glm::vec3>()));
 }
 
 PIPER_NAMESPACE_END

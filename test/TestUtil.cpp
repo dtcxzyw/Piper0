@@ -18,29 +18,24 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include <Piper/Core/StaticFactory.hpp>
-#include <Piper/Core/Sync.hpp>
-#include <Piper/Render/PipelineNode.hpp>
+#pragma once
+#include <Piper/Render/TestUtil.hpp>
+#include <chrono>
 
 PIPER_NAMESPACE_BEGIN
 
-class Preview final : public PipelineNode {
-public:
-    explicit Preview(const Ref<ConfigNode>& node) {
-        PIPER_NOT_IMPLEMENTED();
-    }
-    ChannelRequirement setup(const ChannelRequirement req) override {
-        if(!req.empty())
-            fatal("Preview is a sink node");
-        return { { { Channel::Color, false } }, context().globalAllocator };
-    }
+double simpson(const double* table, const uint32_t size, const double width) noexcept {
+    const auto n = (size - 1) / 2;
+    double sum = table[0] + table[2ULL * n];
+    for(uint32_t idx = 0; idx < n; ++idx)
+        sum += 4.0 * table[2 * idx + 1] + 2.0 * table[2 * idx + 2];
+    return width * sum / static_cast<double>(6 * n);
+}
 
-    Ref<Frame> transform(Ref<Frame> frame) override {
-        PIPER_NOT_IMPLEMENTED();
-        return {};
-    }
-};
-
-PIPER_REGISTER_CLASS(Preview, PipelineNode);
+SampleProvider& testSampler() noexcept {
+    static MemoryArena arena;
+    static SampleProvider sampler{ {}, 0ULL };
+    return sampler;
+}
 
 PIPER_NAMESPACE_END

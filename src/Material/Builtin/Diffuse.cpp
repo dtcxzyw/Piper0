@@ -20,6 +20,7 @@
 
 #include <Piper/Render/BxDFs.hpp>
 #include <Piper/Render/Material.hpp>
+#include <Piper/Render/SpectralLUTUtil.hpp>
 #include <Piper/Render/Texture.hpp>
 
 PIPER_NAMESPACE_BEGIN
@@ -36,12 +37,27 @@ public:
         : mReflectance{ this->template make<Texture2D>(node->get("Reflectance"sv)->as<Ref<ConfigNode>>()) } {}
 
     BSDF<Setting> evaluate(const Wavelength& sampledWavelength, const SurfaceHit& intersection) const noexcept override {
-        return BSDF<Setting>{
-            ShadingFrame{ intersection.shadingNormal.asDirection(), intersection.dpdu },
-            LambertianBxDF<Setting>{
-                Rational<Spectrum>::fromRaw(mReflectance->evaluate(intersection.texCoord, sampledWavelength))
+        return BSDF<Setting>{ ShadingFrame{ intersection.shadingNormal.asDirection(), intersection.dpdu },
+                              LambertianBxDF<Setting>{
+                                  Rational<Spectrum>::fromRaw(mReflectance->evaluate(intersection.texCoord, sampledWavelength)) } };
+    }
+
+    [[nodiscard]] RGBSpectrum estimateAlbedo(const SurfaceHit& intersection) const noexcept override {
+        if constexpr(std::is_same_v<Spectrum, SampledSpectrum>) {
+            auto res = zero<RGBSpectrum>();
+
+            for(uint32_t idx = wavelengthMin; idx < wavelengthMax; ++idx) {
+                const auto base = static_cast<Float>(idx);
+                const auto sampledWavelength = SampledSpectrum::fromRaw({ base, base + 0.25f, base + 0.5f, base + 0.75f });
+                const auto albedo = toRGB(mReflectance->evaluate(intersection.texCoord, sampledWavelength), sampledWavelength);
             }
-        };
+
+            res /= wavelengthMax - wavelengthMin;
+
+            return res;
+        } else {
+            return toRGB(mReflectance->evaluate(intersection.texCoord, Wavelength{}), Wavelength{});
+        }
     }
 };
 

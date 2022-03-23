@@ -26,9 +26,7 @@
 PIPER_NAMESPACE_BEGIN
 
 enum class Channel : uint16_t {
-    Full,
-    Direct,
-    Indirect,
+    Color,
     Albedo,
     ShadingNormal,
     Position,
@@ -37,15 +35,11 @@ enum class Channel : uint16_t {
 
 constexpr size_t channelSize(const Channel x, const SpectrumType spectrumType) {
     switch(x) {
-        case Channel::Full:
+        case Channel::Color:
             [[fallthrough]];
-        case Channel::Direct:
-            [[fallthrough]];
-        case Channel::Indirect:
+        case Channel::Albedo:
             return spectrumSize(spectrumType);
 
-        case Channel::Albedo:
-            [[fallthrough]];
         case Channel::ShadingNormal:
             [[fallthrough]];
         case Channel::Position:
@@ -56,6 +50,12 @@ constexpr size_t channelSize(const Channel x, const SpectrumType spectrumType) {
     }
 }
 
+struct ChannelInfo final {
+    uint32_t byteStride;
+    uint32_t pixelStride;
+    uint32_t rowStride;
+};
+
 struct FrameMetadata final {
     uint32_t width;
     uint32_t height;
@@ -65,6 +65,8 @@ struct FrameMetadata final {
     uint32_t pixelStride;
     SpectrumType spectrumType;
     bool isHDR;
+
+    [[nodiscard]] ChannelInfo view(Channel channel) const;
 };
 
 class Frame final : public RefCountBase {
@@ -72,26 +74,15 @@ class Frame final : public RefCountBase {
     std::pmr::vector<Float> mData;
 
 public:
-    Frame(const FrameMetadata metadata, std::pmr::vector<Float> data) : mMetadata{ std::move(metadata) }, mData{ std::move(data) } {}
+    Frame(FrameMetadata metadata, std::pmr::vector<Float> data) : mMetadata{ std::move(metadata) }, mData{ std::move(data) } {}
+
     const FrameMetadata& metadata() const noexcept {
         return mMetadata;
     }
 
-    const Float* data() const noexcept {
-        return mData.data();
+    const std::pmr::vector<Float>& data() const noexcept {
+        return mData;
     }
 };
-
-/*
-template <typename T>
-class FrameView final {
-    Ref<Frame> mFrame;
-
-public:
-    const T& operator()(const uint32_t i, const uint32_t j) {
-        return *reinterpret_cast<const T*>(mFrame->at(i, j));
-    }
-};
-*/
 
 PIPER_NAMESPACE_END

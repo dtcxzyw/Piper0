@@ -377,14 +377,14 @@ static double gaussNewton(const double rgb[3], double coeffs[3], uint32_t iterat
         solveLUP(J, P, residual, 3, x);
 
         r = 0.0;
-        for(int j = 0; j < 3; ++j) {
+        for(uint32_t j = 0; j < 3; ++j) {
             coeffs[j] -= x[j];
             r += residual[j] * residual[j];
         }
         const auto max = std::fmax(std::fmax(coeffs[0], coeffs[1]), coeffs[2]);
 
         if(max > 200.0) {
-            for(int j = 0; j < 3; ++j)
+            for(uint32_t j = 0; j < 3; ++j)
                 coeffs[j] *= 200.0 / max;
         }
 
@@ -402,23 +402,25 @@ int main(int argc, char** argv) {
 
     RGB2SpecTable table;
     auto& [res, scale, data] = table;
+    std::pmr::vector<double> errors;
 
     initTables();
 
-    std::string_view resStr{ argv[1] };
+    const std::string_view resStr{ argv[1] };
     std::from_chars(resStr.data(), resStr.data() + resStr.size(), res);
-    if(res == 0 || res > 4096) {
+    if(res == 0 || res > 256) {
         std::cerr << "Invalid resolution!" << std::endl;
         return EXIT_FAILURE;
     }
 
-    std::cout << "Optimizing spectra " << std::flush;
+    std::cout << "Optimizing spectra" << std::flush;
 
     scale.resize(res);
     for(int k = 0; k < res; ++k)
         scale[k] = static_cast<Float>(smoothstep(smoothstep(k / static_cast<double>(res - 1))));
 
     data.resize(3ULL * res * res * res * numberOfCoefficients);
+    errors.resize(3ULL * res * res * res);
 
     for(uint32_t t = 0; t < 3; ++t) {
         tbb::parallel_for(tbb::blocked_range<uint32_t>(0, res), [&](const tbb::blocked_range<uint32_t>& r) {
@@ -437,7 +439,7 @@ int main(int argc, char** argv) {
                         rgb[(t + 1) % 3] = x * v;
                         rgb[(t + 2) % 3] = y * v;
 
-                        gaussNewton(rgb, coeffs, 15);
+                        const auto error = gaussNewton(rgb, coeffs, 30);
 
                         const auto c0 = static_cast<double>(wavelengthMin), c1 = 1.0 / static_cast<double>(wavelengthMax - wavelengthMin);
                         const auto [a, b, c] = coeffs;
@@ -447,6 +449,7 @@ int main(int argc, char** argv) {
                         data[3 * idx + 0] = static_cast<Float>(a * sqr(c1));
                         data[3 * idx + 1] = static_cast<Float>(b * c1 - 2.0 * a * c0 * sqr(c1));
                         data[3 * idx + 2] = static_cast<Float>(c - b * c0 * c1 + a * sqr(c0 * c1));
+                        errors[idx] = error;
                     };
 
                     const auto start = res / 5;
@@ -464,6 +467,9 @@ int main(int argc, char** argv) {
     table.save();
 
     std::cout << " done." << std::endl;
+    std::sort(errors.begin(), errors.end());
+
+    std::cout << "Residual error (99%th) = " << errors[static_cast<size_t>(static_cast<double>(errors.size() - 1) * 0.99)] << std::endl;
     return EXIT_SUCCESS;
 }
 

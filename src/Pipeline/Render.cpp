@@ -23,6 +23,7 @@
 #include <Piper/Render/Filter.hpp>
 #include <Piper/Render/Integrator.hpp>
 #include <Piper/Render/LightSampler.hpp>
+#include <Piper/Render/Material.hpp>
 #include <Piper/Render/PipelineNode.hpp>
 #include <Piper/Render/RenderGlobalSetting.hpp>
 #include <Piper/Render/Sampler.hpp>
@@ -35,6 +36,7 @@
 #endif
 #include <oneapi/tbb/parallel_for_each.h>
 #include <oneapi/tbb/spin_mutex.h>
+#include <ranges>
 #include <unordered_set>
 
 PIPER_NAMESPACE_BEGIN
@@ -124,14 +126,14 @@ class Renderer final : public SourceNode {
 
     void tracePrimary(std::pmr::vector<PrimaryRay>& primaryRays, const RayStream& rayStream, const uint32_t tileWidth, const Float x0,
                       const Float y0, Float* tileData, const std::pmr::vector<Channel>& channels, const uint32_t pixelStride,
-                      const uint32_t usedSpectrumSize, const Float shutterTime) {
+                      const uint32_t usedSpectrumSize, const Float shutterTime) const {
         const auto intersections = mAcceleration->tracePrimary(rayStream);
 
         const auto locale = [&](const uint32_t x, const uint32_t y, const uint32_t offset) noexcept -> Float& {
             return tileData[(x + y * tileWidth) * pixelStride + offset];
         };
 
-        const uint32_t raySize = primaryRays.size();
+        const auto raySize = static_cast<uint32_t>(primaryRays.size());
         for(uint32_t rayIdx = 0; rayIdx < raySize; ++rayIdx) {
             auto& payload = primaryRays[rayIdx];
             const auto& ray = rayStream[rayIdx];
@@ -167,27 +169,38 @@ class Renderer final : public SourceNode {
 
             for(const auto channel : channels) {
                 switch(channel) {
-                    case Channel::Full:
-                        [[fallthrough]];
-                    case Channel::Direct:
-                        [[fallthrough]];
-                    case Channel::Indirect: {
-                        if(channel != Channel::Full) {
-                            PIPER_NOT_IMPLEMENTED();
-                        }
-
+                    case Channel::Color: {
                         Float base[3];
                         mIntegrator->estimate(ray, intersection, *mAcceleration, *mLightSampler, payload.sampleProvider, base);
                         // TODO: convert radiance to irradiance (W/(m^2)) or energy density (J/pixel) ?
                         writeData(base, usedSpectrumSize);
                     } break;
                     case Channel::Albedo: {
-                        PIPER_NOT_IMPLEMENTED();
-                        writeData(nullptr, 3);
+                        auto base = glm::zero<glm::vec3>();
+
+                        if(intersection.index() == 1) {
+                            const auto& hit = std::get<SurfaceHit>(intersection);
+                            const auto albedo = hit.surface.getBase<MaterialBase>().estimateAlbedo(hit);
+                            if(usedSpectrumSize == 1) {
+                                base.x = luminance(albedo, std::monostate{});
+                            } else
+                                base = albedo.raw();
+                        }
+
+                        writeData(glm::value_ptr(base), usedSpectrumSize);
                     } break;
                     case Channel::ShadingNormal: {
-                        PIPER_NOT_IMPLEMENTED();
-                        writeData(nullptr, 3);
+                        auto base = glm::zero<glm::vec3>();
+
+                        // FIXME: use material's shading normal
+
+                        if(intersection.index() == 1) {
+                            const auto& hit = std::get<SurfaceHit>(intersection);
+                            const auto normal = dot(hit.geometryNormal, hit.shadingNormal) >= 0.0f ? hit.shadingNormal : -hit.shadingNormal;
+                            base = normal.raw();
+                        }
+
+                        writeData(glm::value_ptr(base), 3);
                     } break;
                     case Channel::Position: {
                         Point<FrameOfReference::World> point = ray.origin + ray.direction * Distance::fromRaw(1e5f);
@@ -484,9 +497,13 @@ public:
         return mTotalFrameCount;
     }
     ChannelRequirement setup(ChannelRequirement req) override {
-        for(auto [channel, force] : req)
-            if(channel != Channel::Full && force)
-                fatal("Unsupported channel");
+        for(auto& action : mActions) {
+            for(const auto channel : req | std::views::keys)
+                if(std::ranges::find(action.channels, channel) == action.channels.cend()) {
+                    action.channels.push_back(channel);
+                    action.channelTotalSize += channelSize(channel, RenderGlobalSetting::get().spectrumType);
+                }
+        }
         return {};
     }
 };
