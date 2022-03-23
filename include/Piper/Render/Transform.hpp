@@ -156,6 +156,11 @@ class Normal final {
 };
 
 template <FrameOfReference F>
+constexpr Float dot(const Normal<F>& lhs, const Normal<F>& rhs) noexcept {
+    return glm::dot(lhs.raw(), rhs.raw());
+}
+
+template <FrameOfReference F>
 constexpr Float absDot(const Direction<F>& lhs, const Normal<F>& rhs) noexcept {
     return std::fabs(glm::dot(lhs.raw(), rhs.raw()));
 }

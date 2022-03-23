@@ -65,7 +65,8 @@ static double blackBody(const double temperature, const double lambdaNm) noexcep
 
 template <size_t Samples, typename T, size_t... I>
 static auto expandBlackBody(const Float temperature, const T& x, std::index_sequence<I...>) {
-    return T{ (static_cast<Float>(blackBody(static_cast<double>(temperature), static_cast<double>(x[I]))), ...) };
+    return T{ (static_cast<Float>(blackBody(static_cast<double>(temperature), static_cast<double>(x[I]))), ...) } /
+        static_cast<Float>(Samples);
 }
 
 SampledSpectrum temperatureToSpectrum(const Float temperature, const SampledSpectrum& sampledWavelength) noexcept {

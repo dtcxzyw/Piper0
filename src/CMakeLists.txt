@@ -117,9 +117,16 @@ add_executable(PiperRGB2SpecOpt Spectrum/RGB2SpecOpt.cpp)
 target_compile_definitions(PiperRGB2SpecOpt PRIVATE PIPER_RGB2SPEC_OPT_STANDALONE)
 target_link_libraries(PiperRGB2SpecOpt PRIVATE TBB::tbb TBB::tbbmalloc TBB::tbbmalloc_proxy)
 target_link_libraries(PiperRGB2SpecOpt PRIVATE glm::glm)
+
+if("${PIPER_PRECOMPUTED_RGB2SPEC}" STREQUAL "")
 add_custom_command(TARGET PiperRGB2SpecOpt POST_BUILD
 COMMAND PiperRGB2SpecOpt 128
 DEPENDS PiperRGB2SpecOpt)
+else()
+add_custom_command(TARGET PiperRGB2SpecOpt POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PIPER_PRECOMPUTED_RGB2SPEC} $<TARGET_FILE_DIR:PiperRGB2SpecOpt>
+)
+endif()
 
 add_library(Piper ${PIPER_SRC} ${ISPC_OBJECTS})
 target_include_directories(Piper PUBLIC ${PCG_INCLUDE_DIRS})

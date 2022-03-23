@@ -56,6 +56,10 @@ public:
         return BSDF<Setting>{ ShadingFrame{ intersection.shadingNormal.asDirection(), intersection.dpdu },
                               DielectricBxDF<Setting>{ eta, uRoughness, vRoughness, remapRoughness } };
     }
+
+    [[nodiscard]] RGBSpectrum estimateAlbedo(const SurfaceHit&) const noexcept override {
+        return identity<RGBSpectrum>();
+    }
 };
 
 PIPER_REGISTER_VARIANT(Dielectric, Material);

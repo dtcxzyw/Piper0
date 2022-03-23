@@ -35,7 +35,7 @@ public:
     ChannelRequirement setup(const ChannelRequirement req) override {
         if(!req.empty())
             fatal("EXROutput is a sink node");
-        return { { { Channel::Full, false } }, context().globalAllocator };
+        return { { { Channel::Color, false } }, context().globalAllocator };
     }
 
     Ref<Frame> transform(const Ref<Frame> frame) override {
@@ -52,19 +52,25 @@ public:
         for(const auto channel : metadata.channels) {
             pathResolver["${Channel}"] = magic_enum::enum_name(channel);
 
-            if(!(channel == Channel::Full || channel == Channel::Direct || channel == Channel::Indirect))
-                fatal("Non-HDR images are not supported by EXR output node.");
+            if(channel != Channel::Color) {
+                info(std::format("Channel {} is skipped by EXR output node.", magic_enum::enum_name(channel)));
+                stride += channelSize(channel, metadata.spectrumType);
+                continue;
+            }
+
             if(!metadata.isHDR)
                 fatal("LDR images are not supported by EXR output node.");
 
             const auto pixelCount = metadata.width * metadata.height;
             std::pmr::vector<Imf::Rgba> buffer{ pixelCount, context().scopedAllocator };
+            const auto base = frame->data().data() + static_cast<size_t>(stride);
+
             if(metadata.spectrumType == SpectrumType::LinearRGB) {
                 tbb::parallel_for(
                     tbb::blocked_range<uint32_t>{ 0, pixelCount },
                     [&](const tbb::blocked_range<uint32_t>& range) {
                         for(auto idx = range.begin(); idx != range.end(); ++idx) {
-                            const auto src = frame->data() + static_cast<size_t>(idx * metadata.pixelStride + stride);
+                            const auto src = base + static_cast<size_t>(idx * metadata.pixelStride);
                             buffer[idx] = Imf::Rgba{ src[0], src[1], src[2] };
                         }
                     },
@@ -74,7 +80,7 @@ public:
                     tbb::blocked_range<uint32_t>{ 0, pixelCount },
                     [&](const tbb::blocked_range<uint32_t>& range) {
                         for(auto idx = range.begin(); idx != range.end(); ++idx) {
-                            const auto src = frame->data() + static_cast<size_t>(idx * metadata.pixelStride + stride);
+                            const auto src = base + static_cast<size_t>(idx * metadata.pixelStride);
                             buffer[idx] = Imf::Rgba{ src[0], src[0], src[0] };
                         }
                     },

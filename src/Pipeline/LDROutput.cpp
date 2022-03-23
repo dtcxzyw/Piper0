@@ -32,7 +32,7 @@ public:
     ChannelRequirement setup(const ChannelRequirement req) override {
         if(!req.empty())
             fatal("LDROutput is a sink node");
-        return { { { Channel::Full, false } }, context().globalAllocator };
+        return { { { Channel::Color, false } }, context().globalAllocator };
     }
 
     Ref<Frame> transform(Ref<Frame> frame) override {

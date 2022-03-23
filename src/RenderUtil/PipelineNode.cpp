@@ -18,6 +18,8 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+#include <Piper/Core/Report.hpp>
+#include <Piper/Render/Frame.hpp>
 #include <Piper/Render/PipelineNode.hpp>
 
 PIPER_NAMESPACE_BEGIN
@@ -28,8 +30,22 @@ void mergeRequirement(PipelineNode::ChannelRequirement& lhs, PipelineNode::Chann
         return;
     }
     for(auto [channel, required] : rhs)
-        if(!lhs.count(channel) || required)
+        if(!lhs.contains(channel) || required)
             lhs[channel] = required;
+}
+
+ChannelInfo FrameMetadata::view(const Channel channel) const {
+    uint32_t stride = 0;
+    for(const auto c : channels) {
+        if(channel == c)
+            break;
+        stride += channelSize(c, spectrumType);
+    }
+
+    if(stride == pixelStride)
+        fatal("Required channel doesn't exist.");
+    constexpr uint32_t scalarSize = sizeof(Float);
+    return ChannelInfo{ stride * scalarSize, pixelStride * scalarSize, pixelStride * width * scalarSize };
 }
 
 PIPER_NAMESPACE_END

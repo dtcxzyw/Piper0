@@ -60,7 +60,11 @@ public:
     [[nodiscard]] auto as() const noexcept -> const T<Setting>& {
         return *reinterpret_cast<const T<Setting>*>(mPtr);
     }
-
+    template <typename Base>
+    [[nodiscard]] auto getBase() const noexcept -> const Base& {
+        static_assert(std::is_base_of_v<Base, T<RenderStaticSetting<MonoSpectrum>>>);
+        return *reinterpret_cast<const Base*>(mPtr);
+    }
     [[nodiscard]] auto get() const noexcept {
         return mPtr;
     }

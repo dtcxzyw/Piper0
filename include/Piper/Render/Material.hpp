@@ -25,7 +25,10 @@
 
 PIPER_NAMESPACE_BEGIN
 
-class MaterialBase : public RenderVariantBase {};
+class MaterialBase : public RenderVariantBase {
+public:
+    [[nodiscard]] virtual RGBSpectrum estimateAlbedo(const SurfaceHit& intersection) const noexcept = 0;
+};
 
 template <typename Setting>
 class Material : public TypedRenderVariantBase<Setting, MaterialBase> {
