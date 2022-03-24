@@ -19,6 +19,7 @@
 */
 
 #include <Piper/Core/StaticFactory.hpp>
+#include <Piper/Core/Sync.hpp>
 #include <Piper/Render/Acceleration.hpp>
 #include <Piper/Render/Filter.hpp>
 #include <Piper/Render/Integrator.hpp>
@@ -221,9 +222,9 @@ class Renderer final : public SourceNode {
     }
 
     std::pmr::vector<Float> renderTile(const std::pmr::vector<Channel>& channels, const uint32_t pixelStride, const int32_t x0,
-                                       const int32_t y0, const uint32_t tileWidth, const uint32_t tileHeight,
-                                       const SensorNDCAffineTransform& transform, const Sensor* sensor, const Ref<TileSampler>& sampler,
-                                       const Float shutterTime) {
+                                       const int32_t y0, const uint32_t tileWidth, const uint32_t tileHeight, const int32_t width,
+                                       const int32_t height, const SensorNDCAffineTransform& transform, const Sensor* sensor,
+                                       const Ref<TileSampler>& sampler, const Float shutterTime, const std ::string_view imageName) {
         std::pmr::vector<Float> tileData{ tileWidth * tileHeight * pixelStride, context().scopedAllocator };
 
         const auto sampleXEnd = tileWidth - 2;
@@ -245,11 +246,47 @@ class Renderer final : public SourceNode {
             stream[rayIdx] = ray;
         };
 
-        const auto syncTile = [](uint32_t h) {
-            // TODO: sync tile
-        };
-
+        auto& sync = getDisplayProvider();
         const auto usedSpectrumSize = spectrumSize(RenderGlobalSetting::get().spectrumType);
+        const auto colorStride = [&] {
+            uint32_t res = 1;
+            for(const auto channel : channels) {
+                if(channel == Channel::Color)
+                    break;
+                res += channelSize(channel, RenderGlobalSetting::get().spectrumType);
+            }
+            return res;
+        }();
+        const uint32_t colorOffset[3] = { colorStride, usedSpectrumSize == 3 ? colorStride + 1 : colorStride,
+                                          usedSpectrumSize == 3 ? colorStride + 2 : colorStride };
+        std::pmr::vector<Float> lineData{ tileWidth * 3, context().scopedAllocator };
+
+        const auto syncTile = [&](const uint32_t h) {
+            if(!sync.isSupported())
+                return;
+            const auto y = y0 + static_cast<int32_t>(h);
+            if(y < 0 || y >= height)
+                return;
+            const auto lx = std::max(x0, 0);
+            const auto rx = std::min(x0 + static_cast<int32_t>(tileWidth), width);
+            if(lx >= rx)
+                return;
+
+            for(int32_t x = lx; x < rx; ++x) {
+                const auto dst = lineData.data() + (x - x0) * 3;
+                const auto src = tileData.data() + (tileWidth * h + (x - x0)) * pixelStride;
+                auto weight = src[0];
+                if(weight > 1e-5f)
+                    weight = rcp(weight);
+                else
+                    weight = 0.0f;
+                for(uint32_t k = 0; k < 3; ++k)
+                    dst[k] = src[colorOffset[k]] * weight;
+            }
+
+            sync.update(imageName, { "r", "g", "b" }, { 0, 1, 2 }, { 3, 3, 3 }, lx, y, rx - lx, 1,
+                        std::span{ lineData.data(), (rx - lx) * 3ULL });
+        };
 
         if(sampleCount * sampleXEnd > 1024) {
             primaryRays.resize(sampleCount);
@@ -266,7 +303,7 @@ class Renderer final : public SourceNode {
                     tracePrimary(primaryRays, stream, tileWidth, static_cast<Float>(x0), static_cast<Float>(y0), tileData.data(), channels,
                                  pixelStride, usedSpectrumSize, shutterTime);
                 }
-                syncTile(y);
+                syncTile(y - 1);
             }
         } else {
             primaryRays.resize(sampleCount * sampleXEnd);
@@ -283,19 +320,27 @@ class Renderer final : public SourceNode {
                 tracePrimary(primaryRays, stream, tileWidth, static_cast<Float>(x0), static_cast<Float>(y0), tileData.data(), channels,
                              pixelStride, usedSpectrumSize, shutterTime);
 
-                syncTile(y);
+                syncTile(y - 1);
             }
         }
+
+        syncTile(tileHeight - 1);
 
         return tileData;
     }
 
     Ref<Frame> render(const uint32_t actionIdx, const uint32_t frameIdx) {
-        constexpr uint32_t tileSize = 32;
+        auto& sync = getDisplayProvider();
 
-        // TODO: sync frame
+        const uint32_t tileSize = sync.isSupported() ? 128 : 32;
 
         const auto& action = mActions[actionIdx];
+
+        std::string imageName;
+        if(sync.isSupported() && std::ranges::find(action.channels, Channel::Color) != action.channels.cend()) {
+            imageName = std::format("Task_{:x}_Action_{}_Frame_{}", sync.uniqueID(), actionIdx, frameIdx);
+            sync.create(imageName, action.width, action.height, { "r", "g", "b" });
+        }
 
         const auto tileX = (action.rect.width + tileSize - 1) / tileSize;
         const auto tileY = (action.rect.height + tileSize - 1) / tileSize;
@@ -345,8 +390,8 @@ class Renderer final : public SourceNode {
                 1 + std::min(static_cast<int32_t>(action.rect.height), static_cast<int32_t>(action.rect.top + (tile.y + 1) * tileSize));
 
             const uint32_t tileWidth = x1 - x0, tileHeight = y1 - y0;
-            const auto res = renderTile(action.channels, pixelStride, x0, y0, tileWidth, tileHeight, action.transform, action.sensor,
-                                        tileSampler, static_cast<Float>(shutterTime));
+            const auto res = renderTile(action.channels, pixelStride, x0, y0, tileWidth, tileHeight, action.width, action.height,
+                                        action.transform, action.sensor, tileSampler, static_cast<Float>(shutterTime), imageName);
 
             for(auto y = static_cast<uint32_t>(std::max(y0, 0)); y < std::min(static_cast<uint32_t>(y1), action.height); ++y)
                 for(auto x = static_cast<uint32_t>(std::max(x0, 0)); x < std::min(static_cast<uint32_t>(x1), action.width); ++x) {
@@ -361,12 +406,16 @@ class Renderer final : public SourceNode {
             mProgressReporter.update(progressBase + (++tileCount) / progressIncr);
         };
 
+        std::atomic_uint32_t currentBlockIdx = 0;
+
         tbb::parallel_for(
             tbb::blocked_range<size_t>(0, blocks.size()),
             [&](const tbb::blocked_range<size_t>& r) {
                 FloatingPointExceptionProbe::on();
-                for(size_t idx = r.begin(); idx != r.end(); ++idx)
+                for(size_t k = r.begin(); k != r.end(); ++k) {
+                    const auto idx = currentBlockIdx++;
                     processTile(blocks[idx]);
+                }
                 FloatingPointExceptionProbe::off();
             },
             globalAffinityPartitioner);

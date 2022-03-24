@@ -70,9 +70,9 @@ void mainGuarded(int argc, char** argv) {
 
     cxxopts::Options options("Piper", "A physically based renderer");
     options.add_options()("display-server", "(IP address:port) pair for tev previewing",
-                          cxxopts::value<std::string>(serverConfig)->default_value(""))            //
-        ("input", "input file", cxxopts::value<std::string>(inputFile))                            //
-        ("output", "output directory", cxxopts::value<std::string>(outputDir)->default_value(""))  //
+                          cxxopts::value<std::string>(serverConfig)->default_value("127.0.0.1:14158"))  //
+        ("input", "input file", cxxopts::value<std::string>(inputFile))                                 //
+        ("output", "output directory", cxxopts::value<std::string>(outputDir)->default_value(""))       //
         ("help", "print usage", cxxopts::value<bool>(help)->default_value("false"));
 
     const auto result = options.parse(argc, argv);
@@ -94,8 +94,11 @@ void mainGuarded(int argc, char** argv) {
         fatal(fmt::format("Failed to create output directory \"{}\"", outputDir));
 
     logFile().open(outputBase / inputFilePath.filename().replace_extension(".log"));
+
+    auto& sync = getDisplayProvider();
+
     if(!serverConfig.empty())
-        getDisplayProvider().connect(serverConfig);
+        sync.connect(serverConfig);
 
     constexpr auto getPipelineType = [](const std::string_view ext) {
         if(ext == ".json"sv)
@@ -279,8 +282,8 @@ void mainGuarded(int argc, char** argv) {
 
     logFile().flush();
 
-    if(getDisplayProvider().isSupported())
-        getDisplayProvider().disconnect();
+    if(sync.isSupported())
+        sync.disconnect();
 }
 
 int main(const int argc, char** argv) {
