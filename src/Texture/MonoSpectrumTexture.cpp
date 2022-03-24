@@ -18,32 +18,31 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include <Piper/Core/StaticFactory.hpp>
-#include <Piper/Render/Filter.hpp>
+#include <Piper/Render/ColorSpace.hpp>
+#include <Piper/Render/SpectrumUtil.hpp>
+#include <Piper/Render/Texture.hpp>
 
 PIPER_NAMESPACE_BEGIN
 
-class LanczosFilter final : public Filter {
-    Float mRadius;
-    Float mInvRadius;
+template <typename Setting>
+class MonoSpectrumTexture : public ConstantTexture<Setting> {
+    PIPER_IMPORT_SETTINGS();
+    MonoSpectrum mMean;
+    Spectrum mSpectrum;
 
 public:
-    explicit LanczosFilter(const Ref<ConfigNode>& node) : mRadius{ 1.0f } {
-        if(const auto ptr = node->tryGet("Radius"sv))
-            mRadius = (*ptr)->as<Float>();
-        mInvRadius = 1.0f / mRadius;
+    explicit MonoSpectrumTexture(const Ref<ConfigNode>& node)
+        : mMean{ node->get("Value"sv)->as<Float>() }, mSpectrum{ spectrumCast<Spectrum>(mMean, std::monostate{}) } {}
+
+    Spectrum evaluate(const Wavelength&) const noexcept override {
+        return mSpectrum;
     }
-    Float evaluate(const Float dx, const Float dy) const noexcept override {
-        const auto eval = [&](const Float d) noexcept {
-            const auto absDx = std::fabs(d);
-            const auto piAbsDx = pi * absDx;
-            const auto res = mRadius / (piAbsDx * piAbsDx) * sin(piAbsDx) * sin(piAbsDx * mInvRadius);
-            return absDx < mRadius ? (absDx > 1e-5f ? res : 1.0f) : 0.0f;
-        };
-        return eval(dx) * eval(dy);
+
+    [[nodiscard]] MonoSpectrum mean() const noexcept override {
+        return mMean;
     }
 };
 
-PIPER_REGISTER_CLASS(LanczosFilter, Filter);
-
+PIPER_REGISTER_WRAPPED_VARIANT(ConstantTexture2DWrapper, MonoSpectrumTexture, Texture2D);
+PIPER_REGISTER_WRAPPED_VARIANT(ConstantSphericalTextureWrapper, MonoSpectrumTexture, SphericalTexture);
 PIPER_NAMESPACE_END

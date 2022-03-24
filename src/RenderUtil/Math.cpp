@@ -52,7 +52,7 @@ glm::vec2 parseVec2(const Ref<ConfigAttr>& node) {
     if(arr.size() != 2)
         fatal("Bad vector2");
 
-    return { static_cast<Float>(arr[0]->as<double>()), static_cast<Float>(arr[1]->as<double>()) };
+    return { arr[0]->as<Float>(), arr[1]->as<Float>() };
 }
 
 glm::vec3 parseVec3(const Ref<ConfigAttr>& node) {
@@ -60,15 +60,14 @@ glm::vec3 parseVec3(const Ref<ConfigAttr>& node) {
     if(arr.size() != 3)
         fatal("Bad vector3");
 
-    return { static_cast<Float>(arr[0]->as<double>()), static_cast<Float>(arr[1]->as<double>()), static_cast<Float>(arr[2]->as<double>()) };
+    return { arr[0]->as<Float>(), arr[1]->as<Float>(), arr[2]->as<Float>() };
 }
 
 glm::quat parseQuat(const Ref<ConfigAttr>& node) {
     const auto& arr = node->as<ConfigAttr::AttrArray>();
     if(arr.size() != 4)
         fatal("Bad quaternion");
-    return glm::quat{ static_cast<Float>(arr[0]->as<double>()), static_cast<Float>(arr[1]->as<double>()),
-                      static_cast<Float>(arr[2]->as<double>()), static_cast<Float>(arr[3]->as<double>()) };
+    return glm::quat{ arr[0]->as<Float>(), arr[1]->as<Float>(), arr[2]->as<Float>(), arr[3]->as<Float>() };
 }
 
 PIPER_NAMESPACE_END

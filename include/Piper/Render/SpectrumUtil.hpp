@@ -48,6 +48,9 @@ namespace Impl {
         static SampledSpectrum cast(const MonoSpectrum& u, const SampledSpectrum&) noexcept {
             return SampledSpectrum::fromScalar(u);
         }
+        static SampledSpectrum cast(const MonoSpectrum& u, std::monostate) noexcept {
+            return SampledSpectrum::fromScalar(u);
+        }
     };
 
     template <>

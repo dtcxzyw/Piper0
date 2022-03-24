@@ -45,16 +45,6 @@ struct TextureSample final {
     InversePdf<PdfType::Texture> inversePdf;
 };
 
-inline Direction<FrameOfReference::Object> sphericalMapping(const Float theta, const Float phi) noexcept {
-    const auto cosTheta = std::cos(theta), sinTheta = std::sin(theta);
-    const auto cosPhi = std::cos(phi), sinPhi = std::sin(phi);
-    return Direction<FrameOfReference::Object>::fromRaw(glm::vec3{
-        sinTheta * sinPhi,
-        cosPhi,
-        cosTheta * sinPhi,
-    });
-}
-
 template <typename Setting>
 class SphericalTexture : public TypedRenderVariantBase<Setting> {
 public:
@@ -74,10 +64,10 @@ public:
 
     virtual TextureSample<Setting> sample(SampleProvider& sampler, const Wavelength& sampledWavelength) const noexcept {
         const auto u = sampler.sampleVec2();
-        const auto theta = u.x * twoPi;
-        const auto phi = std::acos(u.y * 2.0f - 1.0f);
+        const auto phi = u.x * twoPi;
+        const auto theta = std::acos(u.y * 2.0f - 1.0f);
 
-        return TextureSample<Setting>{ sphericalMapping(theta, phi),
+        return TextureSample<Setting>{ Direction<FrameOfReference::Object>::fromSphericalCoord({ theta, phi }),
                                        Rational<Spectrum, PdfType::Texture>::fromRaw(
                                            evaluate(glm::vec2{ u.x, phi * invPi }, sampledWavelength)),
                                        InversePdf<PdfType::Texture>::fromRaw(1.0f) };

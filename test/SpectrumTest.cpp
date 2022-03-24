@@ -21,7 +21,6 @@
 #include <Piper/Render/ColorMatchingFunction.hpp>
 #include <Piper/Render/SamplingUtil.hpp>
 #include <Piper/Render/Spectrum.hpp>
-#include <Piper/Render/SpectrumUtil.hpp>
 #include <Piper/Render/StandardIlluminant.hpp>
 #include <Piper/Render/TestUtil.hpp>
 
@@ -52,7 +51,7 @@ TEST(Spectrum, SamplingVisibleWavelength) {
     double integral = 0.0;
 
     for(uint32_t idx = 0; idx < samples; ++idx) {
-        const auto [lambda, weight] = sampleWavelength<Float, Float>(testSampler());
+        const auto [lambda, weight] = sampleWavelength<Float, Float>(getTestSampler());
         EXPECT_GE(weight, 0.0f);
         integral += wavelength2Y(static_cast<double>(lambda)) * static_cast<double>(weight);
     }
@@ -68,7 +67,7 @@ TEST(Spectrum, Wavelength2XYZ) {
     auto integral = glm::zero<glm::dvec3>();
 
     for(uint32_t idx = 0; idx < samples; ++idx) {
-        const auto lambda = glm::mix(static_cast<Float>(wavelengthMin), static_cast<Float>(wavelengthMax), testSampler().sample());
+        const auto lambda = glm::mix(static_cast<Float>(wavelengthMin), static_cast<Float>(wavelengthMax), getTestSampler().sample());
         integral += wavelength2XYZ(static_cast<double>(lambda));
     }
 

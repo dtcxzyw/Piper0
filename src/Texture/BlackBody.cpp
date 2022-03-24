@@ -37,8 +37,7 @@ class BlackBody final : public ConstantTexture<Setting> {
 
 public:
     explicit BlackBody(const Ref<ConfigNode>& node)
-        : mTemperature{ static_cast<Float>(node->get("Temperature"sv)->as<double>()) }, mScale{ static_cast<Float>(
-                                                                                            node->get("Scale"sv)->as<double>()) } {
+        : mTemperature{ node->get("Temperature"sv)->as<Float>() }, mScale{ node->get("Scale"sv)->as<Float>() } {
         mMean = luminance(temperatureToSpectrum(mTemperature), std::monostate{});
 
         if constexpr(!std::is_same_v<Spectrum, SampledSpectrum>)

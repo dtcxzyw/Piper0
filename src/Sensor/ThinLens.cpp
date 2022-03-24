@@ -36,8 +36,8 @@ public:
         : mSensorSize{ parseSensorSize(node->get("SensorSize"sv)) }, mLookAt{ Point<FrameOfReference::World>::fromRaw(
                                                                          parseVec3(node->get("LookAt"sv))) },
           mUpRef{ Direction<FrameOfReference::World>::fromRaw(glm::normalize(parseVec3(node->get("UpRef"sv)))) },
-          mFocalLength{ Distance::fromRaw(static_cast<Float>(node->get("FocalLength"sv)->as<double>() * 1e-3)) }, mApertureRadius{
-              Distance::fromRaw(mFocalLength.raw() / static_cast<Float>(node->get("FStop"sv)->as<double>() * 2.0))
+          mFocalLength{ Distance::fromRaw(node->get("FocalLength"sv)->as<Float>() * 1e-3f) }, mApertureRadius{
+              Distance::fromRaw(mFocalLength.raw() / (node->get("FStop"sv)->as<Float>() * 2.0f))
           } {}
 
     Float deviceAspectRatio() const noexcept override {

@@ -42,10 +42,11 @@ inline glm::vec2 sampleConcentricDisk(glm::vec2 u) noexcept {
     return glm::vec2{ std::cos(theta), std::sin(theta) } * radius;
 }
 
-inline Direction<FrameOfReference::Shading> sampleCosineHemisphere(const glm::vec2 u) noexcept {
+template <FrameOfReference F = FrameOfReference::Shading>
+constexpr auto sampleCosineHemisphere(const glm::vec2 u) noexcept {
     const auto coord = sampleConcentricDisk(u);
     const auto z = safeSqrt(1.0f - glm::dot(coord, coord));
-    return Direction<FrameOfReference::Shading>::fromRaw({ coord, z });
+    return Direction<F>::fromRaw({ coord, z });
 }
 
 inline uint32_t select(const Float* cdf, const Float* pdf, const uint32_t size, Float& u) noexcept {

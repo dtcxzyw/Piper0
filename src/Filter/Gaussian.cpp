@@ -28,10 +28,10 @@ class GaussianFilter final : public Filter {
     Float mDiff;
 
 public:
-    explicit GaussianFilter(const Ref<ConfigNode>& node) : mAlpha{ static_cast<Float>(node->get("Alpha"sv)->as<double>()) } {
+    explicit GaussianFilter(const Ref<ConfigNode>& node) : mAlpha{ node->get("Alpha"sv)->as<Float>() } {
         Float radius = 1.0f;
         if(const auto ptr = node->tryGet("Radius"sv))
-            radius = static_cast<Float>((*ptr)->as<double>());
+            radius = (*ptr)->as<Float>();
         mDiff = std::exp(-mAlpha * radius * radius);
     }
     Float evaluate(const Float dx, const Float dy) const noexcept override {

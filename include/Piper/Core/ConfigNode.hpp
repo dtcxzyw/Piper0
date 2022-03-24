@@ -38,7 +38,7 @@ public:
     explicit ConfigAttr(T&& x) : mValue{ std::forward<T>(x) } {}
 
     template <typename T>
-    requires(!std::is_same_v<std::string_view, T>) const T& as() const {
+    requires(!std::is_same_v<std::string_view, T> && !std::is_same_v<float, T>) const T& as() const {
         return *std::get_if<T>(&mValue);
     }
 
@@ -48,6 +48,11 @@ public:
         if(const auto ptr = std::get_if<std::string_view>(&mValue))
             return *ptr;
         return *std::get_if<std::pmr::string>(&mValue);
+    }
+
+    template <typename T>
+    requires(std::is_same_v<float, T>) float as() const {
+        return static_cast<float>(as<double>());
     }
 
     [[nodiscard]] bool isArray() const noexcept {
@@ -94,6 +99,7 @@ using ResolveConfiguration = std::pmr::unordered_map<std::string_view, std::stri
 
 std::pmr::string resolveString(std::string_view string, const ResolveConfiguration& config);
 Ref<ConfigNode> parseJSONConfigNode(std::string_view path, const ResolveConfiguration& config);
+Ref<ConfigNode> parseJSONConfigNodeFromStr(std::string_view str, const ResolveConfiguration& config);
 Ref<ConfigNode> parseYAMLConfigNode(std::string_view path, const ResolveConfiguration& config);
 Ref<ConfigNode> parseXMLConfigNode(std::string_view path, const ResolveConfiguration& config);
 

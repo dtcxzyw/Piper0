@@ -69,7 +69,7 @@ void error(std::string message) {
     std::abort();
 }
 
-extern std::function<void()> renderCallback;
+std::function renderCallback = [] {};
 
 ProgressReporter::ProgressReporter() : mStart{ Clock::now() }, mProgress{ 0.0 } {}
 void ProgressReporter::update(const double progress) noexcept {

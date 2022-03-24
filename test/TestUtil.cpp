@@ -18,9 +18,7 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#pragma once
 #include <Piper/Render/TestUtil.hpp>
-#include <chrono>
 
 PIPER_NAMESPACE_BEGIN
 
@@ -32,9 +30,9 @@ double simpson(const double* table, const uint32_t size, const double width) noe
     return width * sum / static_cast<double>(6 * n);
 }
 
-SampleProvider& testSampler() noexcept {
+SampleProvider& getTestSampler() noexcept {
     static MemoryArena arena;
-    static SampleProvider sampler{ {}, 0ULL };
+    static SampleProvider sampler{ {}, seeding(seeding(1ULL)) };
     return sampler;
 }
 

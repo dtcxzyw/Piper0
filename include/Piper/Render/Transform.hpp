@@ -158,13 +158,25 @@ class Direction final {
     template <FrameOfReference RealF = F>
     requires(RealF == FrameOfReference::Shading) friend constexpr Float cosPhi(const Direction& x) noexcept {
         Float sinT = sinTheta(x);
-        return (sinT == 0) ? 1 : clamp(x.x() / sinT, -1, 1);
+        return isZero(sinT) ? 1 : clamp(x.x() / sinT, -1, 1);
     }
 
     template <FrameOfReference RealF = F>
     requires(RealF == FrameOfReference::Shading) friend constexpr Float sinPhi(const Direction& x) noexcept {
         Float sinT = sinTheta(x);
-        return (sinT == 0) ? 0 : clamp(x.y() / sinT, -1, 1);
+        return isZero(sinT) ? 0 : clamp(x.y() / sinT, -1, 1);
+    }
+
+    // (theta, phi)
+    [[nodiscard]] TexCoord toSphericalCoord() const noexcept {
+        return { std::acos(std::clamp(mValue.z, -1.0f, 1.0f)), std::atan2(mValue.y, mValue.x) };
+    }
+
+    static Direction fromSphericalCoord(const TexCoord texCoord) noexcept {
+        const auto [theta, phi] = texCoord;
+        const auto cosTheta = std::cos(theta), sinTheta = std::sin(theta);
+        const auto cosPhi = std::cos(phi), sinPhi = std::sin(phi);
+        return Direction::fromRaw({ sinTheta * cosPhi, sinTheta * sinPhi, cosTheta });
     }
 };
 

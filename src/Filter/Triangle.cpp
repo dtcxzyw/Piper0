@@ -29,7 +29,7 @@ class TriangleFilter final : public Filter {
 public:
     explicit TriangleFilter(const Ref<ConfigNode>& node) : mInvRadius{ 1.0f } {
         if(const auto ptr = node->tryGet("Radius"sv))
-            mInvRadius = static_cast<Float>(1.0 / (*ptr)->as<double>());
+            mInvRadius = rcp((*ptr)->as<Float>());
     }
     Float evaluate(const Float dx, const Float dy) const noexcept override {
         const auto eval = [&](const Float d) noexcept { return std::fmax(0.0f, 1.0f - std::fabs(d) * mInvRadius); };

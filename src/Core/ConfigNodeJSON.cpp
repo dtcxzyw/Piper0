@@ -96,18 +96,22 @@ static Ref<ConfigNode> parseNode(const simdjson::dom::object& obj, const Resolve
     return makeRefCount<ConfigNode>(name, type, std::move(attrs), std::move(holder));
 }
 
-Ref<ConfigNode> parseJSONConfigNode(const std::string_view path, const ResolveConfiguration& config) {
+Ref<ConfigNode> parseJSONConfigNodeFromStr(const std::string_view str, const ResolveConfiguration& config) {
     MemoryArena arena;
 
-    const auto data = loadData(path);
     struct Holder final : RefCountBase {
         simdjson::dom::parser parser;
     };
 
     auto holder = makeRefCount<Holder>();
-    const auto res = holder->parser.parse(reinterpret_cast<const char*>(data.data()), data.size());
+    const auto res = holder->parser.parse(str.data(), str.size());
 
     return parseNode(res.get_object(), config, std::move(holder));
+}
+
+Ref<ConfigNode> parseJSONConfigNode(const std::string_view path, const ResolveConfiguration& config) {
+    const auto data = loadData(path);
+    return parseJSONConfigNodeFromStr(std::string_view{ reinterpret_cast<const char*>(data.data()), data.size() }, config);
 }
 
 PIPER_NAMESPACE_END

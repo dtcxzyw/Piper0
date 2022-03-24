@@ -57,7 +57,7 @@ void guard(Callable&& callable) noexcept {
 }
 
 namespace Piper {
-    std::function<void()> renderCallback;
+    extern std::function<void()> renderCallback;
 }
 
 void mainGuarded(int argc, char** argv) {

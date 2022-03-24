@@ -25,6 +25,6 @@
 PIPER_NAMESPACE_BEGIN
 
 double simpson(const double* table, uint32_t size, double width) noexcept;
-SampleProvider& testSampler() noexcept;
+SampleProvider& getTestSampler() noexcept;
 
 PIPER_NAMESPACE_END

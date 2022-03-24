@@ -57,7 +57,7 @@ KeyFrames parseKeyframes(const Ref<ConfigAttr>& node) {
 
     for(auto& item : arr) {
         auto& attr = item->as<Ref<ConfigNode>>();
-        const auto t = static_cast<Float>(attr->get("Time"sv)->as<double>());
+        const auto t = attr->get("Time"sv)->as<Float>();
         auto curveType = InterpolationCurve::Linear;
         if(const auto ptr = attr->tryGet("InterpolationCurve"sv))
             curveType = magic_enum::enum_cast<InterpolationCurve>((*ptr)->as<std::string_view>()).value();
@@ -76,7 +76,7 @@ KeyFrames parseKeyframes(const Ref<ConfigAttr>& node) {
 
         auto precision = 0.0f;
         if(const auto ptr = attr->tryGet("InterpolationPrecision"sv))
-            precision = static_cast<Float>((*ptr)->as<double>());
+            precision = (*ptr)->as<Float>();
 
         frames.push_back({ t, curveType, SRTTransform{ scale, rotation, translation }, precision });
     }
