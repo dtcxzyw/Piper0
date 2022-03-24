@@ -67,6 +67,16 @@ inline Float safeSqrt(const Float x) noexcept {
 }
 
 template <typename T>
+constexpr auto sgn(T x) noexcept {
+    return x > 0 ? 1 : -1;
+}
+
+template <typename T>
+constexpr auto isZero(T x) noexcept {
+    return abs(x) < epsilon;
+}
+
+template <typename T>
 constexpr auto sqr(T x) noexcept {
     return x * x;
 }
@@ -76,9 +86,24 @@ constexpr auto evalPoly(T) noexcept {
     return static_cast<T>(0.0);
 }
 
+template <typename T>
+constexpr auto lerp(T x, T a, T b) {
+    return (1 - x) * a + x * b;
+}
+
 template <typename T, typename... Ts>
 constexpr auto evalPoly(T x, T c0, Ts... c) noexcept {
     return c0 + x * evalPoly(x, c...);
+}
+
+template <typename T, typename U, typename V>
+constexpr auto clamp(T val, U low, V high) {
+    if(val < low)
+        return T(low);
+    else if(val > high)
+        return T(high);
+    else
+        return val;
 }
 
 namespace Impl {
