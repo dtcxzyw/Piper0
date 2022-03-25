@@ -326,7 +326,8 @@ static void chi2Test(const std::string_view name, const BSDF<RSSMono>& bsdf) {
     }
 }
 
-static void testEnergyConservation(const std::string_view name, const Normal<FrameOfReference::World>& normal, const BSDF<RSSMono>& bsdf) {
+static void testEnergyConservation(const std::string_view name, const Normal<FrameOfReference::World>& normal, const BSDF<RSSMono>& bsdf,
+                                   const bool specular) {
     constexpr uint32_t testCount = 64;
     constexpr uint32_t sampleCount = 1 << 20;
     auto& sampler = getTestSampler();
@@ -334,11 +335,20 @@ static void testEnergyConservation(const std::string_view name, const Normal<Fra
     for(uint32_t k = 0; k < testCount; ++k) {
         const auto wo = sampleUniformSphere<FrameOfReference::World>(sampler.sampleVec2());
 
+        uint32_t count = 0;
         std::pmr::vector<Float> vec(sampleCount);
 
         for(uint32_t idx = 0; idx < sampleCount; ++idx) {
-            if(const auto sample = bsdf.sample(sampler, wo, TransportMode::Importance); sample.valid())
+            if(const auto sample = bsdf.sample(sampler, wo, TransportMode::Importance); sample.valid()) {
                 vec[idx] += (sample.f * (sample.inversePdf * absDot(normal, sample.wi))).raw();
+
+                if(specular ||
+                   (std::fabs(sample.f.raw() - bsdf.evaluate(wo, sample.wi, TransportMode::Importance).raw()) < 1e-3f &&
+                    (sample.inversePdf.raw() - bsdf.pdf(wo, sample.wi).raw()) < 1e-3f)) {
+                    ++count;
+                }
+            }
+
             const uint32_t dst = idx + ((idx + 1) & -(idx + 1));
             if(dst < sampleCount)
                 vec[dst] += vec[idx];
@@ -347,17 +357,19 @@ static void testEnergyConservation(const std::string_view name, const Normal<Fra
         const auto sum = vec.back() / sampleCount;
 
         ASSERT_LT(sum, 1.01) << " name " << name << " iteration " << k;
+        // NOTICE: half vector causes the inconsistence
+        ASSERT_GT(static_cast<double>(count) / static_cast<double>(sampleCount), 0.7) << " name " << name << " iteration " << k;
     }
 }
 
 static void testBSDF(const std::string_view name, const Normal<FrameOfReference::World>& normal, const BSDF<RSSMono>& bsdf,
-                     const bool applyChi2Test) {
-    if(applyChi2Test)
+                     const bool specular) {
+    if(!specular)
         chi2Test(name, bsdf);
-    testEnergyConservation(name, normal, bsdf);
+    testEnergyConservation(name, normal, bsdf, specular);
 }
 
-static void testBSDF(const std::string_view name, const std::string_view config, const bool applyChi2Test = true) {
+static void testBSDF(const std::string_view name, const std::string_view config, const bool specular = false) {
     FloatingPointExceptionProbe::on();
 
     const auto mat = getStaticFactory().make<Material<RSSMono>>(parseJSONConfigNodeFromStr(config, {}));
@@ -371,12 +383,12 @@ static void testBSDF(const std::string_view name, const std::string_view config,
                     Handle<Material>{ mat.get() } };
 
     auto bsdf = mat->evaluate(std::monostate{}, hit);
-    testBSDF(name, hit.shadingNormal, bsdf, applyChi2Test);
+    testBSDF(name, hit.shadingNormal, bsdf, specular);
 
     // negative
     hit.geometryNormal = -hit.geometryNormal;
     bsdf = mat->evaluate(std::monostate{}, hit);
-    testBSDF(name, hit.shadingNormal, bsdf, applyChi2Test);
+    testBSDF(name, hit.shadingNormal, bsdf, specular);
 
     FloatingPointExceptionProbe::off();
 }
@@ -401,7 +413,7 @@ TEST(BSDF, DielectricSmooth) {
     "Roughness": 0.0
 }
 )",
-             false);
+             true);
 }
 
 TEST(BSDF, DielectricAnisotropicRoughness) {

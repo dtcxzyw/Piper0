@@ -22,6 +22,7 @@
 
 #pragma once
 #include <Piper/Render/Spectrum.hpp>
+#include <Piper/Render/SpectrumUtil.hpp>
 #include <Piper/Render/Transform.hpp>
 
 PIPER_NAMESPACE_BEGIN
@@ -49,6 +50,10 @@ class InversePdf final {
 
     static constexpr InversePdf identity() noexcept {
         return InversePdf{ 1.0f };
+    }
+
+    static constexpr InversePdf fromPdf(const Float pdf) noexcept {
+        return InversePdf{ pdf > 0.0f ? rcp(pdf) : 0.0f };
     }
 
     [[nodiscard]] bool valid() const noexcept {
@@ -100,6 +105,10 @@ class Rational final {
 
     static constexpr Rational<Spectrum> identity() noexcept {
         return fromRaw(Piper::identity<Spectrum>());
+    }
+
+    static constexpr Rational<Spectrum> fromScalar(const Float scalar) noexcept {
+        return fromRaw(spectrumCast<Spectrum>(scalar, std::monostate{}));
     }
 };
 

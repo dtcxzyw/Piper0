@@ -99,6 +99,11 @@ class Direction final {
         return Direction{ -mValue };
     }
 
+    template <FrameOfReference RealF = F>
+    requires(RealF == FrameOfReference::Shading) constexpr void flipZ() noexcept {
+        mValue.z = -mValue.z;
+    }
+
     friend constexpr Float dot(const Direction& lhs, const Direction& rhs) noexcept {
         return glm::dot(lhs.mValue, rhs.mValue);
     }
@@ -107,17 +112,13 @@ class Direction final {
         return std::fabs(glm::dot(lhs.mValue, rhs.mValue));
     }
 
-    friend constexpr bool sameHemisphere(const Direction& lhs, const Direction& rhs) noexcept {
+    template <FrameOfReference RealF = F>
+    requires(RealF == FrameOfReference::Shading) friend constexpr bool sameHemisphere(const Direction& lhs, const Direction& rhs) noexcept {
         return lhs.z() * rhs.z() > 0.0f;
     }
 
     friend constexpr Direction cross(const Direction& lhs, const Direction& rhs) noexcept {
         return Direction{ glm::cross(lhs.mValue, rhs.mValue) };
-    }
-
-    template <FrameOfReference RealF = F>
-    requires(RealF == FrameOfReference::Shading) constexpr void flipZ() noexcept {
-        mValue.z = -mValue.z;
     }
 
     template <FrameOfReference RealF = F>
@@ -137,7 +138,7 @@ class Direction final {
 
     template <FrameOfReference RealF = F>
     requires(RealF == FrameOfReference::Shading) friend constexpr Float sin2Theta(const Direction& x) noexcept {
-        return std::max<Float>(0, 1 - cos2Theta(x));
+        return std::fmax(0.0f, 1.0f - cos2Theta(x));
     }
 
     template <FrameOfReference RealF = F>
@@ -157,14 +158,19 @@ class Direction final {
 
     template <FrameOfReference RealF = F>
     requires(RealF == FrameOfReference::Shading) friend constexpr Float cosPhi(const Direction& x) noexcept {
-        Float sinT = sinTheta(x);
-        return isZero(sinT) ? 1 : clamp(x.x() / sinT, -1, 1);
+        const auto sinT = sinTheta(x);
+        return isZero(sinT) ? 1.0f : std::clamp(x.x() / sinT, -1.0f, 1.0f);
     }
 
     template <FrameOfReference RealF = F>
     requires(RealF == FrameOfReference::Shading) friend constexpr Float sinPhi(const Direction& x) noexcept {
-        Float sinT = sinTheta(x);
-        return isZero(sinT) ? 0 : clamp(x.y() / sinT, -1, 1);
+        const auto sinT = sinTheta(x);
+        return isZero(sinT) ? 0.0f : std::clamp(x.y() / sinT, -1.0f, 1.0f);
+    }
+
+    template <FrameOfReference RealF = F>
+    requires(RealF == FrameOfReference::Shading) static Direction positiveZ() noexcept {
+        return Direction{ { 0.0f, 0.0f, 1.0f } };
     }
 
     // (theta, phi)
@@ -183,6 +189,11 @@ class Direction final {
 template <FrameOfReference F>
 constexpr Distance dot(const Direction<F>& lhs, const Vector<F>& rhs) noexcept {
     return Distance::fromRaw(glm::dot(lhs.raw(), rhs.raw()));
+}
+
+template <FrameOfReference F>
+constexpr auto faceForward(const Direction<F>& dir, const Direction<F>& ref) noexcept {
+    return dot(dir, ref) > 0.0f ? dir : -dir;
 }
 
 template <FrameOfReference F>

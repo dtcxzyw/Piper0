@@ -29,34 +29,34 @@ class Dielectric final : public Material<Setting> {
     PIPER_IMPORT_SETTINGS();
     PIPER_IMPORT_SHADING();
 
-    Float eta = 1.5f;
-    Float uRoughness, vRoughness;
-    bool remapRoughness = true;
+    Float mEta = 1.5f;
+    Float mRoughnessU, mRoughnessV;
+    bool mRemapRoughness = true;
 
 public:
     explicit Dielectric(const Ref<ConfigNode>& node) {
         if(const auto ptr = node->tryGet("Eta"sv))
-            eta = (*ptr)->as<Float>();
+            mEta = (*ptr)->as<Float>();
         if(const auto ptr = node->tryGet("RoughnessU"sv))
-            uRoughness = (*ptr)->as<Float>();
+            mRoughnessU = (*ptr)->as<Float>();
         else
-            uRoughness = node->get("Roughness"sv)->as<Float>();
+            mRoughnessU = node->get("Roughness"sv)->as<Float>();
         if(const auto ptr = node->tryGet("RoughnessV"sv))
-            vRoughness = (*ptr)->as<Float>();
+            mRoughnessV = (*ptr)->as<Float>();
         else
-            vRoughness = node->get("Roughness"sv)->as<Float>();
+            mRoughnessV = node->get("Roughness"sv)->as<Float>();
         if(const auto ptr = node->tryGet("RemapRoughness"sv))
-            remapRoughness = (*ptr)->as<bool>();
+            mRemapRoughness = (*ptr)->as<bool>();
     }
 
     BSDF<Setting> evaluate(const Wavelength& sampledWavelength, const SurfaceHit& intersection) const noexcept override {
-        Float urough = uRoughness, vrough = vRoughness;
-        if(remapRoughness) {
-            urough = TrowbridgeReitzDistribution<Setting>::RoughnessToAlpha(urough);
-            vrough = TrowbridgeReitzDistribution<Setting>::RoughnessToAlpha(vrough);
+        auto roughnessU = mRoughnessU, roughnessV = mRoughnessV;
+        if(mRemapRoughness) {
+            roughnessU = TrowbridgeReitzDistribution<Setting>::roughnessToAlpha(roughnessU);
+            roughnessV = TrowbridgeReitzDistribution<Setting>::roughnessToAlpha(roughnessV);
         }
         return BSDF<Setting>{ ShadingFrame{ intersection.shadingNormal.asDirection(), intersection.dpdu },
-                              DielectricBxDF<Setting>{ eta, TrowbridgeReitzDistribution<Setting>(urough, vrough) } };
+                              DielectricBxDF<Setting>{ mEta, TrowbridgeReitzDistribution<Setting>(roughnessU, roughnessV) } };
     }
 
     [[nodiscard]] RGBSpectrum estimateAlbedo(const SurfaceHit&) const noexcept override {
