@@ -338,7 +338,7 @@ class Renderer final : public SourceNode {
 
         std::string imageName;
         if(sync.isSupported() && std::ranges::find(action.channels, Channel::Color) != action.channels.cend()) {
-            imageName = std::format("Task_{:x}_Action_{}_Frame_{}", sync.uniqueID(), actionIdx, frameIdx);
+            imageName = std::format("Task_{:0>4x}_Action_{}_Frame_{}", sync.uniqueID(), actionIdx, frameIdx);
             sync.create(imageName, action.width, action.height, { "r", "g", "b" });
         }
 

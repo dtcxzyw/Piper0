@@ -46,7 +46,7 @@ TEST(Spectrum, IntegralOfXYZ) {
 }
 
 TEST(Spectrum, SamplingVisibleWavelength) {
-    constexpr uint32_t samples = 1 << 15;
+    constexpr uint32_t samples = 1 << 20;
 
     double integral = 0.0;
 
@@ -62,7 +62,7 @@ TEST(Spectrum, SamplingVisibleWavelength) {
 }
 
 TEST(Spectrum, Wavelength2XYZ) {
-    constexpr uint32_t samples = 1 << 15;
+    constexpr uint32_t samples = 1 << 20;
 
     auto integral = glm::zero<glm::dvec3>();
 

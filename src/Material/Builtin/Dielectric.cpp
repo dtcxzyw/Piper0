@@ -50,7 +50,7 @@ public:
     }
 
     BSDF<Setting> evaluate(const Wavelength& sampledWavelength, const SurfaceHit& intersection) const noexcept override {
-        Float urough = uRoughness / 1000, vrough = vRoughness / 1000;
+        Float urough = uRoughness, vrough = vRoughness;
         if(remapRoughness) {
             urough = TrowbridgeReitzDistribution<Setting>::RoughnessToAlpha(urough);
             vrough = TrowbridgeReitzDistribution<Setting>::RoughnessToAlpha(vrough);

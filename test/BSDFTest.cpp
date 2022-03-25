@@ -22,18 +22,18 @@
 #include <Piper/Render/Material.hpp>
 #include <Piper/Render/RenderGlobalSetting.hpp>
 #include <Piper/Render/TestUtil.hpp>
+#include <fstream>
 #include <oneapi/tbb/parallel_for.h>
 
 PIPER_NAMESPACE_BEGIN
 
-constexpr uint32_t resolution = 80;
-constexpr uint32_t sampleCount = 1 << 20;
+constexpr uint32_t resolution = 100;
 constexpr double significanceLevel = 0.01;
 constexpr uint32_t minExpFrequency = 5;
 
 // sampled distribution
 static std::pmr::vector<Float> evalFrequencyTable(SampleProvider& sampler, const Direction<FrameOfReference::World>& wo,
-                                                  const BSDF<RSSMono>& bsdf) {
+                                                  const BSDF<RSSMono>& bsdf, const uint32_t sampleCount) {
     std::pmr::vector<Float> res(2ULL * resolution * resolution);
 
     constexpr auto scaleFactor = resolution * invPi;
@@ -54,7 +54,6 @@ static std::pmr::vector<Float> evalFrequencyTable(SampleProvider& sampler, const
 
         ++res[thetaIdx * (2ULL * resolution) + phiIdx];
     }
-
     return res;
 }
 
@@ -95,14 +94,15 @@ static Float adaptiveSimpson2D(const Callable& f, const Float x0, const Float y0
 }
 
 // pdf
-static std::pmr::vector<Float> evalExpectedFrequencyTable(const Direction<FrameOfReference::World>& wo, const BSDF<RSSMono>& bsdf) {
+static std::pmr::vector<Float> evalExpectedFrequencyTable(const Direction<FrameOfReference::World>& wo, const BSDF<RSSMono>& bsdf,
+                                                          const uint32_t sampleCount) {
     constexpr auto scaleFactor = pi / resolution;
     std::pmr::vector<Float> res(2ULL * resolution * resolution);
 
     for(uint32_t i = 0; i < resolution; ++i) {
         for(uint32_t j = 0; j < 2U * resolution; ++j) {
             res[i * (2ULL * resolution) + j] =
-                sampleCount *
+                static_cast<Float>(sampleCount) *
                 adaptiveSimpson2D(
                     [&](const Float theta, const Float phi) -> Float {
                         const auto wi = Direction<FrameOfReference::World>::fromSphericalCoord({ theta, phi });
@@ -111,7 +111,7 @@ static std::pmr::vector<Float> evalExpectedFrequencyTable(const Direction<FrameO
                         return 0.0f;
                     },
                     static_cast<Float>(i) * scaleFactor, static_cast<Float>(j) * scaleFactor, static_cast<Float>(i + 1) * scaleFactor,
-                    static_cast<Float>(j + 1) * scaleFactor, 1e-6f, 6);
+                    static_cast<Float>(j + 1) * scaleFactor, 1e-8f, 20);
         }
     }
 
@@ -205,7 +205,7 @@ static double chi2Cdf(const double x, const uint32_t dof) {
 }
 
 static std::pair<bool, std::string> chi2Test(const std::pmr::vector<Float>& sampled, const std::pmr::vector<Float>& expected,
-                                             const uint32_t testCount) {
+                                             const uint32_t testCount, const uint32_t sampleCount) {
     /* Sort all cells by their expected frequencies */
     std::vector<std::pair<Float, uint32_t>> cells(sampled.size());
     for(uint32_t i = 0; i < cells.size(); ++i)
@@ -218,7 +218,7 @@ static std::pair<bool, std::string> chi2Test(const std::pmr::vector<Float>& samp
 
     for(const auto& [expectedP, idx] : cells) {
         if(expectedP <= 0.0f) {
-            if(sampled[idx] > sampleCount * 1e-5f)
+            if(sampled[idx] > static_cast<Float>(sampleCount) * 1e-5f)
                 return { false,
                          std::format("Encountered {} samples in a c with expected "
                                      "frequency 0. Rejecting the null hypothesis!",
@@ -230,7 +230,7 @@ static std::pair<bool, std::string> chi2Test(const std::pmr::vector<Float>& samp
         ) {
             pooledFrequencies += sampled[idx];
             pooledExpFrequencies += expectedP;
-            pooledCells++;
+            ++pooledCells;
         } else {
             x += sqr(sampled[idx] - expectedP) / expectedP;
             ++dof;
@@ -270,45 +270,96 @@ static std::pair<bool, std::string> chi2Test(const std::pmr::vector<Float>& samp
                          p, alpha) };
 }
 
+static void dumpTable(const std::string& path, const std::pmr::vector<Float>& sampled, const std::pmr::vector<Float>& expected) {
+    std::ofstream out{ path };
+
+    constexpr uint32_t thetaRes = resolution, phiRes = 2U * resolution;
+
+    out << "frequencies = [ ";
+    for(uint32_t i = 0; i < thetaRes; ++i) {
+        for(uint32_t j = 0; j < phiRes; ++j) {
+            out << sampled[i * phiRes + j];
+            if(j + 1 < phiRes)
+                out << ", ";
+        }
+        if(i + 1 < thetaRes)
+            out << "; ";
+    }
+    out << " ];" << std::endl << "expFrequencies = [ ";
+    for(uint32_t i = 0; i < thetaRes; ++i) {
+        for(uint32_t j = 0; j < phiRes; ++j) {
+            out << expected[i * phiRes + j];
+            if(j + 1 < phiRes)
+                out << ", ";
+        }
+        if(i + 1 < thetaRes)
+            out << "; ";
+    }
+    out << " ];" << std::endl
+        << "colormap(jet);" << std::endl
+        << "clf; subplot(2,1,1);" << std::endl
+        << "imagesc(frequencies);" << std::endl
+        << "title('Observed frequencies');" << std::endl
+        << "axis equal;" << std::endl
+        << "subplot(2,1,2);" << std::endl
+        << "imagesc(expFrequencies);" << std::endl
+        << "axis equal;" << std::endl
+        << "title('Expected frequencies');" << std::endl;
+}
+
 static void chi2Test(const std::string_view name, const BSDF<RSSMono>& bsdf) {
-    constexpr uint32_t testCount = 5;
+    constexpr uint32_t testCount = 20;
+    constexpr uint32_t sampleCount = 1 << 20;
     auto& sampler = getTestSampler();
 
     for(uint32_t k = 0; k < testCount; ++k) {
         const auto wo = sampleCosineHemisphere<FrameOfReference::World>(sampler.sampleVec2());
 
-        const auto freq = evalFrequencyTable(sampler, wo, bsdf);
-        const auto expectedFreq = evalExpectedFrequencyTable(wo, bsdf);
-        const auto [res, reason] = chi2Test(freq, expectedFreq, testCount);
+        const auto freq = evalFrequencyTable(sampler, wo, bsdf, sampleCount);
+        const auto expectedFreq = evalExpectedFrequencyTable(wo, bsdf, sampleCount);
+        const auto [res, reason] = chi2Test(freq, expectedFreq, testCount, sampleCount);
+
+        if(!res)
+            dumpTable(std::format("chi2test_{}_table_{}.m", name, k), freq, expectedFreq);
+
         ASSERT_TRUE(res) << " name " << name << " reason: " << reason << " iteration " << k;
     }
 }
 
 static void testEnergyConservation(const std::string_view name, const Normal<FrameOfReference::World>& normal, const BSDF<RSSMono>& bsdf) {
     constexpr uint32_t testCount = 64;
+    constexpr uint32_t sampleCount = 1 << 20;
     auto& sampler = getTestSampler();
 
     for(uint32_t k = 0; k < testCount; ++k) {
         const auto wo = sampleUniformSphere<FrameOfReference::World>(sampler.sampleVec2());
-        auto sum = Rational<MonoSpectrum>::zero();
+
+        std::pmr::vector<Float> vec(sampleCount);
 
         for(uint32_t idx = 0; idx < sampleCount; ++idx) {
-            if(const auto sample = bsdf.sample(sampler, wo); sample.valid())
-                sum += sample.f * (sample.inversePdf * absDot(normal, sample.wi));
+            if(const auto sample = bsdf.sample(sampler, wo, TransportMode::Importance); sample.valid())
+                vec[idx] += (sample.f * (sample.inversePdf * absDot(normal, sample.wi))).raw();
+            const uint32_t dst = idx + ((idx + 1) & -(idx + 1));
+            if(dst < sampleCount)
+                vec[dst] += vec[idx];
         }
 
-        sum /= sampleCount;
+        const auto sum = vec.back() / sampleCount;
 
-        ASSERT_LT(maxComponentValue(sum.raw()), 1.001) << " name " << name << " iteration " << k;
+        ASSERT_LT(sum, 1.01) << " name " << name << " iteration " << k;
     }
 }
 
-static void testBSDF(const std::string_view name, const Normal<FrameOfReference::World>& normal, const BSDF<RSSMono>& bsdf) {
-    chi2Test(name, bsdf);
+static void testBSDF(const std::string_view name, const Normal<FrameOfReference::World>& normal, const BSDF<RSSMono>& bsdf,
+                     const bool applyChi2Test) {
+    if(applyChi2Test)
+        chi2Test(name, bsdf);
     testEnergyConservation(name, normal, bsdf);
 }
 
-static void testBSDF(const std::string_view name, const std::string_view config) {
+static void testBSDF(const std::string_view name, const std::string_view config, const bool applyChi2Test = true) {
+    FloatingPointExceptionProbe::on();
+
     const auto mat = getStaticFactory().make<Material<RSSMono>>(parseJSONConfigNodeFromStr(config, {}));
     SurfaceHit hit{ Point<FrameOfReference::World>::fromRaw(glm::zero<glm::vec3>()),
                     Distance::fromRaw(10.0f),
@@ -320,12 +371,14 @@ static void testBSDF(const std::string_view name, const std::string_view config)
                     Handle<Material>{ mat.get() } };
 
     auto bsdf = mat->evaluate(std::monostate{}, hit);
-    testBSDF(name, hit.shadingNormal, bsdf);
+    testBSDF(name, hit.shadingNormal, bsdf, applyChi2Test);
 
     // negative
     hit.geometryNormal = -hit.geometryNormal;
     bsdf = mat->evaluate(std::monostate{}, hit);
-    testBSDF(name, hit.shadingNormal, bsdf);
+    testBSDF(name, hit.shadingNormal, bsdf, applyChi2Test);
+
+    FloatingPointExceptionProbe::off();
 }
 
 TEST(BSDF, Diffuse) {
@@ -347,7 +400,8 @@ TEST(BSDF, DielectricSmooth) {
     "Eta": 1.5,
     "Roughness": 0.0
 }
-)");
+)",
+             false);
 }
 
 TEST(BSDF, DielectricAnisotropicRoughness) {

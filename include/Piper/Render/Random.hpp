@@ -22,14 +22,13 @@
 
 #include <Piper/Render/Math.hpp>
 #include <pcg_random.hpp>
-#include <random>
 
 PIPER_NAMESPACE_BEGIN
 
 using RandomEngine = pcg64;
 
 inline Float sample(RandomEngine& eng) {
-    return std::fmin(oneMinusEpsilon, std::generate_canonical<Float, std::numeric_limits<size_t>::max()>(eng));
+    return std::fmin(oneMinusEpsilon, static_cast<Float>(static_cast<double>(eng()) * 0x1p-64));
 }
 
 // Please refer to https://prng.di.unimi.it/splitmix64.c

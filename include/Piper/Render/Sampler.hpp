@@ -34,8 +34,10 @@ public:
     ~SampleProvider() = default;
     explicit SampleProvider(std::pmr::vector<Float> samples, const uint64_t seed)
         : mGeneratedSamples{ std::move(samples) }, mFallback{ seeding(seed) } {
-        if(mGeneratedSamples.empty())
+        if(mGeneratedSamples.empty()) {
             mGeneratedSamples = std::pmr::vector<Float>(1, context().scopedAllocator);
+            mIndex = 1;
+        }
     }
     SampleProvider(SampleProvider&&) = default;
     SampleProvider& operator=(SampleProvider&&) = default;
@@ -56,7 +58,7 @@ public:
         const auto u = sample();
         const auto scaled = u * static_cast<Float>(size);
         const auto idx = std::min(size - 1, static_cast<uint32_t>(scaled));
-        reuse(scaled - idx);
+        reuse(scaled - static_cast<Float>(idx));
         return idx;
     }
 
