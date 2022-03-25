@@ -58,6 +58,17 @@ public:
     [[nodiscard]] bool isArray() const noexcept {
         return mValue.index() == 5;
     }
+
+    template <typename T>
+    [[nodiscard]] bool convertibleTo() const noexcept {
+        if constexpr(std::is_same_v<T, std::string_view>) {
+            return std::get_if<std::string_view>(&mValue) || std::get_if<std::pmr::string>(&mValue);
+        } else if constexpr(std::is_same_v<T, float>) {
+            return std::get_if<double>(&mValue);
+        } else {
+            return std::get_if<T>(&mValue);
+        }
+    }
 };
 
 class ConfigNode final : public RefCountBase {

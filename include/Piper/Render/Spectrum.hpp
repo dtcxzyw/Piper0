@@ -158,13 +158,6 @@ private:
     static constexpr SampledSpectrum fromScalar(const Float x) noexcept {
         return SampledSpectrum{ VecType{ x } };
     }
-
-    Float selectWavelength(const SampledSpectrum& wavelength) noexcept {
-        mValue[0] /= nSamples;
-        for(int32_t idx = 1; idx < nSamples; ++idx)
-            mValue[idx] = 0.0;
-        return wavelength.mValue[0];
-    }
 };
 
 Float luminance(const SampledSpectrum& x, const SampledSpectrum& sampledWavelengths) noexcept;

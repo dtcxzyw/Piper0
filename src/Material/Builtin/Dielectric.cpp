@@ -29,14 +29,31 @@ class Dielectric final : public Material<Setting> {
     PIPER_IMPORT_SETTINGS();
     PIPER_IMPORT_SHADING();
 
-    Float mEta = 1.5f;
+    std::variant<Float, Ref<Texture2D<Setting>>> mEta = 1.5f;
     Float mRoughnessU, mRoughnessV;
     bool mRemapRoughness = true;
 
+    Float evaluateEta(const Float eta, const Wavelength&, const SurfaceHit&) const {
+        return eta;
+    }
+
+    Float evaluateEta(const Ref<Texture2D<Setting>>& eta, const Wavelength& sampledWavelength, const SurfaceHit& intersection) const {
+        const auto val = eta->evaluate(intersection.texCoord, sampledWavelength);
+        if constexpr(std::is_same_v<Spectrum, MonoSpectrum>)
+            return val;
+        else
+            return val.raw()[0];
+    }
+
 public:
     explicit Dielectric(const Ref<ConfigNode>& node) {
-        if(const auto ptr = node->tryGet("Eta"sv))
-            mEta = (*ptr)->as<Float>();
+        if(const auto ptr = node->tryGet("Eta"sv)) {
+            if((*ptr)->convertibleTo<Float>())
+                mEta = (*ptr)->as<Float>();
+            else
+                mEta = this->template make<Texture2D>((*ptr)->as<Ref<ConfigNode>>());
+        }
+
         if(const auto ptr = node->tryGet("RoughnessU"sv))
             mRoughnessU = (*ptr)->as<Float>();
         else
@@ -55,8 +72,12 @@ public:
             roughnessU = TrowbridgeReitzDistribution<Setting>::roughnessToAlpha(roughnessU);
             roughnessV = TrowbridgeReitzDistribution<Setting>::roughnessToAlpha(roughnessV);
         }
+
+        // TODO: four-way reflection
+        const auto eta = std::visit([&](const auto& x) { return evaluateEta(x, sampledWavelength, intersection); }, mEta);
+
         return BSDF<Setting>{ ShadingFrame{ intersection.shadingNormal.asDirection(), intersection.dpdu },
-                              DielectricBxDF<Setting>{ mEta, TrowbridgeReitzDistribution<Setting>(roughnessU, roughnessV) } };
+                              DielectricBxDF<Setting>{ eta, TrowbridgeReitzDistribution<Setting>(roughnessU, roughnessV) } };
     }
 
     [[nodiscard]] RGBSpectrum estimateAlbedo(const SurfaceHit&) const noexcept override {
