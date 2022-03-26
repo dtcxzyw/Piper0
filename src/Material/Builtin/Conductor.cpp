@@ -29,32 +29,21 @@ class Conductor final : public Material<Setting> {
     PIPER_IMPORT_SETTINGS();
     PIPER_IMPORT_SHADING();
 
-    std::variant<Float, Ref<Texture2D<Setting>>> mEta = 2.91f, mK = 3.09f;
+    std::variant<Float, Ref<Texture2D<Setting>>> mEta = 0.63660f, mK = 2.7834f;
     Float mRoughnessU, mRoughnessV;
     bool mRemapRoughness = true;
 
-    Float evaluateEta(const Float eta, const Wavelength&, const SurfaceHit&) const {
-        return eta;
+    std::pair<bool, Float> evaluateEta(const Float eta, const Wavelength&, const SurfaceHit&) const {
+        return { false, eta };
     }
 
-    Float evaluateEta(const Ref<Texture2D<Setting>>& eta, const Wavelength& sampledWavelength, const SurfaceHit& intersection) const {
+    std::pair<bool, Float> evaluateEta(const Ref<Texture2D<Setting>>& eta, const Wavelength& sampledWavelength,
+                                       const SurfaceHit& intersection) const {
         const auto val = eta->evaluate(intersection.texCoord, sampledWavelength);
         if constexpr(std::is_same_v<Spectrum, MonoSpectrum>)
-            return val;
+            return { false, val };
         else
-            return val.raw()[0];
-    }
-
-    Float evaluateK(const Float k, const Wavelength&, const SurfaceHit&) const {
-        return k;
-    }
-
-    Float evaluateK(const Ref<Texture2D<Setting>>& k, const Wavelength& sampledWavelength, const SurfaceHit& intersection) const {
-        const auto val = k->evaluate(intersection.texCoord, sampledWavelength);
-        if constexpr(std::is_same_v<Spectrum, MonoSpectrum>)
-            return val;
-        else
-            return val.raw()[0];
+            return { std::is_same_v<Spectrum, SampledSpectrum>, val.raw()[0] };
     }
 
 public:
@@ -91,15 +80,17 @@ public:
             roughnessV = TrowbridgeReitzDistribution<Setting>::roughnessToAlpha(roughnessV);
         }
 
-        const auto eta = std::visit([&](const auto& x) { return evaluateEta(x, sampledWavelength, intersection); }, mEta);
-        const auto k = std::visit([&](const auto& x) { return evaluateK(x, sampledWavelength, intersection); }, mK);
+        const auto [keepOneWavelengthA, eta] =
+            std::visit([&](const auto& x) { return evaluateEta(x, sampledWavelength, intersection); }, mEta);
+        const auto [keepOneWavelengthB, k] = std::visit([&](const auto& x) { return evaluateEta(x, sampledWavelength, intersection); }, mK);
 
         return BSDF<Setting>{ ShadingFrame{ intersection.shadingNormal.asDirection(), intersection.dpdu },
-                              ConductorBxDF<Setting>{ eta, k, TrowbridgeReitzDistribution<Setting>(roughnessU, roughnessV) } };
+                              ConductorBxDF<Setting>{ { eta, k }, TrowbridgeReitzDistribution<Setting>(roughnessU, roughnessV) },
+                              keepOneWavelengthA || keepOneWavelengthB };
     }
 
     [[nodiscard]] RGBSpectrum estimateAlbedo(const SurfaceHit&) const noexcept override {
-        return identity<RGBSpectrum>();
+        return identity<RGBSpectrum>();  // FIXME
     }
 };
 

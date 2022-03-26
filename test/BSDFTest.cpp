@@ -37,12 +37,15 @@ static std::pmr::vector<Float> evalFrequencyTable(SampleProvider& sampler, const
     std::pmr::vector<Float> res(2ULL * resolution * resolution);
 
     constexpr auto scaleFactor = resolution * invPi;
+    uint32_t validCount = 0;
 
     for(uint32_t idx = 0; idx < sampleCount; ++idx) {
         const auto sample = bsdf.sample(sampler, wo);
 
         if(!sample.valid() || match(sample.part, BxDFPart::Specular))
             continue;
+
+        ++validCount;
 
         auto coords = sample.wi.toSphericalCoord() * scaleFactor;
 
@@ -54,7 +57,7 @@ static std::pmr::vector<Float> evalFrequencyTable(SampleProvider& sampler, const
 
         ++res[thetaIdx * (2ULL * resolution) + phiIdx];
     }
-    return res;
+    return validCount > 100 ? res : std::pmr::vector<Float>{};
 }
 
 template <typename Callable>
@@ -316,6 +319,11 @@ static void chi2Test(const std::string_view name, const BSDF<RSSMono>& bsdf) {
         const auto wo = sampleCosineHemisphere<FrameOfReference::World>(sampler.sampleVec2());
 
         const auto freq = evalFrequencyTable(sampler, wo, bsdf, sampleCount);
+        if(freq.empty()) {  // no valid sample, restart
+            --k;
+            continue;
+        }
+
         const auto expectedFreq = evalExpectedFrequencyTable(wo, bsdf, sampleCount);
         const auto [res, reason] = chi2Test(freq, expectedFreq, testCount, sampleCount);
 
@@ -433,6 +441,37 @@ TEST(BSDF, DielectricIsotropicRoughness) {
 {
     "Type": "Dielectric",
     "Eta": 1.5,
+    "Roughness": 0.3,
+    "RemapRoughness": true
+}
+)");
+}
+
+TEST(BSDF, ConductorSmooth) {
+    testBSDF("ConductorSmooth", R"(
+{
+    "Type": "Conductor",
+    "Roughness": 0.0
+}
+)",
+             true);
+}
+
+TEST(BSDF, ConductorAnisotropicRoughness) {
+    testBSDF("ConductorAnisotropicRoughness", R"(
+{
+    "Type": "Conductor",
+    "RoughnessU": 0.3,
+    "RoughnessV": 0.5,
+    "RemapRoughness": true
+}
+)");
+}
+
+TEST(BSDF, ConductorIsotropicRoughness) {
+    testBSDF("ConductorIsotropicRoughness", R"(
+{
+    "Type": "Conductor",
     "Roughness": 0.3,
     "RemapRoughness": true
 }

@@ -83,7 +83,7 @@ public:
     }
 
     [[nodiscard]] RGBSpectrum estimateAlbedo(const SurfaceHit&) const noexcept override {
-        return identity<RGBSpectrum>();
+        return identity<RGBSpectrum>();  // FIXME
     }
 };
 

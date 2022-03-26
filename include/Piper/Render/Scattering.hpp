@@ -43,15 +43,14 @@ inline Float fresnelDielectric(Float cosThetaI, Float eta) noexcept {
     return (sqr(parallel) + sqr(perpendicular)) * 0.5f;
 }
 
-inline Float fresnelComplex(Float cosThetaI, Float eta, Float k) {
-    std::complex<Float> Eta{ eta, k };
+inline Float fresnelComplex(Float cosThetaI, const std::complex<Float> eta) noexcept {
     cosThetaI = std::clamp(cosThetaI, 0.0f, 1.0f);
-    Float sin2ThetaI = 1 - sqr(cosThetaI);
-    std::complex<Float> sin2ThetaT = sin2ThetaI / sqr(Eta);
-    std::complex<Float> cosThetaT = std::sqrt(1.0f - sin2ThetaT);
-    std::complex<Float> r_parl = (Eta * cosThetaI - cosThetaT) / (Eta * cosThetaI + cosThetaT);
-    std::complex<Float> r_perp = (cosThetaI - Eta * cosThetaT) / (cosThetaI + Eta * cosThetaT);
-    return (std::norm(r_parl) + std::norm(r_perp)) / 2;
+    const auto sin2ThetaI = 1.0f - sqr(cosThetaI);
+    const auto sin2ThetaT = sin2ThetaI / sqr(eta);
+    const auto cosThetaT = std::sqrt(1.0f - sin2ThetaT);
+    const auto parallel = (eta * cosThetaI - cosThetaT) / (eta * cosThetaI + cosThetaT);
+    const auto perpendicular = (cosThetaI - eta * cosThetaT) / (cosThetaI + eta * cosThetaT);
+    return (std::norm(parallel) + std::norm(perpendicular)) * 0.5f;
 }
 
 template <typename Setting>
