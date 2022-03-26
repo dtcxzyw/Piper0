@@ -33,16 +33,17 @@ class Dielectric final : public Material<Setting> {
     Float mRoughnessU, mRoughnessV;
     bool mRemapRoughness = true;
 
-    Float evaluateEta(const Float eta, const Wavelength&, const SurfaceHit&) const {
-        return eta;
+    std::pair<bool, Float> evaluateEta(const Float eta, const Wavelength&, const SurfaceHit&) const {
+        return { false, eta };
     }
 
-    Float evaluateEta(const Ref<Texture2D<Setting>>& eta, const Wavelength& sampledWavelength, const SurfaceHit& intersection) const {
+    std::pair<bool, Float> evaluateEta(const Ref<Texture2D<Setting>>& eta, const Wavelength& sampledWavelength,
+                                       const SurfaceHit& intersection) const {
         const auto val = eta->evaluate(intersection.texCoord, sampledWavelength);
         if constexpr(std::is_same_v<Spectrum, MonoSpectrum>)
-            return val;
+            return { false, val };
         else
-            return val.raw()[0];
+            return { std::is_same_v<Spectrum, SampledSpectrum>, val.raw()[0] };
     }
 
 public:
@@ -73,11 +74,12 @@ public:
             roughnessV = TrowbridgeReitzDistribution<Setting>::roughnessToAlpha(roughnessV);
         }
 
-        // TODO: four-way reflection
-        const auto eta = std::visit([&](const auto& x) { return evaluateEta(x, sampledWavelength, intersection); }, mEta);
+        const auto [keepOneWavelength, eta] =
+            std::visit([&](const auto& x) { return evaluateEta(x, sampledWavelength, intersection); }, mEta);
 
         return BSDF<Setting>{ ShadingFrame{ intersection.shadingNormal.asDirection(), intersection.dpdu },
-                              DielectricBxDF<Setting>{ eta, TrowbridgeReitzDistribution<Setting>(roughnessU, roughnessV) } };
+                              DielectricBxDF<Setting>{ eta, TrowbridgeReitzDistribution<Setting>(roughnessU, roughnessV) },
+                              keepOneWavelength };
     }
 
     [[nodiscard]] RGBSpectrum estimateAlbedo(const SurfaceHit&) const noexcept override {

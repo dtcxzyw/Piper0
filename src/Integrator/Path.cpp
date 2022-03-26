@@ -66,6 +66,20 @@ class PathIntegrator final : public Integrator<Setting> {
         return sampledLight.rad * f * (mixedWeight * inverseLightPdf);
     }
 
+    template <typename T>
+    auto processResult(const T& val, bool& keepOneWavelength, const bool newKeepOneWavelength) const noexcept {
+        if constexpr(std::is_same_v<SampledSpectrum, Spectrum>) {
+            if(keepOneWavelength || !newKeepOneWavelength)
+                return val;
+            keepOneWavelength = true;
+            auto vec = glm::zero<SampledSpectrum::VecType>();
+            vec[0] = val.raw().raw()[0] * 4.0f;
+            return T::fromRaw(SampledSpectrum::fromRaw(vec));
+        } else {
+            return val;
+        }
+    }
+
 public:
     explicit PathIntegrator(const Ref<ConfigNode>& node) : mMaxDepth{ node->get("MaxDepth"sv)->as<uint32_t>() } {}
     void preprocess() const noexcept override {}
@@ -83,6 +97,8 @@ public:
 
         uint32_t depth = 0;
         Float etaScale = 1;
+        // ReSharper disable once CppTooWideScope
+        bool keepOneWavelength = false;
 
         while(true) {
             if(intersection.index() == 0) {
@@ -100,7 +116,8 @@ public:
             const auto wo = -ray.direction;
             // compute direct illumination using MIS
             if(hasNonSpecular(bsdf.part()))
-                result += beta * estimateDirect(lightSampler, sampler, ctx, info, acceleration, wo, bsdf);
+                result += processResult(beta * estimateDirect(lightSampler, sampler, ctx, info, acceleration, wo, bsdf), keepOneWavelength,
+                                        bsdf.keepOneWavelength());
 
             if(depth++ == mMaxDepth)
                 break;
@@ -110,16 +127,17 @@ public:
             if(!sampledBSDF.valid())
                 break;
 
-            if(match(sampledBSDF.part, BxDFPart::Transmission)) {
-                // TODO: maintain etaScale
-            }
+            if(match(sampledBSDF.part, BxDFPart::Transmission))
+                etaScale *= sqr(sampledBSDF.eta);
 
-            beta = beta * sampledBSDF.f * (sampledBSDF.inversePdf * absDot(info.shadingNormal, sampledBSDF.wi));
+            beta = beta *
+                processResult(sampledBSDF.f * (sampledBSDF.inversePdf * absDot(info.shadingNormal, sampledBSDF.wi)), keepOneWavelength,
+                              bsdf.keepOneWavelength());
 
             // Russian roulette
             const auto rrBeta = maxComponentValue(beta.raw()) * etaScale;
             if(rrBeta < 0.95f && depth > 1) {
-                const auto q = std::fmax(0.0f, 1.0f - rrBeta);
+                const auto q = 1.0f - rrBeta;
                 if(sampler.sample() < q)
                     break;
                 beta /= 1.0f - q;
