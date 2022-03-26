@@ -253,4 +253,86 @@ public:
     }
 };
 
+// ConductorBxDF
+template <typename Setting>
+class ConductorBxDF final : public BxDF<Setting> {
+    PIPER_IMPORT_SETTINGS();
+    PIPER_IMPORT_SHADING();
+
+    Float mEta, mK;
+    TrowbridgeReitzDistribution<Setting> mDistribution;
+
+public:
+    explicit ConductorBxDF(Float eta, Float k, TrowbridgeReitzDistribution<Setting> distribution)
+        : mEta(eta), mK(k), mDistribution(distribution) {}
+
+    [[nodiscard]] BxDFPart part() const noexcept override {
+        return mDistribution.effectivelySmooth() ? BxDFPart::SpecularReflection : BxDFPart::GlossyReflection;
+    }
+
+    Rational<Spectrum> makeBSDF(const Float f) const {
+        if constexpr(std::is_same_v<Spectrum, SampledSpectrum>) {
+            // TODO: four-way reflection
+            auto res = glm::zero<SampledSpectrum::VecType>();
+            res[0] = f;  // TODO: trace pdf
+            return Rational<Spectrum>::fromRaw(SampledSpectrum::fromRaw(res));
+        } else
+            return Rational<Spectrum>::fromScalar(f);
+    }
+
+    Rational<Spectrum> evaluate(const Direction& wo, const Direction& wi, TransportMode transportMode) const noexcept override {
+        if(!sameHemisphere(wo, wi) || mDistribution.effectivelySmooth())
+            return Rational<Spectrum>::zero();
+        Float cosThetaO = absCosTheta(wo);
+        Float cosThetaI = absCosTheta(wi);
+        if(cosThetaI == 0 || cosThetaO == 0)
+            return Rational<Spectrum>::zero();
+        Direction wm = Direction::fromRaw(normalize(wi.raw() + wo.raw()));
+        if(dot(wm, wm) == 0)
+            return Rational<Spectrum>::zero();
+        Float ft =
+            fresnelComplex(absDot(wo, wm), mEta, mK) * mDistribution.evalD(wm) * mDistribution.evalG(wo, wi) / (4 * cosThetaI * cosThetaO);
+        return makeBSDF(ft);
+    }
+
+    BSDFSample sample(SampleProvider& sampler, const Direction& wo, const TransportMode transportMode,
+                      const BxDFDirection sampleDirection) const noexcept override {
+        if(!match(sampleDirection, BxDFDirection::Reflection))
+            return BSDFSample::invalid();
+        if(mDistribution.effectivelySmooth()) {
+            Direction wi = Direction::fromRaw(glm::vec3(-wo.x(), -wo.y(), wo.z()));
+            Float ft = fresnelComplex(absCosTheta(wi), mEta, mK) / absCosTheta(wi);
+            return { wi, importanceSampled<PdfType::BSDF>(ft * Rational<Spectrum>::identity()), InversePdfValue::fromRaw(1),
+                     BxDFPart::SpecularReflection };
+        }
+        if(wo.z() == 0)
+            return BSDFSample::invalid();
+        Direction wm = mDistribution.sampleWm(wo, sampler.sampleVec2());
+        Direction wi = Direction::fromRaw(glm::reflect(-wo.raw(), wm.raw()));
+        if(!sameHemisphere(wo, wi))
+            return BSDFSample::invalid();
+        Float pdf = mDistribution.pdf(wo, wm) / (4 * absDot(wo, wm));
+        Float cosThetaO = absCosTheta(wo);
+        Float cosThetaI = absCosTheta(wi);
+        if(cosThetaI == 0 || cosThetaO == 0)
+            return BSDFSample::invalid();
+        Float ft =
+            fresnelComplex(absDot(wo, wm), mEta, mK) * mDistribution.evalD(wm) * mDistribution.evalG(wo, wi) / (4 * cosThetaI * cosThetaO);
+        return { wi, importanceSampled<PdfType::BSDF>(ft * Rational<Spectrum>::identity()), InversePdfValue::fromRaw(rcp(pdf)),
+                 BxDFPart::GlossyReflection };
+    }
+
+    [[nodiscard]] InversePdfValue inversePdf(const Direction& wo, const Direction& wi, const TransportMode transportMode,
+                                             const BxDFDirection sampleDirection) const noexcept override {
+        if(!match(sampleDirection, BxDFDirection::Reflection) || !sameHemisphere(wo, wi) || mDistribution.effectivelySmooth())
+            return InversePdfValue::invalid();
+        Direction wh = Direction::fromRaw(normalize(wi.raw() + wo.raw()));
+        if(dot(wh, wh) == 0)
+            return InversePdfValue::invalid();
+        wh = faceForward(wh, Direction::fromRaw(glm::vec3(0, 0, 1)));
+        Float pdf = mDistribution.pdf(wo, wh) / (4 * absDot(wo, wh));
+        return InversePdfValue::fromPdf(pdf);
+    }
+};
+
 PIPER_NAMESPACE_END
