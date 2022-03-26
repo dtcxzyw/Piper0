@@ -250,11 +250,19 @@ class ConductorBxDF final : public BxDF<Setting> {
     PIPER_IMPORT_SETTINGS();
     PIPER_IMPORT_SHADING();
 
-    std::complex<Float> mEta;
+    using EtaType = std::conditional_t<std::is_same_v<Spectrum, RGBSpectrum>, RGBSpectrum, Float>;
+    std::complex<EtaType> mEta;
     TrowbridgeReitzDistribution<Setting> mDistribution;
 
+    Rational<Spectrum> makeBSDF(const EtaType& val) const noexcept {
+        if constexpr(std::is_same_v<Spectrum, RGBSpectrum>)
+            return Rational<Spectrum>::fromRaw(val);
+        else
+            return Rational<Spectrum>::fromScalar(val);
+    }
+
 public:
-    explicit ConductorBxDF(const std::complex<Float> eta, TrowbridgeReitzDistribution<Setting> distribution)
+    explicit ConductorBxDF(const std::complex<EtaType> eta, TrowbridgeReitzDistribution<Setting> distribution)
         : mEta{ eta }, mDistribution(distribution) {}
 
     [[nodiscard]] BxDFPart part() const noexcept override {
@@ -273,8 +281,8 @@ public:
             return Rational<Spectrum>::zero();
         const auto wm = Direction::fromRaw(normalize(halfVector));
         const auto fr =
-            fresnelComplex(absDot(wo, wm), mEta) * mDistribution.evalD(wm) * mDistribution.evalG(wo, wi) / (4 * cosThetaI * cosThetaO);
-        return Rational<Spectrum>::fromScalar(fr);
+            fresnelComplex(absDot(wo, wm), mEta) * mDistribution.evalD(wm) * mDistribution.evalG(wo, wi) / (4.0f * cosThetaI * cosThetaO);
+        return makeBSDF(fr);
     }
 
     BSDFSample sample(SampleProvider& sampler, const Direction& wo, const TransportMode transportMode,
@@ -284,8 +292,7 @@ public:
         if(mDistribution.effectivelySmooth()) {
             const auto wi = Direction::fromRaw({ -wo.x(), -wo.y(), wo.z() });
             const auto ft = fresnelComplex(absCosTheta(wi), mEta) / absCosTheta(wi);
-            return { wi, importanceSampled<PdfType::BSDF>(Rational<Spectrum>::fromScalar(ft)), InversePdfValue::identity(),
-                     BxDFPart::SpecularReflection };
+            return { wi, importanceSampled<PdfType::BSDF>(makeBSDF(ft)), InversePdfValue::identity(), BxDFPart::SpecularReflection };
         }
         if(wo.z() == 0.0f)
             return BSDFSample::invalid();
@@ -300,8 +307,7 @@ public:
             return BSDFSample::invalid();
         const auto ft =
             fresnelComplex(absDot(wo, wm), mEta) * mDistribution.evalD(wm) * mDistribution.evalG(wo, wi) / (4.0f * cosThetaI * cosThetaO);
-        return { wi, importanceSampled<PdfType::BSDF>(Rational<Spectrum>::fromScalar(ft)), InversePdfValue::fromPdf(pdf),
-                 BxDFPart::GlossyReflection };
+        return { wi, importanceSampled<PdfType::BSDF>(makeBSDF(ft)), InversePdfValue::fromPdf(pdf), BxDFPart::GlossyReflection };
     }
 
     [[nodiscard]] InversePdfValue inversePdf(const Direction& wo, const Direction& wi, const TransportMode transportMode,

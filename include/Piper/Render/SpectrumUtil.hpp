@@ -24,7 +24,8 @@
 PIPER_NAMESPACE_BEGIN
 
 namespace Impl {
-    SampledSpectrum fromRGB(const RGBSpectrum& u, const SampledSpectrum& w);
+    Float fromRGB(const RGBSpectrum& u, Float wavelength) noexcept;
+    SampledSpectrum fromRGB(const RGBSpectrum& u, const SampledSpectrum& w) noexcept;
 
     template <SpectrumLike T, SpectrumLike U>
     struct SpectrumCastCall final {};

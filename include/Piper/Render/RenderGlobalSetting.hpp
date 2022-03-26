@@ -30,6 +30,7 @@ struct RenderStaticSetting final {
     using SpectrumType = Spectrum;
     using UnpolarizedType = Spectrum;
     using WavelengthType = typename WavelengthType<Spectrum>::Type;
+    static constexpr auto isSpectral = std::is_same_v<Spectrum, SampledSpectrum>;
     static constexpr auto isPolarized = false;
 };
 
@@ -38,6 +39,7 @@ struct RenderStaticSetting<MuellerMatrix<Spectrum>> final {
     using SpectrumType = MuellerMatrix<Spectrum>;
     using UnpolarizedType = Spectrum;
     using WavelengthType = typename RenderStaticSetting<Spectrum>::WavelengthType;
+    static constexpr auto isSpectral = std::is_same_v<Spectrum, SampledSpectrum>;
     static constexpr auto isPolarized = true;
 };
 
@@ -84,11 +86,12 @@ public:
     }
 };
 
-#define PIPER_IMPORT_SETTINGS()                            \
-    using Spectrum = typename Setting::SpectrumType;       \
-    using Unpolarized = typename Setting::UnpolarizedType; \
-    using Wavelength = typename Setting::WavelengthType;   \
-    static constexpr auto isPolarized = Setting::isPolarized
+#define PIPER_IMPORT_SETTINGS()                               \
+    using Spectrum = typename Setting::SpectrumType;          \
+    using Unpolarized = typename Setting::UnpolarizedType;    \
+    using Wavelength = typename Setting::WavelengthType;      \
+    static constexpr auto isPolarized = Setting::isPolarized; \
+    static constexpr auto isSpectral = Setting::isSpectral
 
 using RSSMono = RenderStaticSetting<MonoSpectrum>;
 using RSSRGB = RenderStaticSetting<RGBSpectrum>;
@@ -138,14 +141,16 @@ public:
         NAME                                                               \
     }
 
-#define PIPER_REGISTER_VARIANT(CLASS, BASE) PIPER_REGISTER_CLASS_IMPL(#CLASS, CLASS, BASE, CLASS)
+#define PIPER_REGISTER_VARIANT(CLASS, BASE) PIPER_REGISTER_VARIANT_IMPL(#CLASS, CLASS, BASE, CLASS)
 
-#define PIPER_REGISTER_WRAPPED_VARIANT_IMPL(NAME, WRAPPER, CLASS, BASE, UNIQUE_ID)  \
-    static TemplateRegisterHelper<WRAPPER<CLASS>, BASE> UNIQUE_ID##RegisterHelper { \
-        NAME                                                                        \
+#define PIPER_REGISTER_WRAPPED_VARIANT_IMPL(NAME, WRAPPER, CLASS, BASE, UNIQUE_ID)    \
+    template <typename RSS>                                                           \
+    using UNIQUE_ID##Alias = WRAPPER<CLASS, RSS>;                                     \
+    static TemplateRegisterHelper<UNIQUE_ID##Alias, BASE> UNIQUE_ID##RegisterHelper { \
+        NAME                                                                          \
     }
 
 #define PIPER_REGISTER_WRAPPED_VARIANT(WRAPPER, CLASS, BASE) \
-    PIPER_REGISTER_WRAPPED_VARIANT_IMPL(#WRAPPER #CLASS, WRAPPER, CLASS, BASE, WRAPPER##CLASS)
+    PIPER_REGISTER_WRAPPED_VARIANT_IMPL(#CLASS, WRAPPER, CLASS, BASE, WRAPPER##CLASS)
 
 PIPER_NAMESPACE_END

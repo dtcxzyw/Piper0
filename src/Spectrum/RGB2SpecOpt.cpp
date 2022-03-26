@@ -155,7 +155,13 @@ namespace Impl {
         return std::fma(0.5f * x, y, 0.5f);
     }
 
-    SampledSpectrum fromRGB(const RGBSpectrum& u, const SampledSpectrum& w) {
+    Float fromRGB(const RGBSpectrum& u, const Float wavelength) noexcept {
+        Float coefficients[numberOfCoefficients];
+        rgb2SpecFetch(u.raw(), coefficients);
+        return rgb2SpecEval(coefficients, wavelength);
+    }
+
+    SampledSpectrum fromRGB(const RGBSpectrum& u, const SampledSpectrum& w) noexcept {
         Float coefficients[numberOfCoefficients];
         rgb2SpecFetch(u.raw(), coefficients);
 

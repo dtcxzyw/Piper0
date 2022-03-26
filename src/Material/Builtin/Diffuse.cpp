@@ -30,11 +30,11 @@ class Diffuse final : public Material<Setting> {
     PIPER_IMPORT_SETTINGS();
     PIPER_IMPORT_SHADING();
 
-    Ref<Texture2D<Setting>> mReflectance;
+    Ref<SpectrumTexture2D<Setting>> mReflectance;
 
 public:
     explicit Diffuse(const Ref<ConfigNode>& node)
-        : mReflectance{ this->template make<Texture2D>(node->get("Reflectance"sv)->as<Ref<ConfigNode>>()) } {}
+        : mReflectance{ this->template make<SpectrumTexture2D>(node->get("Reflectance"sv)->as<Ref<ConfigNode>>()) } {}
 
     BSDF<Setting> evaluate(const Wavelength& sampledWavelength, const SurfaceHit& intersection) const noexcept override {
         return BSDF<Setting>{ ShadingFrame{ intersection.shadingNormal.asDirection(), intersection.dpdu },

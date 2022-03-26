@@ -26,7 +26,7 @@ PIPER_NAMESPACE_BEGIN
 
 // TODO: parseType
 template <typename Setting>
-class RGBSpectrumTexture : public ConstantTexture<Setting> {
+class RGBSpectrumTexture final : public ConstantTexture<Setting> {
     PIPER_IMPORT_SETTINGS();
     RGBSpectrum mSpectrum;
 
@@ -39,11 +39,15 @@ public:
         return spectrumCast<Spectrum>(mSpectrum, sampledWavelength);
     }
 
+    [[nodiscard]] std::pair<bool, Float> evaluateOneWavelength(const Float sampledWavelength) const noexcept override {
+        return { true, Impl::fromRGB(mSpectrum, sampledWavelength) };
+    }
+
     [[nodiscard]] MonoSpectrum mean() const noexcept override {
         return luminance(mSpectrum, {});
     }
 };
 
-PIPER_REGISTER_WRAPPED_VARIANT(ConstantTexture2DWrapper, RGBSpectrumTexture, Texture2D);
+PIPER_REGISTER_WRAPPED_VARIANT(ConstantSpectrumTexture2DWrapper, RGBSpectrumTexture, SpectrumTexture2D);
 PIPER_REGISTER_WRAPPED_VARIANT(ConstantSphericalTextureWrapper, RGBSpectrumTexture, SphericalTexture);
 PIPER_NAMESPACE_END

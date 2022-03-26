@@ -18,8 +18,6 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#pragma once
-
 PIPER_VARIANT_FUNC(RSSMono)
 PIPER_VARIANT_FUNC(RSSRGB)
 PIPER_VARIANT_FUNC(RSSSpectral)

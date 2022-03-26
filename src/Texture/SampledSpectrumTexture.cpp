@@ -24,56 +24,76 @@
 
 PIPER_NAMESPACE_BEGIN
 
-// FIXME: only for IOR LUT now
-template <typename Setting>
-class SampledSpectrumTexture : public ConstantTexture<Setting> {
-    PIPER_IMPORT_SETTINGS();
+class SampledSpectrumTextureScalar final : public ScalarTexture2D {
     std::pmr::vector<glm::vec2> mLUT{ context().globalAllocator };  // wavelength, measurement
     Float mMean = 0.0f;
 
 public:
-    explicit SampledSpectrumTexture(const Ref<ConfigNode>& node) {
+    explicit SampledSpectrumTextureScalar(const Ref<ConfigNode>& node) {
+        // TODO: load from csv?
+
         auto& arr = node->get("Array"sv)->as<ConfigAttr::AttrArray>();
         mLUT.reserve(arr.size());
         for(auto& item : arr)
             mLUT.push_back(parseVec2(item));
-        std::sort(mLUT.begin(), mLUT.end(), [](const glm::vec2 lhs, const glm::vec2 rhs) { return lhs.x < rhs.x; });
+        std::ranges::sort(mLUT, [](const glm::vec2 lhs, const glm::vec2 rhs) { return lhs.x < rhs.x; });
 
-        for(uint32_t idx = 0; idx < mLUT.size(); ++idx)
-            mMean += mLUT[idx].y;
+        // TODO: use numerical integration?
+        for(const auto& item : mLUT)
+            mMean += item.y;
         mMean /= static_cast<Float>(mLUT.size());
     }
 
+    [[nodiscard]] std::pair<bool, Float> evaluateOneWavelength(const TexCoord, const Float wavelength) const noexcept override {
+        const auto idx = static_cast<int32_t>(
+            std::lower_bound(mLUT.cbegin(), mLUT.cend(), wavelength, [](const glm::vec2 lhs, const Float rhs) { return lhs.x < rhs; }) -
+            mLUT.cbegin());
+        const auto idx1 = std::clamp(idx, 0, static_cast<int32_t>(mLUT.size()) - 1);
+        const auto idx0 = std::max(idx1 - 1, 0);
+        if(idx0 == idx1)
+            return { false, mLUT[idx0].y };
+        return { true, glm::mix(mLUT[idx0].y, mLUT[idx1].y, (wavelength - mLUT[idx0].x) / (mLUT[idx1].x - mLUT[idx0].x)) };
+    }
+
+    Float evaluate(TexCoord) const noexcept override {
+        return mMean;
+    }
+};
+
+PIPER_REGISTER_CLASS_IMPL("SampledSpectrumTexture", SampledSpectrumTextureScalar, ScalarTexture2D, SampledSpectrumTextureScalar);
+
+template <typename Setting>
+class SampledSpectrumTexture final : public ConstantTexture<Setting> {
+    PIPER_IMPORT_SETTINGS();
+    SampledSpectrumTextureScalar mImpl;
+
+public:
+    explicit SampledSpectrumTexture(const Ref<ConfigNode>& node) : mImpl{ node } {}
+
     Spectrum evaluate(const Wavelength& sampledWavelength) const noexcept override {
         if constexpr(std::is_same_v<Spectrum, SampledSpectrum>) {
-
-            const auto evaluate = [&](Float lambda) {
-                const auto idx = static_cast<int32_t>(
-                    std::lower_bound(mLUT.cbegin(), mLUT.cend(), lambda, [](const glm::vec2 lhs, const Float rhs) { return lhs.x < rhs; }) -
-                    mLUT.cbegin());
-                const auto idx1 = std::clamp(idx, 0, static_cast<int32_t>(mLUT.size()) - 1);
-                const auto idx0 = std::max(idx1 - 1, 0);
-                if(idx0 == idx1)
-                    return mLUT[idx0].y;
-                return glm::mix(mLUT[idx0].y, mLUT[idx1].y, (lambda - mLUT[idx0].x) / (mLUT[idx1].x - mLUT[idx0].x));
-            };
-
             const auto lambdas = sampledWavelength.raw();
 
             SampledSpectrum::VecType measurement;
 
             for(int32_t idx = 0; idx < SampledSpectrum::nSamples; ++idx)
-                measurement[idx] = evaluate(lambdas[idx]);
+                measurement[idx] = mImpl.evaluateOneWavelength({}, lambdas[idx]).second;
 
             return Spectrum::fromRaw(measurement);
         } else
-            return spectrumCast<Spectrum>(mMean, std::monostate{});
+            return spectrumCast<Spectrum>(SampledSpectrumTexture::mean(), std::monostate{});
+    }
+
+    std::pair<bool, Float> evaluateOneWavelength(Float sampledWavelength) const noexcept override {
+        return mImpl.evaluateOneWavelength({}, sampledWavelength);
     }
 
     [[nodiscard]] MonoSpectrum mean() const noexcept override {
-        return mMean;
+        return mImpl.evaluate({});
     }
 };
 
-PIPER_REGISTER_WRAPPED_VARIANT(ConstantTexture2DWrapper, SampledSpectrumTexture, Texture2D);
+PIPER_REGISTER_WRAPPED_VARIANT(ConstantSpectrumTexture2DWrapper, SampledSpectrumTexture, SpectrumTexture2D);
+PIPER_REGISTER_WRAPPED_VARIANT(ConstantSphericalTextureWrapper, SampledSpectrumTexture, SphericalTexture);
+
 PIPER_NAMESPACE_END

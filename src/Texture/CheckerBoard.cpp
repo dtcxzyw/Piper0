@@ -22,6 +22,39 @@
 
 PIPER_NAMESPACE_BEGIN
 
+inline bool select(TexCoord& texCoord, const TexCoord invSize) noexcept {
+    TexCoord intCoord;
+    texCoord = glm::modf(texCoord * invSize, intCoord);
+    return (static_cast<uint32_t>(intCoord.x) ^ static_cast<uint32_t>(intCoord.y)) & 1;
+}
+
+class CheckerBoardScalar final : public ScalarTexture2D {
+    Ref<ScalarTexture2D> mWhite, mBlack;
+    glm::vec2 mInvSize;
+
+    ScalarTexture2D& select(TexCoord& texCoord) const noexcept {
+        return *(Piper::select(texCoord, mInvSize) ? mWhite : mBlack);
+    }
+
+public:
+    explicit CheckerBoardScalar(const Ref<ConfigNode>& node)
+        : mWhite{ getScalarTexture2D(node, "White"sv, ""sv, 1.0f) }, mBlack{ getScalarTexture2D(node, "Black"sv, ""sv, 0.0f) }, mInvSize{
+              rcp(parseVec2(node->get("Size"sv)))
+          } {}
+
+    Float evaluate(TexCoord texCoord) const noexcept override {
+        const auto& tex = select(texCoord);
+        return tex.evaluate(texCoord);
+    }
+
+    [[nodiscard]] std::pair<bool, Float> evaluateOneWavelength(TexCoord texCoord, const Float wavelength) const noexcept override {
+        const auto& tex = select(texCoord);
+        return tex.evaluateOneWavelength(texCoord, wavelength);
+    }
+};
+
+PIPER_REGISTER_CLASS_IMPL("CheckerBoard", CheckerBoardScalar, ScalarTexture2D, CheckerBoardScalar);
+
 template <typename Setting>
 class CheckerBoard final : public SpectrumTexture2D<Setting> {
     PIPER_IMPORT_SETTINGS();
@@ -29,17 +62,24 @@ class CheckerBoard final : public SpectrumTexture2D<Setting> {
     Ref<SpectrumTexture2D<Setting>> mWhite, mBlack;
     glm::vec2 mInvSize;
 
+    SpectrumTexture2D<Setting>& select(TexCoord& texCoord) const noexcept {
+        return *(Piper::select(texCoord, mInvSize) ? mWhite : mBlack);
+    }
+
 public:
     explicit CheckerBoard(const Ref<ConfigNode>& node)
         : mWhite{ this->template make<SpectrumTexture2D>(node->get("White"sv)->as<Ref<ConfigNode>>()) },
-          mBlack{ this->template make<SpectrumTexture2D>(node->get("Black"sv)->as<Ref<ConfigNode>>()) }, mInvSize{ rcp(
-                                                                                                     parseVec2(node->get("Size"sv))) } {}
+          mBlack{ this->template make<SpectrumTexture2D>(node->get("Black"sv)->as<Ref<ConfigNode>>()) }, mInvSize{ rcp(parseVec2(
+                                                                                                             node->get("Size"sv))) } {}
 
-    Spectrum evaluate(const TexCoord texCoord, const Wavelength& sampledWavelength) const noexcept override {
-        glm::vec2 intCoord;
-        const auto newTexCoord = glm::modf(texCoord * mInvSize, intCoord);
-        return ((static_cast<uint32_t>(intCoord.x) ^ static_cast<uint32_t>(intCoord.y)) & 1 ? mWhite : mBlack)
-            ->evaluate(newTexCoord, sampledWavelength);
+    Spectrum evaluate(TexCoord texCoord, const Wavelength& sampledWavelength) const noexcept override {
+        const auto& tex = select(texCoord);
+        return tex.evaluate(texCoord, sampledWavelength);
+    }
+
+    [[nodiscard]] std::pair<bool, Float> evaluateOneWavelength(TexCoord texCoord, Float wavelength) const noexcept override {
+        const auto& tex = select(texCoord);
+        return tex.evaluateOneWavelength(texCoord, wavelength);
     }
 };
 

@@ -107,7 +107,7 @@ public:
     }
 
     ChannelRequirement setup(ChannelRequirement req) override {
-        if(req.contains(Channel::Color)) {
+        if(req.contains(Channel::Color) && mEnable) {
             if(!req.contains(Channel::Albedo))
                 req[Channel::Albedo] = false;
             if(!req.contains(Channel::ShadingNormal))

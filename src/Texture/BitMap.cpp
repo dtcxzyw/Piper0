@@ -80,6 +80,21 @@ public:
     }
 };
 
+class BitMapScalar final : public ScalarTexture2D {
+    TextureSystem& mSystem;
+    OIIO::TextureSystem::TextureHandle* mHandle;
+
+public:
+    explicit BitMapScalar(const Ref<ConfigNode>& node)
+        : mSystem{ TextureSystem::get() }, mHandle{ mSystem.load(node->get("FilePath"sv)->as<std::string_view>()) } {}
+
+    Float evaluate(const TexCoord texCoord) const noexcept override {
+        Float res;
+        mSystem.texture(mHandle, texCoord, 1, &res);
+        return res;
+    }
+};
+
 // TODO: parseType
 template <typename Setting>
 class BitMap final : public SpectrumTexture2D<Setting> {
@@ -107,6 +122,20 @@ public:
             else {
                 return spectrumCast<Spectrum>(res, sampledWavelength);
             }
+        }
+    }
+
+    [[nodiscard]] std::pair<bool, Float> evaluateOneWavelength(const TexCoord texCoord, const Float wavelength) const noexcept override {
+        if constexpr(std::is_same_v<Spectrum, MonoSpectrum>) {
+            MonoSpectrum res;
+            mSystem.texture(mHandle, texCoord, 1, &res);
+            return { false, res };
+        } else {
+            RGBSpectrum res = RGBSpectrum::undefined();
+            static_assert(sizeof(RGBSpectrum) == 3 * sizeof(Float));
+            mSystem.texture(mHandle, texCoord, 3, reinterpret_cast<Float*>(&res));
+
+            return { true, Impl::fromRGB(res, wavelength) };
         }
     }
 };

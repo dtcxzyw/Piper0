@@ -23,6 +23,7 @@
 
 PIPER_NAMESPACE_BEGIN
 
+Float temperatureToSpectrum(Float temperature, Float sampledWavelength) noexcept;
 SampledSpectrum temperatureToSpectrum(Float temperature, const SampledSpectrum& sampledWavelength) noexcept;
 RGBSpectrum temperatureToSpectrum(Float temperature) noexcept;
 
@@ -42,6 +43,10 @@ public:
 
         if constexpr(!std::is_same_v<Spectrum, SampledSpectrum>)
             mCached = spectrumCast<Spectrum>(temperatureToSpectrum(mTemperature), Wavelength{}) * mScale;
+    }
+
+    [[nodiscard]] std::pair<bool, Float> evaluateOneWavelength(const Float sampledWavelength) const noexcept override {
+        return { true, temperatureToSpectrum(mTemperature, sampledWavelength) };
     }
 
     Spectrum evaluate(const Wavelength& sampledWavelength) const noexcept override {

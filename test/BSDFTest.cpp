@@ -451,6 +451,14 @@ TEST(BSDF, ConductorSmooth) {
     testBSDF("ConductorSmooth", R"(
 {
     "Type": "Conductor",
+    "Eta": {
+        "Type": "MonoSpectrumTexture",
+        "Value": 0.63660
+    },
+    "K": {
+        "Type": "MonoSpectrumTexture",
+        "Value": 2.7834
+    },
     "Roughness": 0.0
 }
 )",
@@ -461,6 +469,14 @@ TEST(BSDF, ConductorAnisotropicRoughness) {
     testBSDF("ConductorAnisotropicRoughness", R"(
 {
     "Type": "Conductor",
+    "Eta": {
+        "Type": "MonoSpectrumTexture",
+        "Value": 0.63660
+    },
+    "K": {
+        "Type": "MonoSpectrumTexture",
+        "Value": 2.7834
+    },
     "RoughnessU": 0.3,
     "RoughnessV": 0.5,
     "RemapRoughness": true
@@ -472,6 +488,14 @@ TEST(BSDF, ConductorIsotropicRoughness) {
     testBSDF("ConductorIsotropicRoughness", R"(
 {
     "Type": "Conductor",
+    "Eta": {
+        "Type": "MonoSpectrumTexture",
+        "Value": 0.63660
+    },
+    "K": {
+        "Type": "MonoSpectrumTexture",
+        "Value": 2.7834
+    },
     "Roughness": 0.3,
     "RemapRoughness": true
 }

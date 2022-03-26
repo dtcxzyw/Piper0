@@ -30,10 +30,14 @@ PIPER_NAMESPACE_BEGIN
 
 class ScalarTexture2D : public RefCountBase {
 public:
-    [[nodiscard]] virtual Float evaluate(TexCoord texCoord) const noexcept = 0;
+    virtual Float evaluate(TexCoord texCoord) const noexcept = 0;
+    virtual [[nodiscard]] std::pair<bool, Float> evaluateOneWavelength(const TexCoord texCoord, Float wavelength) const noexcept {
+        return { false, evaluate(texCoord) };
+    }
 };
 
-Ref<ScalarTexture2D> getScalarTexture2D(const Ref<ConfigNode>& node, const std::string_view attr, Float defaultValue);
+Ref<ScalarTexture2D> getScalarTexture2D(const Ref<ConfigNode>& node, std::string_view attr, std::string_view fallbackAttr,
+                                        Float defaultValue);
 
 template <typename Setting>
 class SpectrumTexture2D : public TypedRenderVariantBase<Setting> {
@@ -41,6 +45,7 @@ public:
     PIPER_IMPORT_SETTINGS();
 
     virtual Spectrum evaluate(TexCoord texCoord, const Wavelength& sampledWavelength) const noexcept = 0;
+    [[nodiscard]] virtual std::pair<bool, Float> evaluateOneWavelength(TexCoord texCoord, Float wavelength) const noexcept = 0;
 };
 
 template <typename Setting>
@@ -85,20 +90,26 @@ class ConstantTexture : public TypedRenderVariantBase<Setting> {
 
 public:
     virtual Spectrum evaluate(const Wavelength& sampledWavelength) const noexcept = 0;
+    [[nodiscard]] virtual std::pair<bool, Float> evaluateOneWavelength(Float sampledWavelength) const noexcept = 0;
     [[nodiscard]] virtual MonoSpectrum mean() const noexcept = 0;
 };
 
 template <template <typename> typename T, typename Setting>
-requires(std::is_base_of_v<ConstantTexture<Setting>, T<Setting>>) class ConstantTexture2DWrapper final : public SpectrumTexture2D<Setting> {
+requires(std::is_base_of_v<ConstantTexture<Setting>, T<Setting>>) class ConstantSpectrumTexture2DWrapper final
+    : public SpectrumTexture2D<Setting> {
     PIPER_IMPORT_SETTINGS();
 
     T<Setting> mImpl;
 
 public:
-    explicit ConstantTexture2DWrapper(const Ref<ConfigNode>& node) : mImpl{ node } {}
+    explicit ConstantSpectrumTexture2DWrapper(const Ref<ConfigNode>& node) : mImpl{ node } {}
 
-    Spectrum evaluate(TexCoord, const Wavelength& sampledWavelength) const noexcept final {
+    Spectrum evaluate(TexCoord, const Wavelength& sampledWavelength) const noexcept override {
         return mImpl.evaluate(sampledWavelength);
+    }
+
+    [[nodiscard]] std::pair<bool, Float> evaluateOneWavelength(TexCoord, const Float wavelength) const noexcept override {
+        return mImpl.evaluateOneWavelength(wavelength);
     }
 };
 
@@ -112,11 +123,11 @@ requires(std::is_base_of_v<ConstantTexture<Setting>, T<Setting>>) class Constant
 public:
     explicit ConstantSphericalTextureWrapper(const Ref<ConfigNode>& node) : mImpl{ node } {}
 
-    Spectrum evaluate(TexCoord, const Wavelength& sampledWavelength) const noexcept final {
+    Spectrum evaluate(TexCoord, const Wavelength& sampledWavelength) const noexcept override {
         return mImpl.evaluate(sampledWavelength);
     }
 
-    [[nodiscard]] MonoSpectrum mean() const noexcept final {
+    [[nodiscard]] MonoSpectrum mean() const noexcept override {
         return mImpl.mean();
     }
 };

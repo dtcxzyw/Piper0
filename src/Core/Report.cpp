@@ -66,7 +66,7 @@ void error(std::string message) {
 }
 [[noreturn]] void fatal(std::string message) {
     report(LogType::Fatal, std::move(message), true);
-    std::abort();
+    std::abort();  // FIXME: interrupt for debugging
 }
 
 std::function renderCallback = [] {};

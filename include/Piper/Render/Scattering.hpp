@@ -53,6 +53,15 @@ inline Float fresnelComplex(Float cosThetaI, const std::complex<Float> eta) noex
     return (std::norm(parallel) + std::norm(perpendicular)) * 0.5f;
 }
 
+inline RGBSpectrum fresnelComplex(const Float cosThetaI, const std::complex<RGBSpectrum>& eta) noexcept {
+    const auto& real = eta.real().raw();
+    const auto& imag = eta.imag().raw();
+
+    return RGBSpectrum::fromRaw(glm::vec3{ fresnelComplex(cosThetaI, std::complex{ real.x, imag.x }),
+                                           fresnelComplex(cosThetaI, std::complex{ real.y, imag.z }),
+                                           fresnelComplex(cosThetaI, std::complex{ real.z, imag.z }) });
+}
+
 template <typename Setting>
 class TrowbridgeReitzDistribution {
     PIPER_IMPORT_SETTINGS();

@@ -24,8 +24,39 @@
 
 PIPER_NAMESPACE_BEGIN
 
+class MonoSpectrumTextureScalar final : public ScalarTexture2D {
+    MonoSpectrum mValue;
+
+public:
+    explicit MonoSpectrumTextureScalar(const Ref<ConfigNode>& node) : mValue{ node->get("Value"sv)->as<Float>() } {}
+    explicit MonoSpectrumTextureScalar(const Float value) : mValue{ value } {}
+
+    Float evaluate(TexCoord) const noexcept override {
+        return mValue;
+    }
+};
+
+PIPER_REGISTER_CLASS_IMPL("MonoSpectrumTexture", MonoSpectrumTextureScalar, ScalarTexture2D, MonoSpectrumTextureScalar);
+
+Ref<ScalarTexture2D> getScalarTexture2D(const Ref<ConfigNode>& node, const std::string_view attr, const std::string_view fallbackAttr,
+                                        const Float defaultValue) {
+    constexpr auto parseAttr = [](const Ref<ConfigAttr>& sub) {
+        if(sub->convertibleTo<Float>())
+            return makeRefCount<MonoSpectrumTextureScalar, ScalarTexture2D>(sub->as<Float>());
+        return getStaticFactory().make<ScalarTexture2D>(sub->as<Ref<ConfigNode>>());
+    };
+
+    if(const auto ptr = node->tryGet(attr))
+        return parseAttr(*ptr);
+
+    if(!fallbackAttr.empty())
+        if(const auto ptr = node->tryGet(fallbackAttr))
+            return parseAttr(*ptr);
+    return makeRefCount<MonoSpectrumTextureScalar, ScalarTexture2D>(defaultValue);
+}
+
 template <typename Setting>
-class MonoSpectrumTexture : public ConstantTexture<Setting> {
+class MonoSpectrumTexture final : public ConstantTexture<Setting> {
     PIPER_IMPORT_SETTINGS();
     MonoSpectrum mMean;
     Spectrum mSpectrum;
@@ -38,11 +69,15 @@ public:
         return mSpectrum;
     }
 
+    [[nodiscard]] std::pair<bool, Float> evaluateOneWavelength(Float) const noexcept override {
+        return { false, mMean };
+    }
+
     [[nodiscard]] MonoSpectrum mean() const noexcept override {
         return mMean;
     }
 };
 
-PIPER_REGISTER_WRAPPED_VARIANT(ConstantTexture2DWrapper, MonoSpectrumTexture, Texture2D);
+PIPER_REGISTER_WRAPPED_VARIANT(ConstantSpectrumTexture2DWrapper, MonoSpectrumTexture, SpectrumTexture2D);
 PIPER_REGISTER_WRAPPED_VARIANT(ConstantSphericalTextureWrapper, MonoSpectrumTexture, SphericalTexture);
 PIPER_NAMESPACE_END

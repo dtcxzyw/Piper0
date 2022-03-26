@@ -29,53 +29,38 @@ class Dielectric final : public Material<Setting> {
     PIPER_IMPORT_SETTINGS();
     PIPER_IMPORT_SHADING();
 
-    std::variant<Float, Ref<Texture2D<Setting>>> mEta = 1.5f;
-    Float mRoughnessU, mRoughnessV;
+    Ref<ScalarTexture2D> mEta;
+    Ref<ScalarTexture2D> mRoughnessU, mRoughnessV;
     bool mRemapRoughness = true;
 
-    std::pair<bool, Float> evaluateEta(const Float eta, const Wavelength&, const SurfaceHit&) const {
-        return { false, eta };
-    }
-
-    std::pair<bool, Float> evaluateEta(const Ref<Texture2D<Setting>>& eta, const Wavelength& sampledWavelength,
-                                       const SurfaceHit& intersection) const {
-        const auto val = eta->evaluate(intersection.texCoord, sampledWavelength);
-        if constexpr(std::is_same_v<Spectrum, MonoSpectrum>)
-            return { false, val };
-        else
-            return { std::is_same_v<Spectrum, SampledSpectrum>, val.raw()[0] };
+    auto evaluateEta(const Ref<ScalarTexture2D>& eta, const TexCoord texCoord, const Wavelength& sampledWavelength) const noexcept {
+        if constexpr(isSpectral) {
+            return eta->evaluateOneWavelength(texCoord, sampledWavelength.raw()[0]);
+        } else {
+            return std::pair{ false, eta->evaluate(texCoord) };
+        }
     }
 
 public:
     explicit Dielectric(const Ref<ConfigNode>& node) {
-        if(const auto ptr = node->tryGet("Eta"sv)) {
-            if((*ptr)->convertibleTo<Float>())
-                mEta = (*ptr)->as<Float>();
-            else
-                mEta = this->template make<Texture2D>((*ptr)->as<Ref<ConfigNode>>());
-        }
+        // TODO: load from data
+        mEta = getScalarTexture2D(node, "Eta"sv, ""sv, 1.5f);
 
-        if(const auto ptr = node->tryGet("RoughnessU"sv))
-            mRoughnessU = (*ptr)->as<Float>();
-        else
-            mRoughnessU = node->get("Roughness"sv)->as<Float>();
-        if(const auto ptr = node->tryGet("RoughnessV"sv))
-            mRoughnessV = (*ptr)->as<Float>();
-        else
-            mRoughnessV = node->get("Roughness"sv)->as<Float>();
+        mRoughnessU = getScalarTexture2D(node, "RoughnessU"sv, "Roughness"sv, 0.0f);
+        mRoughnessV = getScalarTexture2D(node, "RoughnessV"sv, "Roughness"sv, 0.0f);
+
         if(const auto ptr = node->tryGet("RemapRoughness"sv))
             mRemapRoughness = (*ptr)->as<bool>();
     }
 
     BSDF<Setting> evaluate(const Wavelength& sampledWavelength, const SurfaceHit& intersection) const noexcept override {
-        auto roughnessU = mRoughnessU, roughnessV = mRoughnessV;
+        auto roughnessU = mRoughnessU->evaluate(intersection.texCoord), roughnessV = mRoughnessV->evaluate(intersection.texCoord);
         if(mRemapRoughness) {
             roughnessU = TrowbridgeReitzDistribution<Setting>::roughnessToAlpha(roughnessU);
             roughnessV = TrowbridgeReitzDistribution<Setting>::roughnessToAlpha(roughnessV);
         }
 
-        const auto [keepOneWavelength, eta] =
-            std::visit([&](const auto& x) { return evaluateEta(x, sampledWavelength, intersection); }, mEta);
+        const auto [keepOneWavelength, eta] = evaluateEta(mEta, intersection.texCoord, sampledWavelength);
 
         return BSDF<Setting>{ ShadingFrame{ intersection.shadingNormal.asDirection(), intersection.dpdu },
                               DielectricBxDF<Setting>{ eta, TrowbridgeReitzDistribution<Setting>(roughnessU, roughnessV) },

@@ -29,64 +29,46 @@ class Conductor final : public Material<Setting> {
     PIPER_IMPORT_SETTINGS();
     PIPER_IMPORT_SHADING();
 
-    std::variant<Float, Ref<Texture2D<Setting>>> mEta = 0.63660f, mK = 2.7834f;
-    Float mRoughnessU, mRoughnessV;
+    Ref<SpectrumTexture2D<Setting>> mEta, mK;
+    Ref<ScalarTexture2D> mRoughnessU, mRoughnessV;
     bool mRemapRoughness = true;
 
-    std::pair<bool, Float> evaluateEta(const Float eta, const Wavelength&, const SurfaceHit&) const {
-        return { false, eta };
-    }
-
-    std::pair<bool, Float> evaluateEta(const Ref<Texture2D<Setting>>& eta, const Wavelength& sampledWavelength,
-                                       const SurfaceHit& intersection) const {
-        const auto val = eta->evaluate(intersection.texCoord, sampledWavelength);
-        if constexpr(std::is_same_v<Spectrum, MonoSpectrum>)
-            return { false, val };
-        else
-            return { std::is_same_v<Spectrum, SampledSpectrum>, val.raw()[0] };
+    auto evaluateEta(const Ref<SpectrumTexture2D<Setting>>& eta, const TexCoord texCoord,
+                     const Wavelength& sampledWavelength) const noexcept {
+        if constexpr(isSpectral) {
+            return eta->evaluateOneWavelength(texCoord, sampledWavelength.raw()[0]);
+        } else {
+            return std::pair<bool, Spectrum>{ false, eta->evaluate(texCoord, sampledWavelength) };
+        }
     }
 
 public:
     explicit Conductor(const Ref<ConfigNode>& node) {
-        if(const auto ptr = node->tryGet("Eta"sv)) {
-            if((*ptr)->convertibleTo<Float>())
-                mEta = (*ptr)->as<Float>();
-            else
-                mEta = this->template make<Texture2D>((*ptr)->as<Ref<ConfigNode>>());
-        }
-        if(const auto ptr = node->tryGet("K"sv)) {
-            if((*ptr)->convertibleTo<Float>())
-                mK = (*ptr)->as<Float>();
-            else
-                mK = this->template make<Texture2D>((*ptr)->as<Ref<ConfigNode>>());
-        }
+        // TODO: load from data
 
-        if(const auto ptr = node->tryGet("RoughnessU"sv))
-            mRoughnessU = (*ptr)->as<Float>();
-        else
-            mRoughnessU = node->get("Roughness"sv)->as<Float>();
-        if(const auto ptr = node->tryGet("RoughnessV"sv))
-            mRoughnessV = (*ptr)->as<Float>();
-        else
-            mRoughnessV = node->get("Roughness"sv)->as<Float>();
+        mEta = this->template make<SpectrumTexture2D>(node->get("Eta"sv)->as<Ref<ConfigNode>>());
+        mK = this->template make<SpectrumTexture2D>(node->get("K"sv)->as<Ref<ConfigNode>>());
+
+        mRoughnessU = getScalarTexture2D(node, "RoughnessU"sv, "Roughness"sv, 0.0f);
+        mRoughnessV = getScalarTexture2D(node, "RoughnessV"sv, "Roughness"sv, 0.0f);
+
         if(const auto ptr = node->tryGet("RemapRoughness"sv))
             mRemapRoughness = (*ptr)->as<bool>();
     }
 
     BSDF<Setting> evaluate(const Wavelength& sampledWavelength, const SurfaceHit& intersection) const noexcept override {
-        auto roughnessU = mRoughnessU, roughnessV = mRoughnessV;
+        auto roughnessU = mRoughnessU->evaluate(intersection.texCoord), roughnessV = mRoughnessV->evaluate(intersection.texCoord);
         if(mRemapRoughness) {
             roughnessU = TrowbridgeReitzDistribution<Setting>::roughnessToAlpha(roughnessU);
             roughnessV = TrowbridgeReitzDistribution<Setting>::roughnessToAlpha(roughnessV);
         }
 
-        const auto [keepOneWavelengthA, eta] =
-            std::visit([&](const auto& x) { return evaluateEta(x, sampledWavelength, intersection); }, mEta);
-        const auto [keepOneWavelengthB, k] = std::visit([&](const auto& x) { return evaluateEta(x, sampledWavelength, intersection); }, mK);
+        const auto [keepOneWavelengthEta, eta] = evaluateEta(mEta, intersection.texCoord, sampledWavelength);
+        const auto [keepOneWavelengthK, k] = evaluateEta(mK, intersection.texCoord, sampledWavelength);
 
         return BSDF<Setting>{ ShadingFrame{ intersection.shadingNormal.asDirection(), intersection.dpdu },
                               ConductorBxDF<Setting>{ { eta, k }, TrowbridgeReitzDistribution<Setting>(roughnessU, roughnessV) },
-                              keepOneWavelengthA || keepOneWavelengthB };
+                              keepOneWavelengthEta || keepOneWavelengthK };
     }
 
     [[nodiscard]] RGBSpectrum estimateAlbedo(const SurfaceHit&) const noexcept override {
