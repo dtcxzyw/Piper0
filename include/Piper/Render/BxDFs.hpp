@@ -82,16 +82,6 @@ public:
         return flags | (mDistribution.effectivelySmooth() ? BxDFPart::Specular : BxDFPart::Glossy);
     }
 
-    Rational<Spectrum> makeBSDF(const Float f) const {
-        if constexpr(std::is_same_v<Spectrum, SampledSpectrum>) {
-            // TODO: four-way reflection
-            auto res = glm::zero<SampledSpectrum::VecType>();
-            res[0] = f;  // TODO: trace pdf
-            return Rational<Spectrum>::fromRaw(SampledSpectrum::fromRaw(res));
-        } else
-            return Rational<Spectrum>::fromScalar(f);
-    }
-
     Rational<Spectrum> evaluate(const Direction& wo, const Direction& wi, const TransportMode transportMode) const noexcept override {
         if(mEta == 1.0f || mDistribution.effectivelySmooth())
             return Rational<Spectrum>::zero();
@@ -121,7 +111,7 @@ public:
         if(transportMode == TransportMode::Radiance)
             ft /= sqr(etaP);
 
-        return makeBSDF(ft);
+        return Rational<Spectrum>::fromScalar(ft);
     }
 
     BSDFSample sample(SampleProvider& sampler, const Direction& wo, const TransportMode transportMode,
@@ -140,7 +130,7 @@ public:
                 const auto wi = Direction::fromRaw({ -wo.x(), -wo.y(), wo.z() });
                 const auto fr = reflection / absCosTheta(wi);
 
-                return { wi, importanceSampled<PdfType::BSDF>(makeBSDF(fr)),
+                return { wi, importanceSampled<PdfType::BSDF>(Rational<Spectrum>::fromScalar(fr)),
                          InversePdfValue::fromRaw((reflection + transmission) / reflection), BxDFPart::SpecularReflection };
             }
 
@@ -153,13 +143,12 @@ public:
 
             auto ft = transmission / absCosTheta(wi);
 
-            if(transportMode == TransportMode::Radiance) {
-                const auto etaP = wo.z() > 0.0f ? mEta : rcp(mEta);
+            const auto etaP = wo.z() > 0.0f ? mEta : rcp(mEta);
+            if(transportMode == TransportMode::Radiance)
                 ft /= sqr(etaP);
-            }
 
-            return { wi, importanceSampled<PdfType::BSDF>(makeBSDF(ft)),
-                     InversePdfValue::fromRaw((reflection + transmission) / transmission), BxDFPart::SpecularTransmission };
+            return { wi, importanceSampled<PdfType::BSDF>(Rational<Spectrum>::fromScalar(ft)),
+                     InversePdfValue::fromRaw((reflection + transmission) / transmission), BxDFPart::SpecularTransmission, etaP };
         }
 
         const auto wm = mDistribution.sampleWm(wo, sampler.sampleVec2());
@@ -181,7 +170,8 @@ public:
                 mDistribution.pdf(wo, wm) / std::fmax(epsilon, 4.0f * absDot(wo, wm)) * reflection / (reflection + transmission);
             const auto fr = mDistribution.evalD(wm) * mDistribution.evalG(wo, wi) * reflection / (4.0f * cosTheta(wi) * cosTheta(wo));
 
-            return { wi, importanceSampled<PdfType::BSDF>(makeBSDF(fr)), InversePdfValue::fromPdf(pdf), BxDFPart::GlossyReflection };
+            return { wi, importanceSampled<PdfType::BSDF>(Rational<Spectrum>::fromScalar(fr)), InversePdfValue::fromPdf(pdf),
+                     BxDFPart::GlossyReflection };
         }
 
         const auto normal = dot(wo, wm) > 0.0f ? wm.raw() : -wm.raw();
@@ -209,7 +199,8 @@ public:
         if(transportMode == TransportMode::Radiance)
             ft /= sqr(etaP);
 
-        return { wi, importanceSampled<PdfType::BSDF>(makeBSDF(ft)), InversePdfValue::fromPdf(pdf), BxDFPart::GlossyTransmission };
+        return { wi, importanceSampled<PdfType::BSDF>(Rational<Spectrum>::fromScalar(ft)), InversePdfValue::fromPdf(pdf),
+                 BxDFPart::GlossyTransmission, etaP };
     }
 
     [[nodiscard]] InversePdfValue inversePdf(const Direction& wo, const Direction& wi, const TransportMode transportMode,
@@ -249,6 +240,79 @@ public:
             pdf = mDistribution.pdf(wo, wm) * derv * transmission / (reflection + transmission);
         }
 
+        return InversePdfValue::fromPdf(pdf);
+    }
+};
+
+// ConductorBxDF
+template <typename Setting>
+class ConductorBxDF final : public BxDF<Setting> {
+    PIPER_IMPORT_SETTINGS();
+    PIPER_IMPORT_SHADING();
+
+    std::complex<Float> mEta;
+    TrowbridgeReitzDistribution<Setting> mDistribution;
+
+public:
+    explicit ConductorBxDF(const std::complex<Float> eta, TrowbridgeReitzDistribution<Setting> distribution)
+        : mEta{ eta }, mDistribution(distribution) {}
+
+    [[nodiscard]] BxDFPart part() const noexcept override {
+        return mDistribution.effectivelySmooth() ? BxDFPart::SpecularReflection : BxDFPart::GlossyReflection;
+    }
+
+    Rational<Spectrum> evaluate(const Direction& wo, const Direction& wi, TransportMode transportMode) const noexcept override {
+        if(!sameHemisphere(wo, wi) || mDistribution.effectivelySmooth())
+            return Rational<Spectrum>::zero();
+        const auto cosThetaO = absCosTheta(wo);
+        const auto cosThetaI = absCosTheta(wi);
+        if(cosThetaI == 0.0f || cosThetaO == 0.0f)
+            return Rational<Spectrum>::zero();
+        const auto halfVector = wi.raw() + wo.raw();
+        if(glm::length2(halfVector) == 0.0f)
+            return Rational<Spectrum>::zero();
+        const auto wm = Direction::fromRaw(normalize(halfVector));
+        const auto fr =
+            fresnelComplex(absDot(wo, wm), mEta) * mDistribution.evalD(wm) * mDistribution.evalG(wo, wi) / (4 * cosThetaI * cosThetaO);
+        return Rational<Spectrum>::fromScalar(fr);
+    }
+
+    BSDFSample sample(SampleProvider& sampler, const Direction& wo, const TransportMode transportMode,
+                      const BxDFDirection sampleDirection) const noexcept override {
+        if(!match(sampleDirection, BxDFDirection::Reflection))
+            return BSDFSample::invalid();
+        if(mDistribution.effectivelySmooth()) {
+            const auto wi = Direction::fromRaw({ -wo.x(), -wo.y(), wo.z() });
+            const auto ft = fresnelComplex(absCosTheta(wi), mEta) / absCosTheta(wi);
+            return { wi, importanceSampled<PdfType::BSDF>(Rational<Spectrum>::fromScalar(ft)), InversePdfValue::identity(),
+                     BxDFPart::SpecularReflection };
+        }
+        if(wo.z() == 0.0f)
+            return BSDFSample::invalid();
+        const auto wm = mDistribution.sampleWm(wo, sampler.sampleVec2());
+        const auto wi = Direction::fromRaw(glm::reflect(-wo.raw(), wm.raw()));
+        if(!sameHemisphere(wo, wi))
+            return BSDFSample::invalid();
+        const auto pdf = mDistribution.pdf(wo, wm) / (4.0f * absDot(wo, wm));
+        const auto cosThetaO = absCosTheta(wo);
+        const auto cosThetaI = absCosTheta(wi);
+        if(cosThetaI == 0.0f || cosThetaO == 0.0f)
+            return BSDFSample::invalid();
+        const auto ft =
+            fresnelComplex(absDot(wo, wm), mEta) * mDistribution.evalD(wm) * mDistribution.evalG(wo, wi) / (4.0f * cosThetaI * cosThetaO);
+        return { wi, importanceSampled<PdfType::BSDF>(Rational<Spectrum>::fromScalar(ft)), InversePdfValue::fromPdf(pdf),
+                 BxDFPart::GlossyReflection };
+    }
+
+    [[nodiscard]] InversePdfValue inversePdf(const Direction& wo, const Direction& wi, const TransportMode transportMode,
+                                             const BxDFDirection sampleDirection) const noexcept override {
+        if(!match(sampleDirection, BxDFDirection::Reflection) || !sameHemisphere(wo, wi) || mDistribution.effectivelySmooth())
+            return InversePdfValue::invalid();
+        const auto halfVector = wi.raw() + wo.raw();
+        if(glm::length2(halfVector) == 0.0f)
+            return InversePdfValue::invalid();
+        const auto wm = faceForward(Direction::fromRaw(normalize(halfVector)), Direction::positiveZ());
+        const auto pdf = mDistribution.pdf(wo, wm) / (4.0f * absDot(wo, wm));
         return InversePdfValue::fromPdf(pdf);
     }
 };

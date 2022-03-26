@@ -69,6 +69,7 @@ struct BSDFSampleResult final {
     Rational<Spectrum, PdfType::BSDF> f;
     InversePdfValue inversePdf;
     BxDFPart part;
+    Float eta = 1.0f;
 
     [[nodiscard]] bool valid() const noexcept {
         return inversePdf.valid();
@@ -130,6 +131,7 @@ class BSDF final {
 
     ShadingFrame mFrame;
     std::byte mBxDFStorage[maxBxDFSize]{};
+    bool mKeepOneWavelength;
 
     [[nodiscard]] const BxDF<Setting>* cast() const noexcept {
         return reinterpret_cast<const BxDF<Setting>*>(mBxDFStorage);
@@ -137,14 +139,19 @@ class BSDF final {
 
 public:
     template <typename T>
-    requires std::is_base_of_v<BxDF<Setting>, std::decay_t<T>> BSDF(const ShadingFrame& shadingFrame, const T& bxdf)
-        : mFrame{ shadingFrame } {
+    requires std::is_base_of_v<BxDF<Setting>, std::decay_t<T>> BSDF(const ShadingFrame& shadingFrame, const T& bxdf,
+                                                                    const bool keepOneWavelength = false)
+        : mFrame{ shadingFrame }, mKeepOneWavelength{ keepOneWavelength } {
         static_assert(sizeof(T) <= maxBxDFSize);
         memcpy(mBxDFStorage, &bxdf, sizeof(T));
     }
 
     [[nodiscard]] BxDFPart part() const noexcept {
         return cast()->part();
+    }
+
+    [[nodiscard]] bool keepOneWavelength() const noexcept {
+        return mKeepOneWavelength;
     }
 
     BSDFSampleResult<Setting, FrameOfReference::World> sample(SampleProvider& sampler, const Piper::Direction<FrameOfReference::World>& wo,
@@ -154,8 +161,9 @@ public:
         return BSDFSampleResult<Setting, FrameOfReference::World>{ mFrame(res.wi), res.f, res.inversePdf, res.part };
     }
 
-    Rational<Spectrum> evaluate(const Piper::Direction<FrameOfReference::World>& wo, const Piper::Direction<FrameOfReference::World>& wi,
-                                TransportMode transportMode = TransportMode::Radiance) const noexcept {
+    [[nodiscard]] Rational<Spectrum> evaluate(const Piper::Direction<FrameOfReference::World>& wo,
+                                              const Piper::Direction<FrameOfReference::World>& wi,
+                                              TransportMode transportMode = TransportMode::Radiance) const noexcept {
         return cast()->evaluate(mFrame(wo), mFrame(wi), transportMode);
     }
 

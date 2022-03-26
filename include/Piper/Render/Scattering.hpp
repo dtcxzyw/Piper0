@@ -43,6 +43,16 @@ inline Float fresnelDielectric(Float cosThetaI, Float eta) noexcept {
     return (sqr(parallel) + sqr(perpendicular)) * 0.5f;
 }
 
+inline Float fresnelComplex(Float cosThetaI, const std::complex<Float> eta) noexcept {
+    cosThetaI = std::clamp(cosThetaI, 0.0f, 1.0f);
+    const auto sin2ThetaI = 1.0f - sqr(cosThetaI);
+    const auto sin2ThetaT = sin2ThetaI / sqr(eta);
+    const auto cosThetaT = std::sqrt(1.0f - sin2ThetaT);
+    const auto parallel = (eta * cosThetaI - cosThetaT) / (eta * cosThetaI + cosThetaT);
+    const auto perpendicular = (cosThetaI - eta * cosThetaT) / (cosThetaI + eta * cosThetaT);
+    return (std::norm(parallel) + std::norm(perpendicular)) * 0.5f;
+}
+
 template <typename Setting>
 class TrowbridgeReitzDistribution {
     PIPER_IMPORT_SETTINGS();
