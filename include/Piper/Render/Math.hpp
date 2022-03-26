@@ -26,6 +26,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
 #include <glm/gtx/norm.hpp>
+#include <complex>
 #include <numbers>
 
 PIPER_NAMESPACE_BEGIN
