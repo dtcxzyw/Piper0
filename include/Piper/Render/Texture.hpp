@@ -28,8 +28,15 @@ PIPER_NAMESPACE_BEGIN
 
 // TODO: differential
 
+class ScalarTexture2D : public RefCountBase {
+public:
+    [[nodiscard]] virtual Float evaluate(TexCoord texCoord) const noexcept = 0;
+};
+
+Ref<ScalarTexture2D> getScalarTexture2D(const Ref<ConfigNode>& node, const std::string_view attr, Float defaultValue);
+
 template <typename Setting>
-class Texture2D : public TypedRenderVariantBase<Setting> {
+class SpectrumTexture2D : public TypedRenderVariantBase<Setting> {
 public:
     PIPER_IMPORT_SETTINGS();
 
@@ -49,8 +56,6 @@ template <typename Setting>
 class SphericalTexture : public TypedRenderVariantBase<Setting> {
 public:
     PIPER_IMPORT_SETTINGS();
-
-    virtual void prepareForSampling() {}
 
     virtual Spectrum evaluate(TexCoord texCoord, const Wavelength& sampledWavelength) const noexcept = 0;
 
@@ -83,11 +88,11 @@ public:
     [[nodiscard]] virtual MonoSpectrum mean() const noexcept = 0;
 };
 
-template <typename T, typename Setting, typename = std::is_base_of<ConstantTexture<Setting>, T>>
-class ConstantTexture2DWrapper : public Texture2D<Setting> {
+template <template <typename> typename T, typename Setting>
+requires(std::is_base_of_v<ConstantTexture<Setting>, T<Setting>>) class ConstantTexture2DWrapper final : public SpectrumTexture2D<Setting> {
     PIPER_IMPORT_SETTINGS();
 
-    T mImpl;
+    T<Setting> mImpl;
 
 public:
     explicit ConstantTexture2DWrapper(const Ref<ConfigNode>& node) : mImpl{ node } {}
@@ -97,11 +102,12 @@ public:
     }
 };
 
-template <typename T, typename Setting, typename = std::is_base_of<ConstantTexture<Setting>, T>>
-class ConstantSphericalTextureWrapper : public SphericalTexture<Setting> {
+template <template <typename> typename T, typename Setting>
+requires(std::is_base_of_v<ConstantTexture<Setting>, T<Setting>>) class ConstantSphericalTextureWrapper final
+    : public SphericalTexture<Setting> {
     PIPER_IMPORT_SETTINGS();
 
-    T mImpl;
+    T<Setting> mImpl;
 
 public:
     explicit ConstantSphericalTextureWrapper(const Ref<ConfigNode>& node) : mImpl{ node } {}

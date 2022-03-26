@@ -58,9 +58,11 @@ requires(std::is_base_of_v<Base, T>) struct RegisterHelper final {
     }
 };
 
-#define PIPER_REGISTER_CLASS(CLASS, BASE)                      \
-    static RegisterHelper<CLASS, BASE> CLASS##RegisterHelper { \
-#CLASS                                                 \
+#define PIPER_REGISTER_CLASS_IMPL(NAME, CLASS, BASE, UNIQUE_ID)    \
+    static RegisterHelper<CLASS, BASE> UNIQUE_ID##RegisterHelper { \
+        NAME                                                       \
     }
+
+#define PIPER_REGISTER_CLASS(CLASS, BASE) PIPER_REGISTER_CLASS_IMPL(#CLASS, CLASS, BASE, CLASS)
 
 PIPER_NAMESPACE_END

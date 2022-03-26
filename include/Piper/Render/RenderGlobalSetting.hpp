@@ -112,55 +112,40 @@ auto makeVariant(const Ref<ConfigNode>& node) {
     const auto& variant = RenderGlobalSetting::get().variant;
     auto& factory = getStaticFactory();
 
-#define PIPER_PATTERN_MATCH(VARIANT) \
-    if(variant == #VARIANT##sv)      \
-    return Ref<Base>{ factory.make<T<VARIANT>>(node) }
+#define PIPER_VARIANT_FUNC(VARIANT) \
+    if(variant == #VARIANT##sv)     \
+        return Ref<Base>{ factory.make<T<VARIANT>>(node) };
 
-    PIPER_PATTERN_MATCH(RSSMono);
-    PIPER_PATTERN_MATCH(RSSRGB);
-    PIPER_PATTERN_MATCH(RSSSpectral);
+#include <Piper/Render/Variants.hpp>
 
-    /*
-    PIPER_PATTERN_MATCH(RSSMonoPolarized);
-    PIPER_PATTERN_MATCH(RSSRGBPolarized);
-    PIPER_PATTERN_MATCH(RSSSpectralPolarized);
-    */
-
-#undef PIPER_PATTERN_MATCH
+#undef PIPER_VARIANT_FUNC
 
     fatal(fmt::format("Unrecognized variant {}", variant));
 }
 
-#define PIPER_REGISTER_VARIANT_IMPL(CLASS, BASE, RSS)                         \
-    static RegisterHelper<CLASS<RSS>, BASE<RSS>> CLASS##RSS##RegisterHelper { \
-#CLASS                                                                \
+template <template <typename> typename Class, template <typename> typename Base>
+class TemplateRegisterHelper {
+public:
+    explicit TemplateRegisterHelper(const std::string_view name) {
+#define PIPER_VARIANT_FUNC(VARIANT) getStaticFactory().registerClass<Class<VARIANT>, Base<VARIANT>>(name);
+#include <Piper/Render/Variants.hpp>
+#undef PIPER_VARIANT_FUNC
+    }
+};
+
+#define PIPER_REGISTER_VARIANT_IMPL(NAME, CLASS, BASE, UNIQUE_ID)          \
+    static TemplateRegisterHelper<CLASS, BASE> UNIQUE_ID##RegisterHelper { \
+        NAME                                                               \
     }
 
-#define PIPER_REGISTER_VARIANT(CLASS, BASE)            \
-    PIPER_REGISTER_VARIANT_IMPL(CLASS, BASE, RSSMono); \
-    PIPER_REGISTER_VARIANT_IMPL(CLASS, BASE, RSSRGB);  \
-    PIPER_REGISTER_VARIANT_IMPL(CLASS, BASE, RSSSpectral);
+#define PIPER_REGISTER_VARIANT(CLASS, BASE) PIPER_REGISTER_CLASS_IMPL(#CLASS, CLASS, BASE, CLASS)
 
-/*
-PIPER_REGISTER_VARIANT_IMPL(CLASS, BASE, RSSMonoPolarized); \
-PIPER_REGISTER_VARIANT_IMPL(CLASS, BASE, RSSRGBPolarized);  \
-PIPER_REGISTER_VARIANT_IMPL(CLASS, BASE, RSSSpectralPolarized)
-*/
-
-#define PIPER_REGISTER_WRAPPED_VARIANT_IMPL(WRAPPER, CLASS, BASE, RSS)                               \
-    static RegisterHelper<WRAPPER<CLASS<RSS>, RSS>, BASE<RSS>> CLASS##RSS##WRAPPER##RegisterHelper { \
-#CLASS                                                                                       \
+#define PIPER_REGISTER_WRAPPED_VARIANT_IMPL(NAME, WRAPPER, CLASS, BASE, UNIQUE_ID)  \
+    static TemplateRegisterHelper<WRAPPER<CLASS>, BASE> UNIQUE_ID##RegisterHelper { \
+        NAME                                                                        \
     }
 
-#define PIPER_REGISTER_WRAPPED_VARIANT(WRAPPER, CLASS, BASE)            \
-    PIPER_REGISTER_WRAPPED_VARIANT_IMPL(WRAPPER, CLASS, BASE, RSSMono); \
-    PIPER_REGISTER_WRAPPED_VARIANT_IMPL(WRAPPER, CLASS, BASE, RSSRGB);  \
-    PIPER_REGISTER_WRAPPED_VARIANT_IMPL(WRAPPER, CLASS, BASE, RSSSpectral);
-
-/*
-PIPER_REGISTER_WRAPPED_VARIANT_IMPL(CLASS, BASE, RSSMonoPolarized); \
-PIPER_REGISTER_WRAPPED_VARIANT_IMPL(CLASS, BASE, RSSRGBPolarized);  \
-PIPER_REGISTER_WRAPPED_VARIANT_IMPL(CLASS, BASE, RSSSpectralPolarized)
-*/
+#define PIPER_REGISTER_WRAPPED_VARIANT(WRAPPER, CLASS, BASE) \
+    PIPER_REGISTER_WRAPPED_VARIANT_IMPL(#WRAPPER #CLASS, WRAPPER, CLASS, BASE, WRAPPER##CLASS)
 
 PIPER_NAMESPACE_END

@@ -82,7 +82,7 @@ public:
 
 // TODO: parseType
 template <typename Setting>
-class BitMap : public Texture2D<Setting> {
+class BitMap final : public SpectrumTexture2D<Setting> {
     PIPER_IMPORT_SETTINGS();
 
     TextureSystem& mSystem;
@@ -111,5 +111,5 @@ public:
     }
 };
 
-PIPER_REGISTER_VARIANT(BitMap, Texture2D);
+PIPER_REGISTER_VARIANT(BitMap, SpectrumTexture2D);
 PIPER_NAMESPACE_END

@@ -23,16 +23,16 @@
 PIPER_NAMESPACE_BEGIN
 
 template <typename Setting>
-class CheckerBoard final : public Texture2D<Setting> {
+class CheckerBoard final : public SpectrumTexture2D<Setting> {
     PIPER_IMPORT_SETTINGS();
 
-    Ref<Texture2D<Setting>> mWhite, mBlack;
+    Ref<SpectrumTexture2D<Setting>> mWhite, mBlack;
     glm::vec2 mInvSize;
 
 public:
     explicit CheckerBoard(const Ref<ConfigNode>& node)
-        : mWhite{ this->template make<Texture2D>(node->get("White"sv)->as<Ref<ConfigNode>>()) },
-          mBlack{ this->template make<Texture2D>(node->get("Black"sv)->as<Ref<ConfigNode>>()) }, mInvSize{ rcp(
+        : mWhite{ this->template make<SpectrumTexture2D>(node->get("White"sv)->as<Ref<ConfigNode>>()) },
+          mBlack{ this->template make<SpectrumTexture2D>(node->get("Black"sv)->as<Ref<ConfigNode>>()) }, mInvSize{ rcp(
                                                                                                      parseVec2(node->get("Size"sv))) } {}
 
     Spectrum evaluate(const TexCoord texCoord, const Wavelength& sampledWavelength) const noexcept override {
@@ -43,6 +43,6 @@ public:
     }
 };
 
-PIPER_REGISTER_VARIANT(CheckerBoard, Texture2D);
+PIPER_REGISTER_VARIANT(CheckerBoard, SpectrumTexture2D);
 
 PIPER_NAMESPACE_END
