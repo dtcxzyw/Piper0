@@ -86,7 +86,7 @@ public:
         if constexpr(std::is_same_v<Spectrum, SampledSpectrum>) {
             // TODO: four-way reflection
             auto res = glm::zero<SampledSpectrum::VecType>();
-            res[0] = 4.0f * f;
+            res[0] = f;  // TODO: trace pdf
             return Rational<Spectrum>::fromRaw(SampledSpectrum::fromRaw(res));
         } else
             return Rational<Spectrum>::fromScalar(f);

@@ -255,7 +255,12 @@ void mainGuarded(int argc, char** argv) {
         ui::NaiveUI screen;
         auto lastRenderUpdate = Clock::now() - 1s;
 
+        static std::mutex mutex;
         renderCallback = [&] {
+            const std::unique_lock guard{ mutex, std::try_to_lock };
+            if(!guard.owns_lock())
+                return;
+
             if(const auto current = Clock::now(); current - lastRenderUpdate > 200ms) {
                 lastRenderUpdate = current;
                 screen.render(container);

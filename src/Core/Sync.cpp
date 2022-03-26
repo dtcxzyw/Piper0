@@ -108,6 +108,8 @@ public:
     }
 };
 
+extern std::function<void()> renderCallback;
+
 class DisplayProviderImpl final : public DisplayProvider {
     static constexpr auto grabFocus = true;
     boost::asio::io_context mCtx;
@@ -117,6 +119,8 @@ class DisplayProviderImpl final : public DisplayProvider {
 
     template <typename... Args>
     void send(Args&&... args) {
+        renderCallback();
+
         MemoryArena arena;
         OStream stream;
         (stream << ... << std::forward<Args>(args));
