@@ -11,4 +11,4 @@ add_executable(PiperTest ${PIPER_TEST_SRC} $<TARGET_OBJECTS:Piper>) #NOTICE: dir
 target_link_libraries(PiperTest PRIVATE Piper)
 target_link_libraries(PiperTest PRIVATE GTest::gtest GTest::gtest_main)
 
-add_test(NAME PiperTest COMMAND PiperTest)
+add_test(NAME PiperTest COMMAND PiperTest WORKING_DIRECTORY $<TARGET_FILE_DIR:PiperTest>)
