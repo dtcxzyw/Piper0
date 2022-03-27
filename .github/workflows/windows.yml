@@ -9,6 +9,7 @@ on:
 
 env:
   BUILD_TYPE: RelWithDebInfo
+  OCIO: C:/WorkSpace/Projects/Scenes/OpenColorIO-Configs/aces_1.0.3/config.ocio
 
 jobs:
   build:
