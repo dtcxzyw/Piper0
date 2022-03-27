@@ -19,6 +19,8 @@
 */
 
 #include <Piper/Render/ColorMatchingFunction.hpp>
+#include <Piper/Render/ColorSpace.hpp>
+#include <Piper/Render/SamplingUtil.hpp>
 #include <Piper/Render/Spectrum.hpp>
 #include <Piper/Render/SpectrumUtil.hpp>
 #include <Piper/Render/StandardIlluminant.hpp>
@@ -50,5 +52,69 @@ TEST(RGB, RGBStdandardIlluminat) {
     const auto rgb = RGBSpectrum::matXYZ2RGB * glm::vec3{ x, y, z };
     ASSERT_LT(glm::distance2(rgb, glm::one<glm::vec3>()), 1e-6);
 }
+
+TEST(RGB, RGB2NonLinearRGB) {
+    constexpr auto targetColorSpace = "srgb_texture"sv;
+
+    constexpr auto convertToNonLinear = [](const Float x) noexcept {
+        if(x <= 0.0031308f)
+            return x * 12.92f;
+        return 1.055f * std::pow(x, 1.0f / 2.4f) - 0.055f;
+    };
+
+    auto& testSampler = getTestSampler();
+
+    constexpr uint32_t testCount = 1 << 16;
+
+    for(uint32_t idx = 0; idx < testCount; ++idx) {
+        constexpr Float tolerance = 1e-5f;
+
+        const glm::vec3 linearRGB = { testSampler.sample(), testSampler.sample(), testSampler.sample() };
+
+        const auto nonLinearRGB = convertStandardLinearRGB2RGB(linearRGB, targetColorSpace);
+        const glm::vec3 referenceNonLinearRGB = { convertToNonLinear(linearRGB.x), convertToNonLinear(linearRGB.y),
+                                                  convertToNonLinear(linearRGB.z) };
+
+        const auto diff = glm::l1Norm(nonLinearRGB, referenceNonLinearRGB);
+
+        ASSERT_LE(diff, tolerance);
+
+        const auto linearRGB2 = convertRGB2StandardLinearRGB(nonLinearRGB, targetColorSpace);
+
+        const auto diff2 = glm::l1Norm(linearRGB, linearRGB2);
+
+        ASSERT_LE(diff2, tolerance);
+    }
+}
+
+/*
+TEST(RGB, RGB2Spectrum) {
+    auto& testSampler = getTestSampler();
+
+    constexpr uint32_t testCount = 1024;
+    constexpr uint32_t sampleCount = 1 << 16;
+
+    Float lumRGB = 0.0f;
+    Float lumSpectral = 0.0f;
+
+    for(uint32_t k = 0; k < testCount; ++k) {
+        const RGBSpectrum rgb = RGBSpectrum::fromRaw({ testSampler.sample(), testSampler.sample(), testSampler.sample() });
+        lumRGB += luminance(rgb, {});
+
+        auto y = 0.0f;
+        for(uint32_t idx = 0; idx < sampleCount; ++idx) {
+            const auto [wavelength, weight] = sampleWavelength<Float, Float>(testSampler);
+            y += Impl::fromRGB(rgb, wavelength) * weight * static_cast<Float>(wavelength2Y(static_cast<double>(wavelength)));
+        }
+
+        y /= sampleCount;
+        y /= static_cast<Float>(integralOfY);
+
+        lumSpectral += y;
+    }
+
+    ASSERT_NEAR(lumRGB / testCount, lumSpectral / testCount, 1e-3f);
+}
+*/
 
 PIPER_NAMESPACE_END

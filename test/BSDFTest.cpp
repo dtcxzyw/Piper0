@@ -398,6 +398,30 @@ static void testBSDF(const std::string_view name, const std::string_view config,
     bsdf = mat->evaluate(std::monostate{}, hit);
     testBSDF(name, hit.shadingNormal, bsdf, specular);
 
+    const auto matRGB = getStaticFactory().make<Material<RSSRGB>>(parseJSONConfigNodeFromStr(config, {}));
+    const auto matSpectral = getStaticFactory().make<Material<RSSSpectral>>(parseJSONConfigNodeFromStr(config, {}));
+
+    // albedo test
+
+    /*
+    const auto albedo1 = mat->estimateAlbedo(hit);
+    const auto albedo2 = matRGB->estimateAlbedo(hit);
+    const auto albedo3 = matSpectral->estimateAlbedo(hit);
+
+    const auto lum1 = luminance(albedo1, {}), lum2 = luminance(albedo2, {}), lum3 = luminance(albedo3, {});
+
+    constexpr auto tolerance = 1e-3;
+
+    ASSERT_NEAR(lum1, lum2, tolerance);
+    ASSERT_NEAR(lum1, lum3, tolerance);
+    ASSERT_NEAR(lum2, lum3, tolerance);
+
+    const auto diff = glm::abs(albedo2.raw() - albedo3.raw());
+    const auto maxDiff = std::fmax(diff.x, std::fmax(diff.y, diff.z));
+
+    ASSERT_LE(maxDiff, tolerance);
+    */
+
     FloatingPointExceptionProbe::off();
 }
 
@@ -417,7 +441,7 @@ TEST(BSDF, DielectricSmooth) {
     testBSDF("DielectricSmooth", R"(
 {
     "Type": "Dielectric",
-    "Eta": 1.5,
+    "Material": "GlassBK7",
     "Roughness": 0.0
 }
 )",
@@ -428,7 +452,7 @@ TEST(BSDF, DielectricAnisotropicRoughness) {
     testBSDF("DielectricAnisotropicRoughness", R"(
 {
     "Type": "Dielectric",
-    "Eta": 1.5,
+    "Material": "GlassBK7",
     "RoughnessU": 0.3,
     "RoughnessV": 0.5,
     "RemapRoughness": true
@@ -440,7 +464,7 @@ TEST(BSDF, DielectricIsotropicRoughness) {
     testBSDF("DielectricIsotropicRoughness", R"(
 {
     "Type": "Dielectric",
-    "Eta": 1.5,
+    "Material": "GlassBK7",
     "Roughness": 0.3,
     "RemapRoughness": true
 }
@@ -451,14 +475,7 @@ TEST(BSDF, ConductorSmooth) {
     testBSDF("ConductorSmooth", R"(
 {
     "Type": "Conductor",
-    "Eta": {
-        "Type": "MonoSpectrumTexture",
-        "Value": 0.63660
-    },
-    "K": {
-        "Type": "MonoSpectrumTexture",
-        "Value": 2.7834
-    },
+    "Material": "Cu",
     "Roughness": 0.0
 }
 )",
@@ -469,14 +486,7 @@ TEST(BSDF, ConductorAnisotropicRoughness) {
     testBSDF("ConductorAnisotropicRoughness", R"(
 {
     "Type": "Conductor",
-    "Eta": {
-        "Type": "MonoSpectrumTexture",
-        "Value": 0.63660
-    },
-    "K": {
-        "Type": "MonoSpectrumTexture",
-        "Value": 2.7834
-    },
+    "Material": "Cu",
     "RoughnessU": 0.3,
     "RoughnessV": 0.5,
     "RemapRoughness": true
@@ -488,14 +498,7 @@ TEST(BSDF, ConductorIsotropicRoughness) {
     testBSDF("ConductorIsotropicRoughness", R"(
 {
     "Type": "Conductor",
-    "Eta": {
-        "Type": "MonoSpectrumTexture",
-        "Value": 0.63660
-    },
-    "K": {
-        "Type": "MonoSpectrumTexture",
-        "Value": 2.7834
-    },
+    "Material": "Cu",
     "Roughness": 0.3,
     "RemapRoughness": true
 }

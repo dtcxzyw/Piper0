@@ -18,8 +18,8 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+#include <Piper/Render/ColorMatchingFunction.hpp>
 #include <Piper/Render/ColorSpace.hpp>
-#include <Piper/Render/SpectrumUtil.hpp>
 #include <Piper/Render/Texture.hpp>
 
 PIPER_NAMESPACE_BEGIN
@@ -30,8 +30,6 @@ class SampledSpectrumTextureScalar final : public ScalarTexture2D {
 
 public:
     explicit SampledSpectrumTextureScalar(const Ref<ConfigNode>& node) {
-        // TODO: load from csv?
-
         auto& arr = node->get("Array"sv)->as<ConfigAttr::AttrArray>();
         mLUT.reserve(arr.size());
         for(auto& item : arr)
@@ -66,9 +64,21 @@ template <typename Setting>
 class SampledSpectrumTexture final : public ConstantTexture<Setting> {
     PIPER_IMPORT_SETTINGS();
     SampledSpectrumTextureScalar mImpl;
+    RGBSpectrum mRGBSpectrum = zero<RGBSpectrum>();
 
 public:
-    explicit SampledSpectrumTexture(const Ref<ConfigNode>& node) : mImpl{ node } {}
+    explicit SampledSpectrumTexture(const Ref<ConfigNode>& node) : mImpl{ node } {
+        if constexpr(std::is_same_v<Spectrum, RGBSpectrum>) {
+            for(uint32_t idx = wavelengthMin; idx < wavelengthMax; ++idx) {
+                const auto lambda = static_cast<Float>(idx);
+                mRGBSpectrum += RGBSpectrum::fromRaw(
+                    RGBSpectrum::matXYZ2RGB *
+                    (mImpl.evaluateOneWavelength({}, lambda).second * glm::vec3{ wavelength2XYZ(static_cast<double>(lambda)) }));
+            }
+
+            mRGBSpectrum /= wavelengthMax - wavelengthMin;
+        }
+    }
 
     Spectrum evaluate(const Wavelength& sampledWavelength) const noexcept override {
         if constexpr(std::is_same_v<Spectrum, SampledSpectrum>) {
@@ -80,11 +90,14 @@ public:
                 measurement[idx] = mImpl.evaluateOneWavelength({}, lambdas[idx]).second;
 
             return Spectrum::fromRaw(measurement);
-        } else
-            return spectrumCast<Spectrum>(SampledSpectrumTexture::mean(), std::monostate{});
+        } else if constexpr(std::is_same_v<Spectrum, MonoSpectrum>) {
+            return mImpl.evaluate({});
+        } else {
+            return mRGBSpectrum;
+        }
     }
 
-    std::pair<bool, Float> evaluateOneWavelength(Float sampledWavelength) const noexcept override {
+    std::pair<bool, Float> evaluateOneWavelength(const Float sampledWavelength) const noexcept override {
         return mImpl.evaluateOneWavelength({}, sampledWavelength);
     }
 

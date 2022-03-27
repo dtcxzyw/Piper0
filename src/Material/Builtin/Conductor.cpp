@@ -44,10 +44,17 @@ class Conductor final : public Material<Setting> {
 
 public:
     explicit Conductor(const Ref<ConfigNode>& node) {
-        // TODO: load from data
+        if(const auto ptr = node->tryGet("Material"sv)) {
+            const ResolveConfiguration configuration;
+            const auto path = resolvePath((*ptr)->as<std::string_view>());
+            const auto subNode = parseJSONConfigNode(path, configuration);
 
-        mEta = this->template make<SpectrumTexture2D>(node->get("Eta"sv)->as<Ref<ConfigNode>>());
-        mK = this->template make<SpectrumTexture2D>(node->get("K"sv)->as<Ref<ConfigNode>>());
+            mEta = this->template make<SpectrumTexture2D>(subNode->get("Eta"sv)->as<Ref<ConfigNode>>());
+            mK = this->template make<SpectrumTexture2D>(subNode->get("K"sv)->as<Ref<ConfigNode>>());
+        } else {
+            mEta = this->template make<SpectrumTexture2D>(node->get("Eta"sv)->as<Ref<ConfigNode>>());
+            mK = this->template make<SpectrumTexture2D>(node->get("K"sv)->as<Ref<ConfigNode>>());
+        }
 
         mRoughnessU = getScalarTexture2D(node, "RoughnessU"sv, "Roughness"sv, 0.0f);
         mRoughnessV = getScalarTexture2D(node, "RoughnessV"sv, "Roughness"sv, 0.0f);

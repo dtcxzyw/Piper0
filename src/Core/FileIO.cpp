@@ -22,6 +22,7 @@
 #include <Piper/Core/FileIO.hpp>
 #include <Piper/Core/Report.hpp>
 #include <fstream>
+#include <set>
 
 PIPER_NAMESPACE_BEGIN
 BinaryData loadData(const fs::path& path) {
@@ -32,4 +33,30 @@ BinaryData loadData(const fs::path& path) {
     in.read(reinterpret_cast<char*>(data.data()), static_cast<std::streamsize>(data.size()));
     return data;
 }
+
+std::pmr::set<fs::path>& getSearchPaths() {
+    static std::pmr::set<fs::path> inst{ fs::current_path() / "data" };
+    return inst;
+}
+
+void addSearchPath(fs::path path) {
+    if(fs::exists(path))
+        getSearchPaths().insert(std::move(path));
+}
+
+std::string resolvePath(const std::string_view name) {
+    if(fs::exists(name))
+        return std::string{ name };
+
+    for(auto& path : getSearchPaths()) {
+        for(auto& item : fs::recursive_directory_iterator{ path }) {
+            if(item.is_regular_file() && item.path().stem() == name) {
+                return item.path().string();
+            }
+        }
+    }
+
+    fatal(std::format("Failed to resolve file {}", name));
+}
+
 PIPER_NAMESPACE_END

@@ -48,7 +48,7 @@ public:
         auto iter = mToStandardLinearRGB.find(colorSpace);
         if(iter == mToStandardLinearRGB.cend()) {
             iter =
-                mToStandardLinearRGB.emplace(colorSpace, ProcessorPack{ mConfig->getProcessor(nameOfStandardLinearRGB, colorSpace.data()) })
+                mToStandardLinearRGB.emplace(colorSpace, ProcessorPack{ mConfig->getProcessor(colorSpace.data(), nameOfStandardLinearRGB) })
                     .first;
         }
         return iter->second;
@@ -57,7 +57,7 @@ public:
     const ProcessorPack& getStandardLinearRGB2RGB(std::string_view colorSpace) {
         auto iter = mToRGB.find(colorSpace);
         if(iter == mToRGB.cend()) {
-            iter = mToRGB.emplace(colorSpace, ProcessorPack{ mConfig->getProcessor(colorSpace.data(), nameOfStandardLinearRGB) }).first;
+            iter = mToRGB.emplace(colorSpace, ProcessorPack{ mConfig->getProcessor(nameOfStandardLinearRGB, colorSpace.data()) }).first;
         }
         return iter->second;
     }

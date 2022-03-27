@@ -63,6 +63,8 @@ namespace Piper {
 void mainGuarded(int argc, char** argv) {
     initFloatingPointEnvironment();
 
+    addSearchPath(fs::path{ argv[0] } / "data");
+
     // TODO: disable Hyper-Threading ?
 
     std::string inputFile, outputDir, serverConfig;

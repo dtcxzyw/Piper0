@@ -43,8 +43,14 @@ class Dielectric final : public Material<Setting> {
 
 public:
     explicit Dielectric(const Ref<ConfigNode>& node) {
-        // TODO: load from data
-        mEta = getScalarTexture2D(node, "Eta"sv, ""sv, 1.5f);
+        if(const auto ptr = node->tryGet("Material"sv)) {
+            const ResolveConfiguration configuration;
+            const auto path = resolvePath((*ptr)->as<std::string_view>());
+            const auto subNode = parseJSONConfigNode(path, configuration);
+
+            mEta = getStaticFactory().make<ScalarTexture2D>(subNode->get("Eta"sv)->as<Ref<ConfigNode>>());
+        } else
+            mEta = getScalarTexture2D(node, "Eta"sv, ""sv, 1.5f);
 
         mRoughnessU = getScalarTexture2D(node, "RoughnessU"sv, "Roughness"sv, 0.0f);
         mRoughnessV = getScalarTexture2D(node, "RoughnessV"sv, "Roughness"sv, 0.0f);

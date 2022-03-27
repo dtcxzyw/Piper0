@@ -19,7 +19,7 @@
 */
 
 #include <Piper/Render/Light.hpp>
-#include <Piper/Render/SpectrumUtil.hpp>
+#include <Piper/Render/SamplingUtil.hpp>
 #include <Piper/Render/Texture.hpp>
 
 PIPER_NAMESPACE_BEGIN

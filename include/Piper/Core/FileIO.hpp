@@ -24,4 +24,7 @@
 PIPER_NAMESPACE_BEGIN
 BinaryData loadData(const fs::path& path);
 
+void addSearchPath(fs::path path);
+std::string resolvePath(std::string_view name);
+
 PIPER_NAMESPACE_END

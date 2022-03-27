@@ -23,10 +23,10 @@
 #pragma once
 
 #include <Piper/Config.hpp>
+#include <complex>
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
 #include <glm/gtx/norm.hpp>
-#include <complex>
 #include <numbers>
 
 PIPER_NAMESPACE_BEGIN
@@ -60,7 +60,7 @@ struct FloatingPointExceptionProbe final {
 };
 
 template <typename T>
-constexpr auto rcp(T x) noexcept {
+requires(!std::is_integral_v<T>) constexpr auto rcp(T x) noexcept {
     return static_cast<T>(1.0) / x;
 }
 
@@ -68,7 +68,7 @@ inline Float safeSqrt(const Float x) noexcept {
     return std::sqrt(std::fmax(x, 0.0f));
 }
 
-inline bool isZero(Float x) noexcept {
+inline bool isZero(const Float x) noexcept {
     return std::fabs(x) < epsilon;
 }
 

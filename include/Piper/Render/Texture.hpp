@@ -22,7 +22,6 @@
 #include <Piper/Render/Radiometry.hpp>
 #include <Piper/Render/RenderGlobalSetting.hpp>
 #include <Piper/Render/Sampler.hpp>
-#include <Piper/Render/SamplingUtil.hpp>
 
 PIPER_NAMESPACE_BEGIN
 
