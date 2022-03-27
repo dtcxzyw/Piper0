@@ -289,13 +289,13 @@ public:
                       const BxDFDirection sampleDirection) const noexcept override {
         if(!match(sampleDirection, BxDFDirection::Reflection))
             return BSDFSample::invalid();
+        if(wo.z() == 0.0f)
+            return BSDFSample::invalid();
         if(mDistribution.effectivelySmooth()) {
             const auto wi = Direction::fromRaw({ -wo.x(), -wo.y(), wo.z() });
             const auto ft = fresnelComplex(absCosTheta(wi), mEta) / absCosTheta(wi);
             return { wi, importanceSampled<PdfType::BSDF>(makeBSDF(ft)), InversePdfValue::identity(), BxDFPart::SpecularReflection };
         }
-        if(wo.z() == 0.0f)
-            return BSDFSample::invalid();
         const auto wm = mDistribution.sampleWm(wo, sampler.sampleVec2());
         const auto wi = Direction::fromRaw(glm::reflect(-wo.raw(), wm.raw()));
         if(!sameHemisphere(wo, wi))
