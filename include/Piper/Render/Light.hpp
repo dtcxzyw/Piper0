@@ -49,7 +49,8 @@ struct LightLiSample final {
     Distance distance;
 
     static LightLiSample invalid() noexcept {
-        return LightLiSample{ Direction<FrameOfReference::World>::undefined(), Radiance<Spectrum, PdfType::Light>::undefined(),
+        return LightLiSample{ Direction<FrameOfReference::World>::undefined(),
+                              Radiance<Spectrum, PdfType::Light | PdfType::LightSampler>::undefined(),
                               InversePdf<PdfType::Light>::invalid(), Distance::undefined() };
     }
 
