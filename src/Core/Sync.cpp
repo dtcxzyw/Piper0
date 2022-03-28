@@ -111,7 +111,6 @@ public:
 extern std::function<void()> renderCallback;
 
 class DisplayProviderImpl final : public DisplayProvider {
-    static constexpr auto grabFocus = true;
     boost::asio::io_context mCtx;
     boost::asio::ip::tcp::socket mSocket{ mCtx };
     bool mConnected = false;
@@ -153,7 +152,7 @@ public:
     void create(std::string_view imageName, uint32_t width, uint32_t height,
                 const std::initializer_list<std::string_view>& channels) override {
         // close(imageName);
-        send(OperationType::CreateImage, grabFocus, imageName, width, height, static_cast<uint32_t>(channels.size()), channels);
+        send(OperationType::CreateImage, true /*grabFocus*/, imageName, width, height, static_cast<uint32_t>(channels.size()), channels);
     }
     void update(std::string_view imageName, const std::initializer_list<std::string_view>& channels,
                 const std::initializer_list<uint64_t>& offsets, const std::initializer_list<uint64_t>& strides, uint32_t x, uint32_t y,
@@ -164,8 +163,11 @@ public:
 
         const auto stridedData = data.subspan(0, stridedImageDataSize);
 
-        send(OperationType::UpdateImageV3, grabFocus, imageName, static_cast<uint32_t>(channels.size()), channels, x, y, width, height,
-             offsets, strides, stridedData);
+        send(OperationType::UpdateImageV3, false /*grabFocus*/, imageName, static_cast<uint32_t>(channels.size()), channels, x, y, width,
+             height, offsets, strides, stridedData);
+    }
+    void open(std::string_view imagePath) override {
+        send(OperationType::OpenImageV2, true /*grabFocus*/, imagePath, ""sv);
     }
     void close(std::string_view imageName) override {
         send(OperationType::CloseImage, imageName);
@@ -180,7 +182,7 @@ public:
             disconnect();
     }
 
-    uint16_t uniqueID() const noexcept override {
+    [[nodiscard]] uint16_t uniqueID() const noexcept override {
         return mUniqueID;
     }
 

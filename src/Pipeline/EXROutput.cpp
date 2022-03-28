@@ -20,6 +20,7 @@
 
 #include <OpenEXR/ImfRgbaFile.h>
 #include <Piper/Core/StaticFactory.hpp>
+#include <Piper/Core/Sync.hpp>
 #include <Piper/Render/PipelineNode.hpp>
 #include <magic_enum.hpp>
 #include <oneapi/tbb/parallel_for.h>
@@ -88,10 +89,15 @@ public:
             }
 
             const auto fileName = resolveString(mOutputPath, pathResolver);
-            Imf::RgbaOutputFile file{ fileName.c_str(), static_cast<int32_t>(metadata.width), static_cast<int32_t>(metadata.height),
-                                      metadata.spectrumType == SpectrumType::LinearRGB ? Imf::WRITE_RGB : Imf::WRITE_Y };
-            file.setFrameBuffer(buffer.data(), 1, metadata.width);
-            file.writePixels(static_cast<int32_t>(metadata.height));
+            {
+                Imf::RgbaOutputFile file{ fileName.c_str(), static_cast<int32_t>(metadata.width), static_cast<int32_t>(metadata.height),
+                                          metadata.spectrumType == SpectrumType::LinearRGB ? Imf::WRITE_RGB : Imf::WRITE_Y };
+                file.setFrameBuffer(buffer.data(), 1, metadata.width);
+                file.writePixels(static_cast<int32_t>(metadata.height));
+            }
+
+            auto& sync = getDisplayProvider();
+            sync.open(fs::absolute(fileName).generic_string());
 
             stride += channelSize(channel, metadata.spectrumType);
         }

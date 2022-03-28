@@ -34,9 +34,10 @@ public:
     virtual void update(std::string_view imageName, const std::initializer_list<std::string_view>& channels,
                         const std::initializer_list<uint64_t>& offsets, const std::initializer_list<uint64_t>& strides, uint32_t x,
                         uint32_t y, uint32_t width, uint32_t height, const std::span<float>& data) = 0;
+    virtual void open(std::string_view imagePath) = 0;
     virtual void close(std::string_view imageName) = 0;
     virtual void disconnect() = 0;
-    virtual uint16_t uniqueID() const noexcept = 0;
+    [[nodiscard]] virtual uint16_t uniqueID() const noexcept = 0;
     virtual ~DisplayProvider() = default;
 };
 
