@@ -29,10 +29,11 @@ class UniformLightSampler final : public LightSampler {
 
 public:
     explicit UniformLightSampler(const Ref<ConfigNode>&) {}
-    void preprocess(const std::pmr::vector<LightBase*>& lights) override {
+    void preprocess(const std::pmr::vector<LightBase*>& lights, const Float &sceneRadius) override {
         mLights.clear();
         mLights.reserve(lights.size());
         for(const auto light : lights) {
+            light->preprocess(sceneRadius);
             mLights.push_back(Handle<Light>{ light });
             if(match(light->attributes(), LightAttributes::Infinite))
                 mInfiniteLights.push_back(Handle<Light>{ light });

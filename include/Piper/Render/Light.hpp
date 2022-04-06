@@ -38,6 +38,8 @@ public:
         return nullptr;
     }
 
+    virtual void preprocess(const Float &sceneRadius) {}
+
     [[nodiscard]] virtual Power<MonoSpectrum> power() const noexcept = 0;
 };
 

@@ -357,7 +357,7 @@ class Renderer final : public SourceNode {
 
         mAcceleration->commit();
 
-        mLightSampler->preprocess(mLights);
+        mLightSampler->preprocess(mLights, mAcceleration->radius());
         mIntegrator->preprocess();
 
         info(fmt::format("Rendering scene for action {}, frame {}", actionIdx, frameIdx));
