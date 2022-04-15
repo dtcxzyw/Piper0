@@ -250,7 +250,10 @@ class ConductorBxDF final : public BxDF<Setting> {
     PIPER_IMPORT_SETTINGS();
     PIPER_IMPORT_SHADING();
 
+public:
     using EtaType = std::conditional_t<std::is_same_v<Spectrum, RGBSpectrum>, RGBSpectrum, Float>;
+
+private:
     std::complex<EtaType> mEta;
     TrowbridgeReitzDistribution<Setting> mDistribution;
 
@@ -320,6 +323,109 @@ public:
         const auto wm = faceForward(Direction::fromRaw(normalize(halfVector)), Direction::positiveZ());
         const auto pdf = mDistribution.pdf(wo, wm) / (4.0f * absDot(wo, wm));
         return InversePdfValue::fromPdf(pdf);
+    }
+};
+
+// TODO: double check
+template <typename Setting, typename T1, typename T2>
+class MixedBxDF final : public BxDF<Setting> {
+    PIPER_IMPORT_SETTINGS();
+    PIPER_IMPORT_SHADING();
+
+    T1 mBxDF1;
+    T2 mBxDF2;
+    Float mWeight;
+
+public:
+    MixedBxDF(const T1& bxdf1, const T2& bxdf2, const Float weight) : mBxDF1{ bxdf1 }, mBxDF2{ bxdf2 }, mWeight{ weight } {}
+    [[nodiscard]] BxDFPart part() const noexcept override {
+        return mBxDF1.part() | mBxDF2.part();
+    }
+
+    Rational<Spectrum> evaluate(const Direction& wo, const Direction& wi, TransportMode transportMode) const noexcept override {
+        const auto f1 = mBxDF1.evaluate(wo, wi, transportMode);
+        const auto f2 = mBxDF2.evaluate(wo, wi, transportMode);
+        return mix(f1, f2, mWeight);
+    }
+
+    BSDFSample sample(SampleProvider& sampler, const Direction& wo, const TransportMode transportMode,
+                      const BxDFDirection sampleDirection) const noexcept override {
+        return (sampler.sample() < mWeight ? static_cast<const BxDF<Setting>&>(mBxDF1) : static_cast<const BxDF<Setting>&>(mBxDF2))
+            .sample(sampler, wo, transportMode, sampleDirection);
+    }
+
+    [[nodiscard]] InversePdfValue inversePdf(const Direction& wo, const Direction& wi, const TransportMode transportMode,
+                                             const BxDFDirection sampleDirection) const noexcept override {
+        const auto pdf1 = mBxDF1.inversePdf(wo, wi, transportMode, sampleDirection);
+        const auto pdf2 = mBxDF2.inversePdf(wo, wi, transportMode, sampleDirection);
+        return mix(pdf1, pdf2, mWeight);
+    }
+};
+
+// Schlick, C. (1994): An Inexpensive BRDF Model for Physically-based Rendering. Computer Graphics Forum 13, 233-246.
+// Please refer to https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.50.2297&rep=rep1&type=pdf
+// TODO: double check
+template <typename Setting, typename Base, typename Layer>
+class SchlickMixedBxDF final : public BxDF<Setting> {
+    PIPER_IMPORT_SETTINGS();
+    PIPER_IMPORT_SHADING();
+
+    Base mBaseBxDF;
+    Layer mLayerBxDF;
+    Float mEta;
+
+    [[nodiscard]] Float evaluateWeight(const Direction& wo, const Direction& wi) const noexcept {
+        const auto f0 = sqr((1.0f - mEta) / (1.0f + mEta));
+        const auto cosThetaO = cosTheta(wo), cosThetaI = cosTheta(wi);
+        const bool reflect = cosThetaO * cosThetaI > 0.0f;
+
+        const auto etaP = reflect ? 1.0f : (cosThetaO > 0.0f ? mEta : rcp(mEta));
+        const auto halfVector = wi.raw() * etaP + wo.raw();
+        if(cosThetaI == 0.0f || cosThetaO == 0.0f || glm::length2(halfVector) == 0.0f)
+            return -1.0f;
+
+        const auto wm = Direction::fromRaw(glm::normalize(halfVector));
+        return f0 + (1.0f - f0) * pow<5>(1.0f - absDot(wm, wo));
+    }
+
+public:
+    SchlickMixedBxDF(Base base, Layer layer, const Float eta) : mBaseBxDF{ std::move(base) }, mLayerBxDF{ std::move(layer) }, mEta{ eta } {}
+
+    [[nodiscard]] BxDFPart part() const noexcept override {
+        return mBaseBxDF.part() | mLayerBxDF.part();
+    }
+
+    [[nodiscard]] Rational<Spectrum> evaluate(const Direction& wo, const Direction& wi,
+                                              TransportMode transportMode) const noexcept override {
+        const auto weight = evaluateWeight(wo, wi);
+        if(weight < 0.0f)
+            return Rational<Spectrum>::zero();
+
+        const auto f1 = mBaseBxDF.evaluate(wo, wi, transportMode);
+        const auto f2 = mLayerBxDF.evaluate(wo, wi, transportMode);
+        return mix(f1, f2, weight);
+    }
+
+    BSDFSample sample(SampleProvider& sampler, const Direction& wo, const TransportMode transportMode,
+                      const BxDFDirection sampleDirection) const noexcept override {
+        auto result = mLayerBxDF.sample(sampler, wo, transportMode, sampleDirection);
+        if(!result.valid())
+            return result;
+
+        const auto weight = evaluateWeight(wo, result.wi);
+        result.f = mix(importanceSampled<PdfType::BSDF>(mBaseBxDF.evaluate(wo, result.wi, transportMode)), result.f, weight);
+        return result;
+    }
+
+    [[nodiscard]] InversePdfValue inversePdf(const Direction& wo, const Direction& wi, const TransportMode transportMode,
+                                             const BxDFDirection sampleDirection) const noexcept override {
+        const auto weight = evaluateWeight(wo, wi);
+        if(weight < 0.0f)
+            return InversePdfValue::invalid();
+
+        const auto pdf1 = mBaseBxDF.inversePdf(wo, wi, transportMode, sampleDirection);
+        const auto pdf2 = mLayerBxDF.inversePdf(wo, wi, transportMode, sampleDirection);
+        return mix(pdf1, pdf2, weight);
     }
 };
 

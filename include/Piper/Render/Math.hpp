@@ -78,6 +78,11 @@ constexpr auto sqr(T x) noexcept {
 }
 
 template <typename T>
+constexpr auto mix(const T& a, const T& b, const Float u) noexcept {
+    return a * (1.0f - u) + b * u;
+}
+
+template <typename T>
 constexpr auto evalPoly(T) noexcept {
     return static_cast<T>(0.0);
 }

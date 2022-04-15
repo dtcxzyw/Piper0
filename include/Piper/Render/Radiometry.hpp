@@ -66,6 +66,11 @@ requires((A & B) == PdfType::None) constexpr auto operator*(const InversePdf<A>&
     return InversePdf<A | B>::fromRaw(lhs.raw() * rhs.raw());
 }
 
+template <PdfType T>
+constexpr auto mix(const InversePdf<T>& a, const InversePdf<T>& b, const Float u) noexcept {
+    return InversePdf<T>::fromRaw(a.raw() * (1.0f - u) + b.raw() * u);
+}
+
 class SolidAngle final {
     PIPER_GUARD_BASE(SolidAngle, Float)
 

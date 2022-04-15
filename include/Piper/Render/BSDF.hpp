@@ -81,9 +81,10 @@ struct BSDFSampleResult final {
     }
 };
 
-class BxDFBase : public RenderVariantBase {
+class BxDFBase {
 public:
     virtual BxDFPart part() const noexcept = 0;
+    virtual ~BxDFBase() = default;
 };
 
 template <typename Setting>
