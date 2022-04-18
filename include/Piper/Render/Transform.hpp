@@ -167,7 +167,6 @@ class Direction final {
         const auto sinT = sinTheta(x);
         return isZero(sinT) ? 0.0f : std::clamp(x.y() / sinT, -1.0f, 1.0f);
     }
-
     template <FrameOfReference RealF = F>
     requires(RealF == FrameOfReference::Shading) static Direction positiveZ() noexcept {
         return Direction{ { 0.0f, 0.0f, 1.0f } };
@@ -185,6 +184,11 @@ class Direction final {
         return Direction::fromRaw({ sinTheta * cosPhi, sinTheta * sinPhi, cosTheta });
     }
 };
+
+template <FrameOfReference F>
+constexpr auto normalize(const Vector<F>& x) noexcept {
+    return Direction<F>::fromRaw(glm::normalize(x.raw()));
+}
 
 template <FrameOfReference F>
 constexpr Distance dot(const Direction<F>& lhs, const Vector<F>& rhs) noexcept {

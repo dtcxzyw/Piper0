@@ -131,4 +131,9 @@ public:
     }
 };
 
+class NormalizedTexture2D : public RefCountBase {
+public:
+    [[nodiscard]] virtual Direction<FrameOfReference::Shading> evaluate(TexCoord texCoord) const noexcept = 0;
+};
+
 PIPER_NAMESPACE_END

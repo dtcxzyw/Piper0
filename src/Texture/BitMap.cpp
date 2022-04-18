@@ -95,7 +95,24 @@ public:
     }
 };
 
-// TODO: parseType
+class BitMapNormalized final : public NormalizedTexture2D {
+    TextureSystem& mSystem;
+    OIIO::TextureSystem::TextureHandle* mHandle;
+
+public:
+    explicit BitMapNormalized(const Ref<ConfigNode>& node)
+        : mSystem{ TextureSystem::get() }, mHandle{ mSystem.load(node->get("FilePath"sv)->as<std::string_view>()) } {}
+
+    Direction<FrameOfReference::Shading> evaluate(const TexCoord texCoord) const noexcept override {
+        auto res = Vector<FrameOfReference::Shading>::undefined();
+        static_assert(sizeof(res) == 3 * sizeof(Float));
+        mSystem.texture(mHandle, texCoord, 3, reinterpret_cast<Float*>(&res));
+        if(dot(res, res).raw() < epsilon)
+            return Direction<FrameOfReference::Shading>::positiveZ();
+        return normalize(res);
+    }
+};
+
 template <typename Setting>
 class BitMap final : public SpectrumTexture2D<Setting> {
     PIPER_IMPORT_SETTINGS();
