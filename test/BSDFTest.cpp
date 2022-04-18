@@ -390,13 +390,13 @@ static void testBSDF(const std::string_view name, const std::string_view config,
                     glm::zero<glm::vec2>(),
                     Handle<Material>{ mat.get() } };
 
-    auto bsdf = mat->evaluate(std::monostate{}, hit);
+    const auto bsdf = mat->evaluate(std::monostate{}, hit);
     testBSDF(name, hit.shadingNormal, bsdf, specular);
 
     // negative
     hit.geometryNormal = -hit.geometryNormal;
-    bsdf = mat->evaluate(std::monostate{}, hit);
-    testBSDF(name, hit.shadingNormal, bsdf, specular);
+    const auto bsdfNeg = mat->evaluate(std::monostate{}, hit);
+    testBSDF(name, hit.shadingNormal, bsdfNeg, specular);
 
     const auto matRGB = getStaticFactory().make<Material<RSSRGB>>(parseJSONConfigNodeFromStr(config, {}));
     const auto matSpectral = getStaticFactory().make<Material<RSSSpectral>>(parseJSONConfigNodeFromStr(config, {}));

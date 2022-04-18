@@ -52,16 +52,14 @@ public:
         const auto metallic = mMetallic->evaluate(intersection.texCoord);
         const auto distribution = TrowbridgeReitzDistribution<Setting>(roughness, roughness);
 
-        const auto dielectric = SchlickMixedBxDF<Setting, LambertianBxDF<Setting>, DielectricBxDF<Setting>>{
+        auto dielectric = SchlickMixedBxDF<Setting, LambertianBxDF<Setting>, DielectricBxDF<Setting>>{
             LambertianBxDF<Setting>{ Rational<Spectrum>::fromRaw(baseColor) }, DielectricBxDF<Setting>{ mEta, distribution }, mEta
         };
 
         const auto eta = spectrumCast<ConductorBxDF<Setting>::EtaType>(baseColor, sampledWavelength);
-        const auto metal = ConductorBxDF<Setting>{ { eta, zero<ConductorBxDF<Setting>::EtaType>() }, distribution };
-        return BSDF<Setting>{
-            ShadingFrame{ intersection.shadingNormal.asDirection(), intersection.dpdu },
-            MixedBxDF<Setting, std::decay_t<decltype(metal)>, std::decay_t<decltype(dielectric)>>{ metal, dielectric, metallic }, false
-        };
+        auto metal = ConductorBxDF<Setting>{ { eta, zero<ConductorBxDF<Setting>::EtaType>() }, distribution };
+        return BSDF<Setting>{ ShadingFrame{ intersection.shadingNormal.asDirection(), intersection.dpdu },
+                              mixBxDF<Setting>(std::move(dielectric), std::move(metal), metallic), false };
     }
 
     [[nodiscard]] RGBSpectrum estimateAlbedo(const SurfaceHit&) const noexcept override {

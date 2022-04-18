@@ -83,17 +83,24 @@ struct BSDFSampleResult final {
 
 class BxDFBase {
 public:
-    virtual BxDFPart part() const noexcept = 0;
-    virtual ~BxDFBase() = default;
+    BxDFBase() noexcept = default;
+    BxDFBase(const BxDFBase&) noexcept = delete;
+    BxDFBase& operator=(const BxDFBase&) = delete;
+    BxDFBase(BxDFBase&&) noexcept = default;
+    BxDFBase& operator=(BxDFBase&&) = delete;
+
+    [[nodiscard]] virtual BxDFPart part() const noexcept = 0;
+    virtual ~BxDFBase() noexcept = default;  // NOLINT(clang-diagnostic-deprecated-copy-with-dtor)
 };
 
 template <typename Setting>
-class BxDF : public TypedRenderVariantBase<Setting, BxDFBase> {
+class BxDF : public BxDFBase {
 public:
     PIPER_IMPORT_SETTINGS();
     PIPER_IMPORT_SHADING();
 
-    virtual Rational<Spectrum> evaluate(const Direction& wo, const Direction& wi, TransportMode transportMode) const noexcept = 0;
+    [[nodiscard]] virtual Rational<Spectrum> evaluate(const Direction& wo, const Direction& wi,
+                                                      TransportMode transportMode) const noexcept = 0;
 
     virtual BSDFSample sample(SampleProvider& sampler, const Direction& wo, TransportMode transportMode = TransportMode::Radiance,
                               BxDFDirection sampleDirection = BxDFDirection::All) const noexcept = 0;
@@ -132,19 +139,33 @@ class BSDF final {
 
     ShadingFrame mFrame;
     std::byte mBxDFStorage[maxBxDFSize]{};
+    bool mOwns;
     bool mKeepOneWavelength;
-
-    [[nodiscard]] const BxDF<Setting>* cast() const noexcept {
-        return reinterpret_cast<const BxDF<Setting>*>(mBxDFStorage);
-    }
 
 public:
     template <typename T>
-    requires std::is_base_of_v<BxDF<Setting>, std::decay_t<T>> BSDF(const ShadingFrame& shadingFrame, const T& bxdf,
+    requires std::is_base_of_v<BxDF<Setting>, std::decay_t<T>> BSDF(const ShadingFrame& shadingFrame, T bxdf,
                                                                     const bool keepOneWavelength = false)
-        : mFrame{ shadingFrame }, mKeepOneWavelength{ keepOneWavelength } {
+        : mFrame{ shadingFrame }, mOwns{ true }, mKeepOneWavelength{ keepOneWavelength } {
         static_assert(sizeof(T) <= maxBxDFSize);
-        memcpy(mBxDFStorage, &bxdf, sizeof(T));
+        new(reinterpret_cast<T*>(mBxDFStorage)) T{ std::move(bxdf) };
+    }
+    BSDF(const BSDF&) = delete;
+    BSDF& operator=(const BSDF&) = delete;
+    BSDF(BSDF&& rhs)
+    noexcept : mFrame{ rhs.mFrame }, mOwns{ std::exchange(rhs.mOwns, false) }, mKeepOneWavelength{ rhs.mKeepOneWavelength } {
+        if(mOwns)
+            memcpy(mBxDFStorage, rhs.mBxDFStorage, maxBxDFSize);
+    }
+    BSDF& operator=(BSDF&&) = delete;
+
+    ~BSDF() {
+        if(mOwns)
+            std::destroy_at(reinterpret_cast<BxDF<Setting>*>(mBxDFStorage));
+    }
+
+    [[nodiscard]] const BxDF<Setting>* cast() const noexcept {
+        return reinterpret_cast<const BxDF<Setting>*>(mBxDFStorage);
     }
 
     [[nodiscard]] BxDFPart part() const noexcept {

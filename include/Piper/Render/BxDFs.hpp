@@ -337,7 +337,7 @@ class MixedBxDF final : public BxDF<Setting> {
     Float mWeight;
 
 public:
-    MixedBxDF(const T1& bxdf1, const T2& bxdf2, const Float weight) : mBxDF1{ bxdf1 }, mBxDF2{ bxdf2 }, mWeight{ weight } {}
+    MixedBxDF(T1 bxdf1, T2 bxdf2, const Float weight) : mBxDF1{ std::move(bxdf1) }, mBxDF2{ std::move(bxdf2) }, mWeight{ weight } {}
     [[nodiscard]] BxDFPart part() const noexcept override {
         return mBxDF1.part() | mBxDF2.part();
     }
@@ -361,6 +361,12 @@ public:
         return mix(pdf1, pdf2, mWeight);
     }
 };
+
+template <typename Setting, typename T1, typename T2>
+requires(std::is_base_of_v<BxDF<Setting>, T1>&& std::is_base_of_v<BxDF<Setting>, T2>)  //
+    constexpr auto mixBxDF(T1 bxdf1, T2 bxdf2, const Float weight) {
+    return MixedBxDF<Setting, T1, T2>{ std::move(bxdf1), std::move(bxdf2), weight };
+}
 
 // Schlick, C. (1994): An Inexpensive BRDF Model for Physically-based Rendering. Computer Graphics Forum 13, 233-246.
 // Please refer to https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.50.2297&rep=rep1&type=pdf
