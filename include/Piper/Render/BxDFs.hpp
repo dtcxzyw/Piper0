@@ -123,7 +123,7 @@ public:
                 reflection = 0.0f;
             if(!match(sampleDirection, BxDFDirection::Transmission))
                 transmission = 0.0f;
-            if(transmission == 0.0f && reflection == 0.0f)
+            if((transmission == 0.0f && reflection == 0.0f) || isZero(wo.z()))
                 return BSDFSample::invalid();
 
             if(sampler.sample() < reflection / (reflection + transmission)) {
