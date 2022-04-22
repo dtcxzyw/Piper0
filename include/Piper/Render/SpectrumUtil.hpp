@@ -19,13 +19,14 @@
 */
 
 #pragma once
-#include <Piper/Render/Radiometry.hpp>
+#include <Piper/Render/Spectrum.hpp>
 
 PIPER_NAMESPACE_BEGIN
 
 namespace Impl {
     Float fromRGB(const RGBSpectrum& u, Float wavelength) noexcept;
     SampledSpectrum fromRGB(const RGBSpectrum& u, const SampledSpectrum& w) noexcept;
+    MonoWavelengthSpectrum fromRGB(const RGBSpectrum& u, const MonoWavelengthSpectrum& w) noexcept;
 
     template <SpectrumLike T, SpectrumLike U>
     struct SpectrumCastCall final {};
@@ -64,6 +65,48 @@ namespace Impl {
     template <>
     struct SpectrumCastCall<SampledSpectrum, SampledSpectrum> final {
         static SampledSpectrum cast(const SampledSpectrum& u, const SampledSpectrum&) noexcept {
+            return u;
+        }
+    };
+
+    template <>
+    struct SpectrumCastCall<MonoWavelengthSpectrum, SampledSpectrum> final {
+        static SampledSpectrum cast(const MonoWavelengthSpectrum& u, const SampledSpectrum&) noexcept {
+            PIPER_NOT_IMPLEMENTED();
+        }
+    };
+
+    template <>
+    struct SpectrumCastCall<MonoSpectrum, MonoWavelengthSpectrum> final {
+        static MonoWavelengthSpectrum cast(const MonoSpectrum& u, const MonoWavelengthSpectrum&) noexcept {
+            return MonoWavelengthSpectrum::fromScalar(u);
+        }
+
+        static MonoWavelengthSpectrum cast(const MonoSpectrum& u, std::monostate) noexcept {
+            return MonoWavelengthSpectrum::fromScalar(u);
+        }
+    };
+
+    template <>
+    struct SpectrumCastCall<RGBSpectrum, MonoWavelengthSpectrum> final {
+        static MonoWavelengthSpectrum cast(const RGBSpectrum& u, const MonoWavelengthSpectrum& w) noexcept {
+            return fromRGB(u, w);
+        }
+    };
+
+    template <>
+    struct SpectrumCastCall<SampledSpectrum, MonoWavelengthSpectrum> final {
+        static SampledSpectrum cast(const SampledSpectrum& u, const SampledSpectrum&) noexcept {
+            PIPER_NOT_IMPLEMENTED();
+        }
+        static SampledSpectrum cast(const SampledSpectrum& u, const MonoWavelengthSpectrum&) noexcept {
+            PIPER_NOT_IMPLEMENTED();
+        }
+    };
+
+    template <>
+    struct SpectrumCastCall<MonoWavelengthSpectrum, MonoWavelengthSpectrum> final {
+        static MonoWavelengthSpectrum cast(const MonoWavelengthSpectrum& u, const MonoWavelengthSpectrum&) noexcept {
             return u;
         }
     };

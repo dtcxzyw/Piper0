@@ -72,7 +72,7 @@ static auto expandBlackBody(const Float temperature, const T& x, std::index_sequ
 }
 
 Float temperatureToSpectrum(const Float temperature, const Float sampledWavelength) noexcept {
-    return static_cast<Float>(blackBody(temperature, sampledWavelength));
+    return static_cast<Float>(blackBody(static_cast<double>(temperature), static_cast<double>(sampledWavelength)));
 }
 
 SampledSpectrum temperatureToSpectrum(const Float temperature, const SampledSpectrum& sampledWavelength) noexcept {

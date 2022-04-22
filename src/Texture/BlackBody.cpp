@@ -23,9 +23,11 @@
 
 PIPER_NAMESPACE_BEGIN
 
+// TODO: move to BlackBodyUtil.hpp?
 Float temperatureToSpectrum(Float temperature, Float sampledWavelength) noexcept;
 SampledSpectrum temperatureToSpectrum(Float temperature, const SampledSpectrum& sampledWavelength) noexcept;
 RGBSpectrum temperatureToSpectrum(Float temperature) noexcept;
+MonoWavelengthSpectrum temperatureToSpectrum(Float temperature, MonoWavelengthSpectrum sampledWavelength) noexcept;
 
 template <typename Setting>
 class BlackBody final : public ConstantTexture<Setting> {
@@ -41,7 +43,7 @@ public:
         : mTemperature{ node->get("Temperature"sv)->as<Float>() }, mScale{ node->get("Scale"sv)->as<Float>() } {
         mMean = luminance(temperatureToSpectrum(mTemperature), std::monostate{});
 
-        if constexpr(!std::is_same_v<Spectrum, SampledSpectrum>)
+        if constexpr(!isSpectral)
             mCached = spectrumCast<Spectrum>(temperatureToSpectrum(mTemperature), Wavelength{}) * mScale;
     }
 
@@ -50,7 +52,7 @@ public:
     }
 
     Spectrum evaluate(const Wavelength& sampledWavelength) const noexcept override {
-        if constexpr(std::is_same_v<Spectrum, SampledSpectrum>)
+        if constexpr(isSpectral)
             return spectrumCast<Spectrum>(temperatureToSpectrum(mTemperature, sampledWavelength), sampledWavelength) * mScale;
         else
             return mCached.value();

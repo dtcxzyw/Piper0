@@ -35,7 +35,7 @@ class Dielectric final : public Material<Setting> {
 
     auto evaluateEta(const Ref<ScalarTexture2D>& eta, const TexCoord texCoord, const Wavelength& sampledWavelength) const noexcept {
         if constexpr(isSpectral) {
-            return eta->evaluateOneWavelength(texCoord, sampledWavelength.raw()[0]);
+            return eta->evaluateOneWavelength(texCoord, sampledWavelength.firstComponent());
         } else {
             return std::pair{ false, eta->evaluate(texCoord) };
         }

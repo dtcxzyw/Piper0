@@ -36,7 +36,7 @@ class Conductor final : public Material<Setting> {
     auto evaluateEta(const Ref<SpectrumTexture2D<Setting>>& eta, const TexCoord texCoord,
                      const Wavelength& sampledWavelength) const noexcept {
         if constexpr(isSpectral) {
-            return eta->evaluateOneWavelength(texCoord, sampledWavelength.raw()[0]);
+            return eta->evaluateOneWavelength(texCoord, sampledWavelength.firstComponent());
         } else {
             return std::pair<bool, Spectrum>{ false, eta->evaluate(texCoord, sampledWavelength) };
         }

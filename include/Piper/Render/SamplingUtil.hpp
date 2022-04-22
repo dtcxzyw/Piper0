@@ -19,6 +19,8 @@
 */
 
 #pragma once
+#include "RenderGlobalSetting.hpp"
+
 #include <Piper/Render/Math.hpp>
 #include <Piper/Render/Radiometry.hpp>
 #include <Piper/Render/Sampler.hpp>
@@ -105,6 +107,12 @@ inline auto sampleWavelength<Float, Float>(SampleProvider& sampler) noexcept {
         return std::make_pair(lambda, 0.0f);
     const auto weight = 253.82f * sqr(std::cosh(0.0072f * (lambda - 538.0f)));
     return std::make_pair(lambda, weight);
+}
+
+template <>
+inline auto sampleWavelength<MonoWavelengthSpectrum, MonoWavelengthSpectrum>(SampleProvider&) noexcept {
+    const auto lambda = RenderGlobalSetting::get().sampledWavelength;
+    return std::make_pair(lambda, MonoWavelengthSpectrum::fromRaw(1.0f));
 }
 
 template <>

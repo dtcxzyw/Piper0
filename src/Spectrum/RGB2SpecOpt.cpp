@@ -161,6 +161,13 @@ namespace Impl {
         return rgb2SpecEval(coefficients, wavelength);
     }
 
+    MonoWavelengthSpectrum fromRGB(const RGBSpectrum& u, const MonoWavelengthSpectrum& w) noexcept {
+        Float coefficients[numberOfCoefficients];
+        rgb2SpecFetch(u.raw(), coefficients);
+
+        return MonoWavelengthSpectrum::fromRaw(rgb2SpecEval(coefficients, w.raw()));
+    }
+
     SampledSpectrum fromRGB(const RGBSpectrum& u, const SampledSpectrum& w) noexcept {
         Float coefficients[numberOfCoefficients];
         rgb2SpecFetch(u.raw(), coefficients);

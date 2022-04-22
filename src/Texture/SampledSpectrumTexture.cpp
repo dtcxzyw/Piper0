@@ -92,8 +92,10 @@ public:
             return Spectrum::fromRaw(measurement);
         } else if constexpr(std::is_same_v<Spectrum, MonoSpectrum>) {
             return mImpl.evaluate({});
-        } else {
+        } else if constexpr(std::is_same_v<Spectrum, RGBSpectrum>) {
             return mRGBSpectrum;
+        } else {
+            return Spectrum::fromRaw(mImpl.evaluateOneWavelength({}, sampledWavelength.raw()).second);
         }
     }
 

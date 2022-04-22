@@ -50,11 +50,15 @@ public:
                 const auto base = static_cast<Float>(idx);
                 const auto sampledWavelength = SampledSpectrum::fromRaw({ base, base + 0.25f, base + 0.5f, base + 0.75f });
                 const auto albedo = toRGB(mReflectance->evaluate(intersection.texCoord, sampledWavelength), sampledWavelength);
+                res += albedo;
             }
 
             res /= wavelengthMax - wavelengthMin;
 
             return res;
+        } else if constexpr(std::is_same_v<Spectrum, MonoWavelengthSpectrum>) {
+            const auto lambda = RenderGlobalSetting::get().sampledWavelength;
+            return toRGB(mReflectance->evaluate(intersection.texCoord, lambda), lambda);
         } else {
             return toRGB(mReflectance->evaluate(intersection.texCoord, Wavelength{}), Wavelength{});
         }

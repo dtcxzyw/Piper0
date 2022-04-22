@@ -143,8 +143,6 @@ constexpr SpectrumType spectrumType<MonoSpectrum>() noexcept {
     return SpectrumType::Mono;
 }
 
-// TODO: single wavelength sampling
-
 class SampledSpectrum final {
 public:
     static constexpr auto nSamples = 4;
@@ -154,6 +152,10 @@ private:
     PIPER_GUARD_BASE(SampledSpectrum, VecType)
     PIPER_GUARD_BASE_OP(SampledSpectrum)
     PIPER_GUARD_ELEMENT_VISE_MULTIPLY(SampledSpectrum)
+
+    [[nodiscard]] Float firstComponent() const noexcept {
+        return mValue[0];
+    }
 
     static constexpr SampledSpectrum fromScalar(const Float x) noexcept {
         return SampledSpectrum{ VecType{ x } };
@@ -187,6 +189,48 @@ constexpr SampledSpectrum zero<SampledSpectrum>() noexcept {
 template <>
 constexpr SampledSpectrum identity<SampledSpectrum>() noexcept {
     return SampledSpectrum::fromScalar(1.0f);
+}
+
+struct MonoWavelengthSpectrum final {
+private:
+    PIPER_GUARD_BASE(MonoWavelengthSpectrum, Float)
+    PIPER_GUARD_BASE_OP(MonoWavelengthSpectrum)
+    PIPER_GUARD_ELEMENT_VISE_MULTIPLY(MonoWavelengthSpectrum)
+
+    [[nodiscard]] Float firstComponent() const noexcept {
+        return mValue;
+    }
+
+    static constexpr MonoWavelengthSpectrum fromScalar(const Float x) noexcept {
+        return MonoWavelengthSpectrum{ x };
+    }
+};
+
+Float luminance(const MonoWavelengthSpectrum& x, const MonoWavelengthSpectrum& sampledWavelengths) noexcept;
+RGBSpectrum toRGB(const MonoWavelengthSpectrum& x, const MonoWavelengthSpectrum& sampledWavelengths) noexcept;
+
+inline Float maxComponentValue(const MonoWavelengthSpectrum& x) noexcept {
+    return x.raw();
+}
+
+template <>
+struct WavelengthType<MonoWavelengthSpectrum> final {
+    using Type = MonoWavelengthSpectrum;
+};
+
+template <>
+constexpr SpectrumType spectrumType<MonoWavelengthSpectrum>() noexcept {
+    return SpectrumType::Mono;
+}
+
+template <>
+constexpr MonoWavelengthSpectrum zero<MonoWavelengthSpectrum>() noexcept {
+    return MonoWavelengthSpectrum::fromScalar(0.0f);
+}
+
+template <>
+constexpr MonoWavelengthSpectrum identity<MonoWavelengthSpectrum>() noexcept {
+    return MonoWavelengthSpectrum::fromScalar(1.0f);
 }
 
 constexpr uint32_t spectrumSize(const SpectrumType type) noexcept {

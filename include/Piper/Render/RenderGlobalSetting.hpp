@@ -30,7 +30,7 @@ struct RenderStaticSetting final {
     using SpectrumType = Spectrum;
     using UnpolarizedType = Spectrum;
     using WavelengthType = typename WavelengthType<Spectrum>::Type;
-    static constexpr auto isSpectral = std::is_same_v<Spectrum, SampledSpectrum>;
+    static constexpr auto isSpectral = !std::is_same_v<WavelengthType, std::monostate>;
     static constexpr auto isPolarized = false;
 };
 
@@ -39,7 +39,7 @@ struct RenderStaticSetting<MuellerMatrix<Spectrum>> final {
     using SpectrumType = MuellerMatrix<Spectrum>;
     using UnpolarizedType = Spectrum;
     using WavelengthType = typename RenderStaticSetting<Spectrum>::WavelengthType;
-    static constexpr auto isSpectral = std::is_same_v<Spectrum, SampledSpectrum>;
+    static constexpr auto isSpectral = !std::is_same_v<WavelengthType, std::monostate>;
     static constexpr auto isPolarized = true;
 };
 
@@ -96,6 +96,7 @@ public:
 using RSSMono = RenderStaticSetting<MonoSpectrum>;
 using RSSRGB = RenderStaticSetting<RGBSpectrum>;
 using RSSSpectral = RenderStaticSetting<SampledSpectrum>;
+using RSSMonoSpectral = RenderStaticSetting<MonoWavelengthSpectrum>;
 /*
 using RSSMonoPolarized = RenderStaticSetting<MuellerMatrix<MonoSpectrum>>;
 using RSSRGBPolarized = RenderStaticSetting<MuellerMatrix<RGBSpectrum>>;
@@ -106,6 +107,7 @@ struct RenderGlobalSetting final {
     std::pmr::string variant;
     SpectrumType spectrumType;
     Ref<AccelerationBuilder> accelerationBuilder;
+    MonoWavelengthSpectrum sampledWavelength = MonoWavelengthSpectrum::undefined();
 
     static RenderGlobalSetting& get() noexcept;
 };

@@ -456,6 +456,9 @@ public:
         else
             settings.spectrumType = SpectrumType::LinearRGB;
 
+        if(settings.variant.find("MonoSpectral") != std::pmr::string::npos)
+            settings.sampledWavelength = MonoWavelengthSpectrum::fromRaw(node->get("SampledWavelength"sv)->as<Float>());
+
         settings.accelerationBuilder = createEmbreeBackend();
 
         const auto& objects = node->get("Scene"sv)->as<ConfigAttr::AttrArray>();
