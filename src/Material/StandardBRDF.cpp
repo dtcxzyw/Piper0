@@ -47,9 +47,10 @@ public:
     }
 
     BSDF<Setting> evaluate(const Wavelength& sampledWavelength, const SurfaceHit& intersection) const noexcept override {
-        const auto baseColor = mBaseColor->evaluate(intersection.texCoord, sampledWavelength);
-        const auto roughness = mRoughness->evaluate(intersection.texCoord);
-        const auto metallic = mMetallic->evaluate(intersection.texCoord);
+        const auto textureEvaluateInfo = intersection.makeTextureEvaluateInfo();
+        const auto baseColor = mBaseColor->evaluate(textureEvaluateInfo, sampledWavelength);
+        const auto roughness = mRoughness->evaluate(textureEvaluateInfo);
+        const auto metallic = mMetallic->evaluate(textureEvaluateInfo);
         const auto distribution = TrowbridgeReitzDistribution<Setting>(roughness, roughness);
 
         auto dielectric = SchlickMixedBxDF<Setting, LambertianBxDF<Setting>, DielectricBxDF<Setting>>{

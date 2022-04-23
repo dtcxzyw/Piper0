@@ -33,11 +33,11 @@ class Dielectric final : public Material<Setting> {
     Ref<ScalarTexture2D> mRoughnessU, mRoughnessV;
     bool mRemapRoughness = true;
 
-    auto evaluateEta(const Ref<ScalarTexture2D>& eta, const TexCoord texCoord, const Wavelength& sampledWavelength) const noexcept {
+    auto evaluateEta(const Ref<ScalarTexture2D>& eta, const TextureEvaluateInfo& info, const Wavelength& sampledWavelength) const noexcept {
         if constexpr(isSpectral) {
-            return eta->evaluateOneWavelength(texCoord, sampledWavelength.firstComponent());
+            return eta->evaluateOneWavelength(info, sampledWavelength.firstComponent());
         } else {
-            return std::pair{ false, eta->evaluate(texCoord) };
+            return std::pair{ false, eta->evaluate(info) };
         }
     }
 
@@ -60,13 +60,14 @@ public:
     }
 
     BSDF<Setting> evaluate(const Wavelength& sampledWavelength, const SurfaceHit& intersection) const noexcept override {
-        auto roughnessU = mRoughnessU->evaluate(intersection.texCoord), roughnessV = mRoughnessV->evaluate(intersection.texCoord);
+        const auto textureEvaluateInfo = intersection.makeTextureEvaluateInfo();
+        auto roughnessU = mRoughnessU->evaluate(textureEvaluateInfo), roughnessV = mRoughnessV->evaluate(textureEvaluateInfo);
         if(mRemapRoughness) {
             roughnessU = TrowbridgeReitzDistribution<Setting>::roughnessToAlpha(roughnessU);
             roughnessV = TrowbridgeReitzDistribution<Setting>::roughnessToAlpha(roughnessV);
         }
 
-        const auto [keepOneWavelength, eta] = evaluateEta(mEta, intersection.texCoord, sampledWavelength);
+        const auto [keepOneWavelength, eta] = evaluateEta(mEta, textureEvaluateInfo, sampledWavelength);
 
         return BSDF<Setting>{ ShadingFrame{ intersection.shadingNormal.asDirection(), intersection.dpdu },
                               DielectricBxDF<Setting>{ eta, TrowbridgeReitzDistribution<Setting>(roughnessU, roughnessV) },

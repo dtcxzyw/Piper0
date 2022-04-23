@@ -33,12 +33,12 @@ class Conductor final : public Material<Setting> {
     Ref<ScalarTexture2D> mRoughnessU, mRoughnessV;
     bool mRemapRoughness = true;
 
-    auto evaluateEta(const Ref<SpectrumTexture2D<Setting>>& eta, const TexCoord texCoord,
+    auto evaluateEta(const Ref<SpectrumTexture2D<Setting>>& eta, const TextureEvaluateInfo& info,
                      const Wavelength& sampledWavelength) const noexcept {
         if constexpr(isSpectral) {
-            return eta->evaluateOneWavelength(texCoord, sampledWavelength.firstComponent());
+            return eta->evaluateOneWavelength(info, sampledWavelength.firstComponent());
         } else {
-            return std::pair<bool, Spectrum>{ false, eta->evaluate(texCoord, sampledWavelength) };
+            return std::pair<bool, Spectrum>{ false, eta->evaluate(info, sampledWavelength) };
         }
     }
 
@@ -64,14 +64,15 @@ public:
     }
 
     BSDF<Setting> evaluate(const Wavelength& sampledWavelength, const SurfaceHit& intersection) const noexcept override {
-        auto roughnessU = mRoughnessU->evaluate(intersection.texCoord), roughnessV = mRoughnessV->evaluate(intersection.texCoord);
+        const auto textureEvaluateInfo = intersection.makeTextureEvaluateInfo();
+        auto roughnessU = mRoughnessU->evaluate(textureEvaluateInfo), roughnessV = mRoughnessV->evaluate(textureEvaluateInfo);
         if(mRemapRoughness) {
             roughnessU = TrowbridgeReitzDistribution<Setting>::roughnessToAlpha(roughnessU);
             roughnessV = TrowbridgeReitzDistribution<Setting>::roughnessToAlpha(roughnessV);
         }
 
-        const auto [keepOneWavelengthEta, eta] = evaluateEta(mEta, intersection.texCoord, sampledWavelength);
-        const auto [keepOneWavelengthK, k] = evaluateEta(mK, intersection.texCoord, sampledWavelength);
+        const auto [keepOneWavelengthEta, eta] = evaluateEta(mEta, textureEvaluateInfo, sampledWavelength);
+        const auto [keepOneWavelengthK, k] = evaluateEta(mK, textureEvaluateInfo, sampledWavelength);
 
         return BSDF<Setting>{ ShadingFrame{ intersection.shadingNormal.asDirection(), intersection.dpdu },
                               ConductorBxDF<Setting>{ { eta, k }, TrowbridgeReitzDistribution<Setting>(roughnessU, roughnessV) },

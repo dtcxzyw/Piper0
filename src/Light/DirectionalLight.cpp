@@ -34,8 +34,9 @@ class DirectionalLight final : public Light<Setting> {
 
 public:
     explicit DirectionalLight(const Ref<ConfigNode>& node)
-        : mIntensity{ this->template make<SphericalTexture>(node->get("Intensity"sv)->as<Ref<ConfigNode>>()) },
-          mDirection{ Direction<FrameOfReference::World>::fromRaw(glm::normalize(parseVec3(node->get("Direction"sv)))) } {}
+        : mIntensity{ this->template make<SphericalTexture>(node->get("Intensity"sv)->as<Ref<ConfigNode>>()) }, mDirection{
+              Direction<FrameOfReference::World>::fromRaw(glm::normalize(parseVec3(node->get("Direction"sv))))
+          } {}
     [[nodiscard]] LightAttributes attributes() const noexcept override {
         return LightAttributes::Delta;
     }
@@ -50,8 +51,9 @@ public:
 
     LightLiSample<Spectrum> sampleLi(const ShadingContext<Setting>& ctx, const Point<FrameOfReference::World>& pos,
                                      SampleProvider& sampler) const noexcept override {
-        Intensity<Spectrum> intensity =
-            Intensity<Spectrum>::fromRaw(mIntensity->evaluate(Direction<FrameOfReference::Object>::fromRaw(mDirection.raw()), ctx.sampledWavelength));
+        Intensity<Spectrum> intensity = Intensity<Spectrum>::fromRaw(
+            mIntensity->evaluate({ mIntensity->dir2TexCoord(Direction<FrameOfReference::Object>::fromRaw(mDirection.raw())), ctx.t, 0U },
+                                 ctx.sampledWavelength));
         const auto radiance = importanceSampled<PdfType::Light | PdfType::LightSampler>(intensity.toRadiance(mSceneDiameterSquare));
         return LightLiSample<Spectrum>{ -mDirection, radiance, InversePdf<PdfType::Light>::identity(), mSceneDiameter };
     }

@@ -42,14 +42,17 @@ public:
               rcp(parseVec2(node->get("Size"sv)))
           } {}
 
-    Float evaluate(TexCoord texCoord) const noexcept override {
-        const auto& tex = select(texCoord);
-        return tex.evaluate(texCoord);
+    Float evaluate(const TextureEvaluateInfo& info) const noexcept override {
+        auto modifiedInfo = info;
+        const auto& tex = select(modifiedInfo.texCoord);
+        return tex.evaluate(modifiedInfo);
     }
 
-    [[nodiscard]] std::pair<bool, Float> evaluateOneWavelength(TexCoord texCoord, const Float wavelength) const noexcept override {
-        const auto& tex = select(texCoord);
-        return tex.evaluateOneWavelength(texCoord, wavelength);
+    [[nodiscard]] std::pair<bool, Float> evaluateOneWavelength(const TextureEvaluateInfo& info,
+                                                               const Float wavelength) const noexcept override {
+        auto modifiedInfo = info;
+        const auto& tex = select(modifiedInfo.texCoord);
+        return tex.evaluateOneWavelength(modifiedInfo, wavelength);
     }
 };
 
@@ -72,14 +75,16 @@ public:
           mBlack{ this->template make<SpectrumTexture2D>(node->get("Black"sv)->as<Ref<ConfigNode>>()) }, mInvSize{ rcp(parseVec2(
                                                                                                              node->get("Size"sv))) } {}
 
-    Spectrum evaluate(TexCoord texCoord, const Wavelength& sampledWavelength) const noexcept override {
-        const auto& tex = select(texCoord);
-        return tex.evaluate(texCoord, sampledWavelength);
+    Spectrum evaluate(const TextureEvaluateInfo& info, const Wavelength& sampledWavelength) const noexcept override {
+        auto modifiedInfo = info;
+        const auto& tex = select(modifiedInfo.texCoord);
+        return tex.evaluate(modifiedInfo, sampledWavelength);
     }
 
-    [[nodiscard]] std::pair<bool, Float> evaluateOneWavelength(TexCoord texCoord, Float wavelength) const noexcept override {
-        const auto& tex = select(texCoord);
-        return tex.evaluateOneWavelength(texCoord, wavelength);
+    [[nodiscard]] std::pair<bool, Float> evaluateOneWavelength(const TextureEvaluateInfo& info, Float wavelength) const noexcept override {
+        auto modifiedInfo = info;
+        const auto& tex = select(modifiedInfo.texCoord);
+        return tex.evaluateOneWavelength(modifiedInfo, wavelength);
     }
 };
 

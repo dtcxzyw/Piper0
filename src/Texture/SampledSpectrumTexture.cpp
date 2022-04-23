@@ -42,7 +42,7 @@ public:
         mMean /= static_cast<Float>(mLUT.size());
     }
 
-    [[nodiscard]] std::pair<bool, Float> evaluateOneWavelength(const TexCoord, const Float wavelength) const noexcept override {
+    [[nodiscard]] std::pair<bool, Float> evaluateOneWavelength(const TextureEvaluateInfo&, const Float wavelength) const noexcept override {
         const auto idx = static_cast<int32_t>(
             std::lower_bound(mLUT.cbegin(), mLUT.cend(), wavelength, [](const glm::vec2 lhs, const Float rhs) { return lhs.x < rhs; }) -
             mLUT.cbegin());
@@ -53,7 +53,7 @@ public:
         return { true, glm::mix(mLUT[idx0].y, mLUT[idx1].y, (wavelength - mLUT[idx0].x) / (mLUT[idx1].x - mLUT[idx0].x)) };
     }
 
-    Float evaluate(TexCoord) const noexcept override {
+    Float evaluate(const TextureEvaluateInfo&) const noexcept override {
         return mMean;
     }
 };

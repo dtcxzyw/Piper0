@@ -388,6 +388,7 @@ static void testBSDF(const std::string_view name, const std::string_view config,
                     Direction<FrameOfReference::World>::fromRaw(glm::vec3{ 1.0f, 0.0f, 0.0f }),
                     0,
                     glm::zero<glm::vec2>(),
+                    0.0f,
                     Handle<Material>{ mat.get() } };
 
     const auto bsdf = mat->evaluate(std::monostate{}, hit);

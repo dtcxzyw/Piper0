@@ -31,7 +31,7 @@ public:
     explicit MonoSpectrumTextureScalar(const Ref<ConfigNode>& node) : mValue{ node->get("Value"sv)->as<Float>() } {}
     explicit MonoSpectrumTextureScalar(const Float value) : mValue{ value } {}
 
-    Float evaluate(TexCoord) const noexcept override {
+    Float evaluate(const TextureEvaluateInfo&) const noexcept override {
         return mValue;
     }
 };

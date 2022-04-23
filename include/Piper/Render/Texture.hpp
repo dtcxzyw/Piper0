@@ -25,13 +25,20 @@
 
 PIPER_NAMESPACE_BEGIN
 
-// TODO: differential
+struct TextureEvaluateInfo {
+    TexCoord texCoord;
+    Float t;
+    uint32_t primitiveIdx;
+    // TODO: differential
+};
+
+// TODO: prepare for time interval
 
 class ScalarTexture2D : public RefCountBase {
 public:
-    virtual Float evaluate(TexCoord texCoord) const noexcept = 0;
-    virtual [[nodiscard]] std::pair<bool, Float> evaluateOneWavelength(const TexCoord texCoord, Float wavelength) const noexcept {
-        return { false, evaluate(texCoord) };
+    virtual Float evaluate(const TextureEvaluateInfo& info) const noexcept = 0;
+    virtual [[nodiscard]] std::pair<bool, Float> evaluateOneWavelength(const TextureEvaluateInfo& info, Float wavelength) const noexcept {
+        return { false, evaluate(info) };
     }
 };
 
@@ -43,8 +50,9 @@ class SpectrumTexture2D : public TypedRenderVariantBase<Setting> {
 public:
     PIPER_IMPORT_SETTINGS();
 
-    virtual Spectrum evaluate(TexCoord texCoord, const Wavelength& sampledWavelength) const noexcept = 0;
-    [[nodiscard]] virtual std::pair<bool, Float> evaluateOneWavelength(TexCoord texCoord, Float wavelength) const noexcept = 0;
+    virtual Spectrum evaluate(const TextureEvaluateInfo& info, const Wavelength& sampledWavelength) const noexcept = 0;
+    [[nodiscard]] virtual std::pair<bool, Float> evaluateOneWavelength(const TextureEvaluateInfo& info,
+                                                                       Float wavelength) const noexcept = 0;
 };
 
 template <typename Setting>
@@ -61,24 +69,24 @@ class SphericalTexture : public TypedRenderVariantBase<Setting> {
 public:
     PIPER_IMPORT_SETTINGS();
 
-    virtual Spectrum evaluate(TexCoord texCoord, const Wavelength& sampledWavelength) const noexcept = 0;
+    virtual Spectrum evaluate(const TextureEvaluateInfo& info, const Wavelength& sampledWavelength) const noexcept = 0;
 
-    Spectrum evaluate(const Direction<FrameOfReference::Object>& dir, const Wavelength& sampledWavelength) const noexcept {
+    [[nodiscard]] TexCoord dir2TexCoord(const Direction<FrameOfReference::Object>& dir) const noexcept {
         const auto theta = std::atan2(dir.x(), dir.z());
         const auto phi = std::acos(dir.y());
-        return evaluate(TexCoord{ theta * invTwoPi + 0.5f, phi * invPi }, sampledWavelength);
+        return TexCoord{ theta * invTwoPi + 0.5f, phi * invPi };
     }
 
     [[nodiscard]] virtual MonoSpectrum mean() const noexcept = 0;
 
-    virtual TextureSample<Setting> sample(SampleProvider& sampler, const Wavelength& sampledWavelength) const noexcept {
+    virtual TextureSample<Setting> sample(SampleProvider& sampler, const Float t, const Wavelength& sampledWavelength) const noexcept {
         const auto u = sampler.sampleVec2();
         const auto phi = u.x * twoPi;
         const auto theta = std::acos(u.y * 2.0f - 1.0f);
 
         return TextureSample<Setting>{ Direction<FrameOfReference::Object>::fromSphericalCoord({ theta, phi }),
                                        Rational<Spectrum, PdfType::Texture>::fromRaw(
-                                           evaluate(glm::vec2{ u.x, phi * invPi }, sampledWavelength)),
+                                           evaluate({ TexCoord{ u.x, phi * invPi }, t, 0U }, sampledWavelength)),
                                        InversePdf<PdfType::Texture>::fromRaw(1.0f) };
     }
 };
@@ -103,11 +111,11 @@ requires(std::is_base_of_v<ConstantTexture<Setting>, T<Setting>>) class Constant
 public:
     explicit ConstantSpectrumTexture2DWrapper(const Ref<ConfigNode>& node) : mImpl{ node } {}
 
-    Spectrum evaluate(TexCoord, const Wavelength& sampledWavelength) const noexcept override {
+    Spectrum evaluate(const TextureEvaluateInfo&, const Wavelength& sampledWavelength) const noexcept override {
         return mImpl.evaluate(sampledWavelength);
     }
 
-    [[nodiscard]] std::pair<bool, Float> evaluateOneWavelength(TexCoord, const Float wavelength) const noexcept override {
+    [[nodiscard]] std::pair<bool, Float> evaluateOneWavelength(const TextureEvaluateInfo&, const Float wavelength) const noexcept override {
         return mImpl.evaluateOneWavelength(wavelength);
     }
 };
@@ -122,7 +130,7 @@ requires(std::is_base_of_v<ConstantTexture<Setting>, T<Setting>>) class Constant
 public:
     explicit ConstantSphericalTextureWrapper(const Ref<ConfigNode>& node) : mImpl{ node } {}
 
-    Spectrum evaluate(TexCoord, const Wavelength& sampledWavelength) const noexcept override {
+    Spectrum evaluate(const TextureEvaluateInfo&, const Wavelength& sampledWavelength) const noexcept override {
         return mImpl.evaluate(sampledWavelength);
     }
 
@@ -133,7 +141,7 @@ public:
 
 class NormalizedTexture2D : public RefCountBase {
 public:
-    [[nodiscard]] virtual Direction<FrameOfReference::Shading> evaluate(TexCoord texCoord) const noexcept = 0;
+    [[nodiscard]] virtual Direction<FrameOfReference::Shading> evaluate(const TextureEvaluateInfo& info) const noexcept = 0;
 };
 
 PIPER_NAMESPACE_END

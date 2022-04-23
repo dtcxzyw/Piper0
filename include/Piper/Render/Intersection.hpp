@@ -20,6 +20,7 @@
 
 #pragma once
 #include <Piper/Render/RenderGlobalSetting.hpp>
+#include <Piper/Render/Texture.hpp>
 #include <Piper/Render/Transform.hpp>
 
 PIPER_NAMESPACE_BEGIN
@@ -32,11 +33,16 @@ struct SurfaceHit final {
     Direction<FrameOfReference::World> dpdu;
     uint32_t primitiveIdx;
     TexCoord texCoord;
+    Float t;
 
     Handle<Material> surface;
 
     [[nodiscard]] Point<FrameOfReference::World> offsetOrigin(const bool reflection) const noexcept {
         return hit + geometryNormal.asDirection() * Distance::fromRaw(reflection ? epsilon : -epsilon);
+    }
+
+    [[nodiscard]] TextureEvaluateInfo makeTextureEvaluateInfo() const noexcept {
+        return { texCoord, t, primitiveIdx };
     }
 };
 

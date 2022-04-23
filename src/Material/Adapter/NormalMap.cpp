@@ -45,7 +45,8 @@ class NormalMap final : public Material<Setting> {
     Ref<NormalizedTexture2D> mNormalMap;
 
     [[nodiscard]] SurfaceHit preprocess(const SurfaceHit& intersection) const noexcept {
-        const auto normal = mNormalMap->evaluate(intersection.texCoord);
+        const auto textureEvaluateInfo = intersection.makeTextureEvaluateInfo();
+        const auto normal = mNormalMap->evaluate(textureEvaluateInfo);
         return modifyNormal(intersection, normal);
     }
 
@@ -78,10 +79,12 @@ class BumpMap final : public Material<Setting> {
 
     [[nodiscard]] SurfaceHit preprocess(const SurfaceHit& intersection) const noexcept {
         constexpr auto dx = 1e-4f;
-        const auto [u, v] = intersection.texCoord;
-        const auto base = mBumpMap->evaluate({ u, v });
-        const auto dhdu = (mBumpMap->evaluate({ u + dx, v }) - base) / dx;
-        const auto dhdv = (mBumpMap->evaluate({ u, v + dx }) - base) / dx;
+        const auto textureEvaluateInfo = intersection.makeTextureEvaluateInfo();
+
+        const auto base = mBumpMap->evaluate(textureEvaluateInfo);
+        const auto [u, v] = textureEvaluateInfo.texCoord;
+        const auto dhdu = (mBumpMap->evaluate({ { u + dx, v }, textureEvaluateInfo.t, textureEvaluateInfo.primitiveIdx }) - base) / dx;
+        const auto dhdv = (mBumpMap->evaluate({ { u, v + dx }, textureEvaluateInfo.t, textureEvaluateInfo.primitiveIdx }) - base) / dx;
 
         const auto normal = Direction::fromRaw(glm::normalize(glm::vec3{ -dhdu, -dhdv, 1.0f }));
         return modifyNormal(intersection, normal);

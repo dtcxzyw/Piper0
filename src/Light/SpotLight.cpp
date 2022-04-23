@@ -46,8 +46,8 @@ class SpotLight final : public Light<Setting> {
 public:
     explicit SpotLight(const Ref<ConfigNode>& node)
         : mIntensity{ this->template make<SphericalTexture>(node->get("Intensity"sv)->as<Ref<ConfigNode>>()) },
-          mCosTotalWidth{ std::cos(node->get("TotalWidth"sv)->as<Float>()) },
-          mCosFalloffStart{ std::cos(node->get("FalloffStart"sv)->as<Float>()) } {}
+          mCosTotalWidth{ std::cos(node->get("TotalWidth"sv)->as<Float>()) }, mCosFalloffStart{ std::cos(
+                                                                                  node->get("FalloffStart"sv)->as<Float>()) } {}
     [[nodiscard]] LightAttributes attributes() const noexcept override {
         return LightAttributes::Delta;
     }
@@ -68,8 +68,8 @@ public:
         if(!delta.has_value())
             return LightLiSample<Spectrum>::invalid();
 
-        Intensity<Spectrum> intensity =
-            Intensity<Spectrum>::fromRaw(mIntensity->evaluate(objDirection, ctx.sampledWavelength) * delta.value());
+        Intensity<Spectrum> intensity = Intensity<Spectrum>::fromRaw(
+            mIntensity->evaluate({ mIntensity->dir2TexCoord(objDirection), ctx.t, 0U }, ctx.sampledWavelength) * delta.value());
         const auto radiance = importanceSampled<PdfType::Light | PdfType::LightSampler>(intensity.toRadiance(dist2));
         return LightLiSample<Spectrum>{ dir, radiance, InversePdf<PdfType::Light>::identity(), sqrt(dist2) };
     }
@@ -90,9 +90,10 @@ public:
 
         const auto lightSource = Point<FrameOfReference::World>::fromRaw(transform.translation);
         const Ray ray{ lightSource, dir, ctx.t };
-        const auto intensity =
-            Intensity<Spectrum>::fromRaw(mIntensity->evaluate(-objDir, ctx.sampledWavelength) * getDelta(objDir).value());
-        return LightLeSample<Spectrum>{ ray, intensity, InversePdf<PdfType::LightPos>::identity(), InversePdf<PdfType::LightDir>::fromRaw(twoPi * (1 - mCosTotalWidth)) };
+        const auto intensity = Intensity<Spectrum>::fromRaw(
+            mIntensity->evaluate({ mIntensity->dir2TexCoord(-objDir), ctx.t, 0U }, ctx.sampledWavelength) * getDelta(objDir).value());
+        return LightLeSample<Spectrum>{ ray, intensity, InversePdf<PdfType::LightPos>::identity(),
+                                        InversePdf<PdfType::LightDir>::fromRaw(twoPi * (1 - mCosTotalWidth)) };
     }
     std::pair<InversePdf<PdfType::LightPos>, InversePdf<PdfType::LightDir>> pdfLe(const ShadingContext<Setting>& ctx,
                                                                                   const Ray& ray) const noexcept override {
@@ -100,7 +101,8 @@ public:
     }
 
     [[nodiscard]] Power<MonoSpectrum> power() const noexcept override {
-        return Intensity<MonoSpectrum>::fromRaw(mIntensity->mean()) * SolidAngle::fromRaw(twoPi * (1 - 0.5f * (mCosFalloffStart + mCosTotalWidth)));
+        return Intensity<MonoSpectrum>::fromRaw(mIntensity->mean()) *
+            SolidAngle::fromRaw(twoPi * (1 - 0.5f * (mCosFalloffStart + mCosTotalWidth)));
     }
 };
 

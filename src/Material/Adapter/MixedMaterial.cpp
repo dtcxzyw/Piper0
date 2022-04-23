@@ -90,7 +90,8 @@ public:
     BSDF<Setting> evaluate(const Wavelength& sampledWavelength, const SurfaceHit& intersection) const noexcept override {
         auto bsdf1 = mMaterialA->evaluate(sampledWavelength, intersection);
         auto bsdf2 = mMaterialB->evaluate(sampledWavelength, intersection);
-        const auto weight = mWeight->evaluate(intersection.texCoord);
+        const auto textureEvaluateInfo = intersection.makeTextureEvaluateInfo();
+        const auto weight = mWeight->evaluate(textureEvaluateInfo);
 
         // NOTICE: modified ShadingFrame (e.g., Normal/Bump Map) will be ignored
         const auto keepOneWavelength = bsdf1.keepOneWavelength() || bsdf2.keepOneWavelength();
@@ -100,7 +101,8 @@ public:
     }
 
     [[nodiscard]] RGBSpectrum estimateAlbedo(const SurfaceHit& intersection) const noexcept override {
-        const auto weight = mWeight->evaluate(intersection.texCoord);
+        const auto textureEvaluateInfo = intersection.makeTextureEvaluateInfo();
+        const auto weight = mWeight->evaluate(textureEvaluateInfo);
         return mix(mMaterialA->estimateAlbedo(intersection), mMaterialB->estimateAlbedo(intersection), weight);
     }
 };

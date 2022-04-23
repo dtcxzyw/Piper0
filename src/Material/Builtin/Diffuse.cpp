@@ -37,19 +37,21 @@ public:
         : mReflectance{ this->template make<SpectrumTexture2D>(node->get("Reflectance"sv)->as<Ref<ConfigNode>>()) } {}
 
     BSDF<Setting> evaluate(const Wavelength& sampledWavelength, const SurfaceHit& intersection) const noexcept override {
+        const auto textureEvaluateInfo = intersection.makeTextureEvaluateInfo();
         return BSDF<Setting>{ ShadingFrame{ intersection.shadingNormal.asDirection(), intersection.dpdu },
                               LambertianBxDF<Setting>{
-                                  Rational<Spectrum>::fromRaw(mReflectance->evaluate(intersection.texCoord, sampledWavelength)) } };
+                                  Rational<Spectrum>::fromRaw(mReflectance->evaluate(textureEvaluateInfo, sampledWavelength)) } };
     }
 
     [[nodiscard]] RGBSpectrum estimateAlbedo(const SurfaceHit& intersection) const noexcept override {
+        const auto textureEvaluateInfo = intersection.makeTextureEvaluateInfo();
         if constexpr(std::is_same_v<Spectrum, SampledSpectrum>) {
             auto res = zero<RGBSpectrum>();
 
             for(uint32_t idx = wavelengthMin; idx < wavelengthMax; ++idx) {
                 const auto base = static_cast<Float>(idx);
                 const auto sampledWavelength = SampledSpectrum::fromRaw({ base, base + 0.25f, base + 0.5f, base + 0.75f });
-                const auto albedo = toRGB(mReflectance->evaluate(intersection.texCoord, sampledWavelength), sampledWavelength);
+                const auto albedo = toRGB(mReflectance->evaluate(textureEvaluateInfo, sampledWavelength), sampledWavelength);
                 res += albedo;
             }
 
@@ -58,9 +60,9 @@ public:
             return res;
         } else if constexpr(std::is_same_v<Spectrum, MonoWavelengthSpectrum>) {
             const auto lambda = RenderGlobalSetting::get().sampledWavelength;
-            return toRGB(mReflectance->evaluate(intersection.texCoord, lambda), lambda);
+            return toRGB(mReflectance->evaluate(textureEvaluateInfo, lambda), lambda);
         } else {
-            return toRGB(mReflectance->evaluate(intersection.texCoord, Wavelength{}), Wavelength{});
+            return toRGB(mReflectance->evaluate(textureEvaluateInfo, Wavelength{}), Wavelength{});
         }
     }
 };

@@ -147,23 +147,14 @@ public:
         const auto normalizedTexCoord = texCoord - glm::floor(texCoord);  // TODO: reduce normalization?
 
         const auto lerpNormal = transform(
-            Normal<FrameOfReference::Object>::fromRaw(glm::normalize(lerp3(mNormals[iu].raw(), mNormals[iv].raw(), mNormals[iw].raw())))
-        );
-        const auto lerpTangent = transform(
-            Direction<FrameOfReference::Object>::fromRaw(glm::normalize(lerp3(mTangents[iu].raw(), mTangents[iv].raw(), mTangents[iw].raw())))
-        );
+            Normal<FrameOfReference::Object>::fromRaw(glm::normalize(lerp3(mNormals[iu].raw(), mNormals[iv].raw(), mNormals[iw].raw()))));
+        const auto lerpTangent = transform(Direction<FrameOfReference::Object>::fromRaw(
+            glm::normalize(lerp3(mTangents[iu].raw(), mTangents[iv].raw(), mTangents[iw].raw()))));
 
-        return SurfaceHit{
-            ray.origin + ray.direction * hitDistance,
-            hitDistance,
-            geometryNormal,
-            lerpNormal,
-            lerpTangent,
-            primitiveIndex,
-            normalizedTexCoord,
-            // transform.inverse(),
-            Handle<Material>{ mSurface.get() }
-        };
+        return SurfaceHit{ ray.origin + ray.direction * hitDistance, hitDistance, geometryNormal, lerpNormal, lerpTangent, primitiveIndex,
+                           normalizedTexCoord, ray.t,
+                           // transform.inverse(),
+                           Handle<Material>{ mSurface.get() } };
     }
 };
 

@@ -67,10 +67,14 @@ public:
         return mSystem->get_texture_handle({ path.data(), path.size() }, local());
     }
 
-    void texture(OIIO::TextureSystem::TextureHandle* handle, const TexCoord texCoord, const int channels, Float* res) {
+    void texture(OIIO::TextureSystem::TextureHandle* handle, const TextureEvaluateInfo& info, const int channels, Float* res) {
         Counter<StatsType::Texture2D>::count();
+        auto options = mOptions;
+        options.time = info.t;
+        // options.subimage = static_cast<int>(info.primitiveIdx);
+
         [[maybe_unused]] const auto ok =
-            mSystem->texture(handle, local(), mOptions, texCoord.x, texCoord.y, 0.0f, 0.0f, 0.0f, 0.0f, channels, res);
+            mSystem->texture(handle, local(), options, info.texCoord.x, info.texCoord.y, 0.0f, 0.0f, 0.0f, 0.0f, channels, res);
         assert(ok);
     }
 
@@ -88,9 +92,9 @@ public:
     explicit BitMapScalar(const Ref<ConfigNode>& node)
         : mSystem{ TextureSystem::get() }, mHandle{ mSystem.load(node->get("FilePath"sv)->as<std::string_view>()) } {}
 
-    Float evaluate(const TexCoord texCoord) const noexcept override {
+    Float evaluate(const TextureEvaluateInfo& info) const noexcept override {
         Float res;
-        mSystem.texture(mHandle, texCoord, 1, &res);
+        mSystem.texture(mHandle, info, 1, &res);
         return res;
     }
 };
@@ -103,10 +107,10 @@ public:
     explicit BitMapNormalized(const Ref<ConfigNode>& node)
         : mSystem{ TextureSystem::get() }, mHandle{ mSystem.load(node->get("FilePath"sv)->as<std::string_view>()) } {}
 
-    Direction<FrameOfReference::Shading> evaluate(const TexCoord texCoord) const noexcept override {
+    Direction<FrameOfReference::Shading> evaluate(const TextureEvaluateInfo& info) const noexcept override {
         auto res = Vector<FrameOfReference::Shading>::undefined();
         static_assert(sizeof(res) == 3 * sizeof(Float));
-        mSystem.texture(mHandle, texCoord, 3, reinterpret_cast<Float*>(&res));
+        mSystem.texture(mHandle, info, 3, reinterpret_cast<Float*>(&res));
         if(dot(res, res).raw() < epsilon)
             return Direction<FrameOfReference::Shading>::positiveZ();
         return normalize(res);
@@ -124,15 +128,15 @@ public:
     explicit BitMap(const Ref<ConfigNode>& node)
         : mSystem{ TextureSystem::get() }, mHandle{ mSystem.load(node->get("FilePath"sv)->as<std::string_view>()) } {}
 
-    Spectrum evaluate(const TexCoord texCoord, const Wavelength& sampledWavelength) const noexcept override {
+    Spectrum evaluate(const TextureEvaluateInfo& info, const Wavelength& sampledWavelength) const noexcept override {
         if constexpr(std::is_same_v<Spectrum, MonoSpectrum>) {
             MonoSpectrum res;
-            mSystem.texture(mHandle, texCoord, 1, &res);
+            mSystem.texture(mHandle, info, 1, &res);
             return res;
         } else {
             RGBSpectrum res = RGBSpectrum::undefined();
             static_assert(sizeof(RGBSpectrum) == 3 * sizeof(Float));
-            mSystem.texture(mHandle, texCoord, 3, reinterpret_cast<Float*>(&res));
+            mSystem.texture(mHandle, info, 3, reinterpret_cast<Float*>(&res));
 
             if constexpr(std::is_same_v<Spectrum, RGBSpectrum>)
                 return res;
@@ -142,15 +146,16 @@ public:
         }
     }
 
-    [[nodiscard]] std::pair<bool, Float> evaluateOneWavelength(const TexCoord texCoord, const Float wavelength) const noexcept override {
+    [[nodiscard]] std::pair<bool, Float> evaluateOneWavelength(const TextureEvaluateInfo& info,
+                                                               const Float wavelength) const noexcept override {
         if constexpr(std::is_same_v<Spectrum, MonoSpectrum>) {
             MonoSpectrum res;
-            mSystem.texture(mHandle, texCoord, 1, &res);
+            mSystem.texture(mHandle, info, 1, &res);
             return { false, res };
         } else {
             RGBSpectrum res = RGBSpectrum::undefined();
             static_assert(sizeof(RGBSpectrum) == 3 * sizeof(Float));
-            mSystem.texture(mHandle, texCoord, 3, reinterpret_cast<Float*>(&res));
+            mSystem.texture(mHandle, info, 3, reinterpret_cast<Float*>(&res));
 
             return { true, Impl::fromRGB(res, wavelength) };
         }

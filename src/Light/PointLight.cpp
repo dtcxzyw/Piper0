@@ -47,7 +47,8 @@ public:
         const auto transform = mTransform(ctx.t);
         const auto lightSource = Point<FrameOfReference::World>::fromRaw(transform.translation);
         const auto [dir, dist2] = direction(pos, lightSource);
-        const auto intensity = Intensity<Spectrum>::fromRaw(mIntensity->evaluate(transform.rotateOnly(dir), ctx.sampledWavelength));
+        const auto intensity = Intensity<Spectrum>::fromRaw(
+            mIntensity->evaluate({ mIntensity->dir2TexCoord(transform.rotateOnly(dir)), ctx.t, 0U }, ctx.sampledWavelength));
         const auto radiance = importanceSampled<PdfType::Light | PdfType::LightSampler>(intensity.toRadiance(dist2));
         return LightLiSample<Spectrum>{ dir, radiance, InversePdf<PdfType::Light>::identity(), sqrt(dist2) };
     }
@@ -60,7 +61,8 @@ public:
         const auto dir = sampleUniformSphere<FrameOfReference::World>(sampler.sampleVec2());
         const auto lightSource = Point<FrameOfReference::World>::fromRaw(transform.translation);
         const Ray ray{ lightSource, dir, ctx.t };
-        const auto intensity = Intensity<Spectrum>::fromRaw(mIntensity->evaluate(transform.rotateOnly(-dir), ctx.sampledWavelength));
+        const auto intensity = Intensity<Spectrum>::fromRaw(
+            mIntensity->evaluate({ mIntensity->dir2TexCoord(transform.rotateOnly(-dir)), ctx.t, 0U }, ctx.sampledWavelength));
         return LightLeSample<Spectrum>{ ray, intensity, InversePdf<PdfType::LightPos>::identity(), uniformSpherePdf<PdfType::LightDir>() };
     }
     std::pair<InversePdf<PdfType::LightPos>, InversePdf<PdfType::LightDir>> pdfLe(const ShadingContext<Setting>& ctx,
