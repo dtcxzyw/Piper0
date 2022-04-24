@@ -76,7 +76,7 @@ void ProgressReporter::update(const double progress) noexcept {
     renderCallback();
     mProgress = std::fmin(1.0, progress);
 
-    if(mProgress > 0.001) {
+    if(mProgress > 1e-7) {
         const auto delta = Clock::now() - mStart;
         mEstimatedEnd = mStart +
             Clock::duration{ static_cast<Clock::rep>(std::ceil(static_cast<double>(delta.count()) / std::fmin(0.999, mProgress))) };

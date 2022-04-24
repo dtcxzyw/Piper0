@@ -69,7 +69,7 @@ inline Float safeSqrt(const Float x) noexcept {
 }
 
 inline bool isZero(const Float x) noexcept {
-    return std::fabs(x) < epsilon;
+    return std::fabs(x) < 1e-8f;
 }
 
 template <typename T>

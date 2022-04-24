@@ -141,6 +141,9 @@ public:
                 return BSDFSample::invalid();
             const auto wi = Direction::fromRaw(normalize(wiRaw));
 
+            if(isZero(wi.z()))
+                return BSDFSample::invalid();
+
             auto ft = transmission / absCosTheta(wi);
 
             const auto etaP = wo.z() > 0.0f ? mEta : rcp(mEta);
@@ -188,7 +191,7 @@ public:
         const auto etaP = dot(wo, wm) > 0.0f ? mEta : rcp(mEta);
 
         const auto denominator = sqr(dot(wi, wm) + dot(wo, wm) / etaP);
-        if(denominator < 1e-8f)
+        if(isZero(denominator))
             return BSDFSample::invalid();
         const auto derv = absDot(wi, wm) / denominator;
         const auto pdf = mDistribution.pdf(wo, wm) * derv * transmission / (reflection + transmission);
