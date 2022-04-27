@@ -38,7 +38,7 @@ void error(std::string message);
 tbb::concurrent_vector<std::pair<LogType, std::string>>& consoleOutput();
 std::ofstream& logFile();
 
-using Clock = std::chrono::steady_clock;
+using Clock = std::chrono::system_clock;
 
 class ProgressReporter final : public RefCountBase {
     Clock::time_point mStart;

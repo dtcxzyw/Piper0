@@ -228,6 +228,8 @@ public:
     }
 };
 
+using HClock = std::chrono::high_resolution_clock;
+
 template <StatsType T>
 class Timer final {
     static TimerBase& base() {
@@ -239,17 +241,17 @@ class Timer final {
         return base;
     }
 
-    Clock::time_point mBegin;
+    HClock::time_point mBegin;
 
 public:
-    Timer() : mBegin{ Clock::now() } {}
+    Timer() : mBegin{ HClock::now() } {}
 
     Timer(const Timer&) = delete;
     Timer(Timer&&) = delete;
     Timer& operator=(const Timer&) = delete;
     Timer& operator=(Timer&&) = delete;
     ~Timer() {
-        localBase().count((Clock::now() - mBegin).count());
+        localBase().count((HClock::now() - mBegin).count());
     }
 };
 
