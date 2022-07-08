@@ -30,6 +30,11 @@
 #include <Psapi.h>
 #include <TlHelp32.h>
 #include <winternl.h>
+#elif PIPER_LINUX
+#include <proc/readproc.h>
+#include <sys/sysinfo.h>
+#include <sys/times.h>
+#include <unistd.h>
 #endif
 
 PIPER_NAMESPACE_BEGIN
@@ -153,6 +158,32 @@ class MonitorImpl final : public Monitor {
 
         return res;
     }
+#elif PIPER_LINUX
+    static CurrentCheckpoint checkpoint() {
+        CurrentCheckPoint res;
+
+        const auto cores = get_nprocs();
+        res.cores.resize(cores);
+        for(uint32_t idx = 0; idx < cores; ++idx) {
+        }
+
+        const auto ticks = sysconf(_SC_CLK_TCK);
+        tms timeInfo;
+        const auto real = times(&timeInfo);
+        constexpr uint64_t ns = 1'000'000'000;
+        res.recordTime = real * ns / ticks;
+        res.userTime = timeInfo.tms_utime * ns / ticks;
+        res.kernelTime = timeInfo.tms_stime * ns / ticks;
+        res.totalTime = res.recordTime;
+
+        const auto pageSize = sysconf(_SC_PAGESIZE);
+        struct proc_t usage;
+        look_up_our_self(&usage);
+        res.memoryUsage = usage.size * pageSize;
+
+        return res;
+    }
+
 #endif
 
     tbb::concurrent_unordered_map<void*, std::string> mCustomStatus;

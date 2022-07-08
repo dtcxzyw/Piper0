@@ -24,6 +24,9 @@
 #include <glm/gtc/quaternion.hpp>
 #include <pmmintrin.h>
 #include <xmmintrin.h>
+#ifdef PIPER_LINUX
+#include <cfenv>
+#endif
 
 PIPER_NAMESPACE_BEGIN
 
@@ -31,6 +34,8 @@ void FloatingPointExceptionProbe::on() noexcept {
 #ifdef PIPER_FLOATING_POINT_EXCEPTION_PROBE
 #ifdef PIPER_WINDOWS
     _control87(_EM_DENORMAL | _EM_INEXACT | _EM_UNDERFLOW, _MCW_EM);
+#elif PIPER_LINUX
+    feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW);
 #endif
 #endif
 }
@@ -38,6 +43,8 @@ void FloatingPointExceptionProbe::off() noexcept {
 #ifdef PIPER_FLOATING_POINT_EXCEPTION_PROBE
 #ifdef PIPER_WINDOWS
     _control87(_MCW_EM, _MCW_EM);
+#elif PIPER_LINUX
+    fedisableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW);
 #endif
 #endif
 }
