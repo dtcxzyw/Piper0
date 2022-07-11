@@ -301,7 +301,7 @@ struct SRTTransform final {
     [[nodiscard]] constexpr Direction<FrameOfReference::World> rotateOnly(const Direction<FrameOfReference::Object>& x) const noexcept {
         return Direction<FrameOfReference::World>::fromRaw(rotation * x.raw());
     }
-    [[nodiscard]] constexpr Direction<FrameOfReference::Object> rotateOnly(const Direction<FrameOfReference::World>& x) const noexcept {
+    [[nodiscard]] /*constexpr*/ Direction<FrameOfReference::Object> rotateOnly(const Direction<FrameOfReference::World>& x) const noexcept {
         return Direction<FrameOfReference::Object>::fromRaw(glm::inverse(rotation) * x.raw());
     }
 

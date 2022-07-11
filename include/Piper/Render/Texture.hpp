@@ -37,7 +37,7 @@ struct TextureEvaluateInfo {
 class ScalarTexture2D : public RefCountBase {
 public:
     virtual Float evaluate(const TextureEvaluateInfo& info) const noexcept = 0;
-    virtual [[nodiscard]] std::pair<bool, Float> evaluateOneWavelength(const TextureEvaluateInfo& info, Float wavelength) const noexcept {
+    [[nodiscard]] virtual std::pair<bool, Float> evaluateOneWavelength(const TextureEvaluateInfo& info, Float wavelength) const noexcept {
         return { false, evaluate(info) };
     }
 };

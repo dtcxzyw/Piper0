@@ -49,7 +49,7 @@ public:
                               aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_SortByPType | aiProcess_GenSmoothNormals |
                                   aiProcess_FixInfacingNormals | aiProcess_ImproveCacheLocality | aiProcess_CalcTangentSpace);
         if(!scene || scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE)
-            fatal(std::format("Failed to load scene {}: {}", path, importer.GetErrorString()));
+            fatal(fmt::format("Failed to load scene {}: {}", path, importer.GetErrorString()));
 
         uint32_t verticesCount = 0;
         uint32_t trianglesCount = 0;

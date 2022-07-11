@@ -56,7 +56,7 @@ std::string resolvePath(const std::string_view name) {
         }
     }
 
-    fatal(std::format("Failed to resolve file {}", name));
+    fatal(fmt::format("Failed to resolve file {}", name));
 }
 
 PIPER_NAMESPACE_END

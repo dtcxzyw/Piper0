@@ -36,7 +36,7 @@ public:
             mEnable = (*enable)->as<bool>();
 
         mDevice.setErrorFunction([](void*, const oidn::Error code, const char* message) {
-            fatal(std::format("[ERROR] {}: {}", magic_enum::enum_name(code), message));
+            fatal(fmt::format("[ERROR] {}: {}", magic_enum::enum_name(code), message));
         });
         mDevice.commit();
     }
@@ -50,7 +50,7 @@ public:
             return frame;
         }
 
-        const std::pmr::unordered_set<Channel> channels{ metadata.channels.cbegin(), metadata.channels.cend(), context().localAllocator };
+        const std::pmr::unordered_set<Channel> channels{ metadata.channels.cbegin(), metadata.channels.cend(), 16, context().localAllocator};
         std::pmr::vector<oidn::FilterRef> filters{ context().localAllocator };
         const auto base = const_cast<float*>(frame->data().data());
         auto data = frame->data();

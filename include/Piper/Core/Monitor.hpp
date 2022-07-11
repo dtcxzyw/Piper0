@@ -20,6 +20,7 @@
 
 #pragma once
 #include <Piper/Core/Context.hpp>
+#include <optional>
 
 PIPER_NAMESPACE_BEGIN
 

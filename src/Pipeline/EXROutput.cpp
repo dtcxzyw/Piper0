@@ -54,7 +54,7 @@ public:
             pathResolver["${Channel}"] = magic_enum::enum_name(channel);
 
             if(channel != Channel::Color) {
-                info(std::format("Channel {} is skipped by EXR output node.", magic_enum::enum_name(channel)));
+                info(fmt::format("Channel {} is skipped by EXR output node.", magic_enum::enum_name(channel)));
                 stride += channelSize(channel, metadata.spectrumType);
                 continue;
             }

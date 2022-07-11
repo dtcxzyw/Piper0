@@ -129,7 +129,7 @@ class DisplayProviderImpl final : public DisplayProvider {
         boost::asio::async_write(mSocket, boost::asio::buffer(data.data(), data.size()),
                                  [this](const boost::system::error_code ec, size_t /*length*/) {
                                      if(ec.failed()) {
-                                         error(std::format("Disconnected with tev: {}.", ec.what()));
+                                         error(fmt::format("Disconnected with tev: {}.", ec.message()));
                                          mConnected = false;
                                      }
                                  });
@@ -143,9 +143,9 @@ public:
         boost::system::error_code ec;
         boost::asio::connect(mSocket, endpoint, ec);
         if(ec.failed()) {
-            error(std::format("Failed to connect with tev({}). {}.", serverConfig, ec.what()));
+            error(fmt::format("Failed to connect with tev({}). {}.", serverConfig, ec.message()));
         } else {
-            info(std::format("Successfully connected with tev({}).", serverConfig));
+            info(fmt::format("Successfully connected with tev({}).", serverConfig));
             mConnected = true;
         }
     }

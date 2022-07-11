@@ -105,7 +105,7 @@ void TimerBase::print() {
 
     const auto mean = std::chrono::ceil<std::chrono::nanoseconds>(HClock::duration{ mSum / mCount });
     info(fmt::format("{}: {}, {:.2f} Mop/s ({} counts)", magic_enum::enum_name(mType), mean,
-                     1'000.0 / static_cast<double>(std::max(1LL, mean.count())), mCount));
+                     1'000.0 / static_cast<double>(std::max(static_cast<HClock::rep>(1), mean.count())), mCount));
 }
 
 void TickTimerBase::print() {

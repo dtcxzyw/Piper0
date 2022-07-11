@@ -223,7 +223,7 @@ static std::pair<bool, std::string> chi2Test(const std::pmr::vector<Float>& samp
         if(expectedP <= 0.0f) {
             if(sampled[idx] > static_cast<Float>(sampleCount) * 1e-5f)
                 return { false,
-                         std::format("Encountered {} samples in a c with expected "
+                         fmt::format("Encountered {} samples in a c with expected "
                                      "frequency 0. Rejecting the null hypothesis!",
                                      sampled[idx]) };
         } else if(expectedP < minExpFrequency || /* Pool cells with low expected frequencies */
@@ -250,7 +250,7 @@ static std::pair<bool, std::string> chi2Test(const std::pmr::vector<Float>& samp
     dof -= 1;
 
     if(dof <= 0)
-        return { false, std::format("The number of degrees of freedom {} is too low!", dof) };
+        return { false, fmt::format("The number of degrees of freedom {} is too low!", dof) };
 
     /* Probability of obtaining a test statistic at least
        as extreme as the one observed under the assumption
@@ -268,7 +268,7 @@ static std::pair<bool, std::string> chi2Test(const std::pmr::vector<Float>& samp
     if(std::isfinite(p) && p > alpha)
         return { true, {} };
     return { false,
-             std::format("Rejected the null hypothesis (p-value = {}, "
+             fmt::format("Rejected the null hypothesis (p-value = {}, "
                          "significance level = {})",
                          p, alpha) };
 }
@@ -328,7 +328,7 @@ static void chi2Test(const std::string_view name, const BSDF<RSSMono>& bsdf) {
         const auto [res, reason] = chi2Test(freq, expectedFreq, testCount, sampleCount);
 
         if(!res)
-            dumpTable(std::format("chi2test_{}_table_{}.m", name, k), freq, expectedFreq);
+            dumpTable(fmt::format("chi2test_{}_table_{}.m", name, k), freq, expectedFreq);
 
         ASSERT_TRUE(res) << " name " << name << " reason: " << reason << " iteration " << k;
     }

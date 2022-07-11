@@ -24,14 +24,14 @@
 #include <tbb/concurrent_unordered_map.h>
 #include <vector>
 
-#ifdef PIPER_WINDOWS
+#if defined(PIPER_WINDOWS)
 #include <Windows.h>
 //
 #include <Psapi.h>
 #include <TlHelp32.h>
 #include <winternl.h>
-#elif PIPER_LINUX
-#include <proc/readproc.h>
+#elif defined(PIPER_LINUX)
+// #include <proc/readproc.h> // procps
 #include <sys/sysinfo.h>
 #include <sys/times.h>
 #include <unistd.h>
@@ -64,7 +64,7 @@ extern std::function<void()> renderCallback;
 class MonitorImpl final : public Monitor {
     static constexpr auto unavailable = std::numeric_limits<uint64_t>::max();
 
-#ifdef PIPER_WINDOWS
+#if defined(PIPER_WINDOWS)
 
     static constexpr auto increment = 100ULL;  // 100ns
     static uint64_t toNanosecond(const FILETIME& fileTime) {
@@ -158,9 +158,9 @@ class MonitorImpl final : public Monitor {
 
         return res;
     }
-#elif PIPER_LINUX
+#elif defined(PIPER_LINUX)
     static CurrentCheckpoint checkpoint() {
-        CurrentCheckPoint res;
+        CurrentCheckpoint res;
 
         const auto cores = get_nprocs();
         res.cores.resize(cores);
@@ -177,9 +177,9 @@ class MonitorImpl final : public Monitor {
         res.totalTime = res.recordTime;
 
         const auto pageSize = sysconf(_SC_PAGESIZE);
-        struct proc_t usage;
-        look_up_our_self(&usage);
-        res.memoryUsage = usage.size * pageSize;
+	//struct proc_t usage;
+        //look_up_our_self(&usage);
+        //res.memoryUsage = usage.size * pageSize;
 
         return res;
     }

@@ -59,7 +59,7 @@
 }
 #define PIPER_UNREACHABLE() unreachable()
 #else
-#define PIPER_UNREACHABLE() __builtin__unreachable()
+#define PIPER_UNREACHABLE() __builtin_unreachable()
 #endif
 
 #define PIPER_NOT_IMPLEMENTED() PIPER_UNREACHABLE()

@@ -57,8 +57,8 @@ public:
             LambertianBxDF<Setting>{ Rational<Spectrum>::fromRaw(baseColor) }, DielectricBxDF<Setting>{ mEta, distribution }, mEta
         };
 
-        const auto eta = spectrumCast<ConductorBxDF<Setting>::EtaType>(baseColor, sampledWavelength);
-        auto metal = ConductorBxDF<Setting>{ { eta, zero<ConductorBxDF<Setting>::EtaType>() }, distribution };
+        const auto eta = spectrumCast<typename ConductorBxDF<Setting>::EtaType>(baseColor, sampledWavelength);
+        auto metal = ConductorBxDF<Setting>{ { eta, zero<typename ConductorBxDF<Setting>::EtaType>() }, distribution };
         return BSDF<Setting>{ ShadingFrame{ intersection.shadingNormal.asDirection(), intersection.dpdu },
                               mixBxDF<Setting>(std::move(dielectric), std::move(metal), metallic), false };
     }

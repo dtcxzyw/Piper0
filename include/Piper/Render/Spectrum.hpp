@@ -20,6 +20,7 @@
 
 #pragma once
 #include <Piper/Render/Math.hpp>
+#include <variant>
 
 PIPER_NAMESPACE_BEGIN
 

@@ -24,6 +24,7 @@
 #include <fmt/format.h>
 #include <oneapi/tbb/concurrent_unordered_map.h>
 #include <oneapi/tbb/concurrent_vector.h>
+#include <optional>
 
 PIPER_NAMESPACE_BEGIN
 

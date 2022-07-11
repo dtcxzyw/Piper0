@@ -144,7 +144,7 @@ namespace ftxui {
 #else
         struct termios terminal;
         tcgetattr(STDIN_FILENO, &terminal);
-        on_exit_functions.push([=] { tcsetattr(STDIN_FILENO, TCSANOW, &terminal); });
+        onExitFunctions.push([=] { tcsetattr(STDIN_FILENO, TCSANOW, &terminal); });
 
         terminal.c_lflag &= ~ICANON;  // Non canonique terminal.
         terminal.c_lflag &= ~ECHO;    // Do not print after a key press.

@@ -71,7 +71,7 @@ static Ref<ConfigAttr> parseAttr(const simdjson::dom::element& element, const Re
     }
 }
 
-static Ref<ConfigNode> parseNode(const simdjson::dom::object& obj, const ResolveConfiguration& config,
+Ref<ConfigNode> parseNode(const simdjson::dom::object& obj, const ResolveConfiguration& config,
                                  Ref<RefCountBase> holder) {  // NOLINT(performance-unnecessary-value-param)
     constexpr auto valueOr = [](const simdjson::simdjson_result<std::string_view>& res, const std::string_view fallback) {
         return res.error() == simdjson::SUCCESS ? res.value_unsafe() : fallback;
