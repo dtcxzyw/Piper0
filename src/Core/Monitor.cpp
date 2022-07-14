@@ -31,10 +31,11 @@
 #include <TlHelp32.h>
 #include <winternl.h>
 #elif defined(PIPER_LINUX)
-// #include <proc/readproc.h> // procps
 #include <sys/sysinfo.h>
 #include <sys/times.h>
 #include <unistd.h>
+#include <fstream>
+#include <sstream>
 #endif
 
 PIPER_NAMESPACE_BEGIN
@@ -164,8 +165,19 @@ class MonitorImpl final : public Monitor {
 
         const auto cores = get_nprocs();
         res.cores.resize(cores);
-        for(uint32_t idx = 0; idx < cores; ++idx) {
-        }
+	{
+	    std::ifstream in{"/proc/stat", std::ios::in};
+	    std::string line;
+	    std::getline(in, line);
+	    for(uint32_t idx = 0; idx < cores; ++idx) {
+                std::getline(in, line);
+                std::stringstream ss{line};
+                std::string name;
+		uint32_t user, nice, sys, idle, iowait, irq, softirq;
+		ss >> name >> user >> nice >> sys >> idle >> iowait >> irq >> softirq;
+		res.cores[idx] = {user, sys, user + nice + sys + idle + iowait + irq + softirq};
+	    }
+	}
 
         const auto ticks = sysconf(_SC_CLK_TCK);
         tms timeInfo;
@@ -177,9 +189,40 @@ class MonitorImpl final : public Monitor {
         res.totalTime = res.recordTime;
 
         const auto pageSize = sysconf(_SC_PAGESIZE);
-	//struct proc_t usage;
-        //look_up_our_self(&usage);
-        //res.memoryUsage = usage.size * pageSize;
+	{
+	    std::ifstream in{"/proc/self/stat", std::ios::in};
+	    std::string command, state;
+	    uint32_t pid, ppid, pgid, sid, ttyDeviceNumber, ttyGroup, flags, minflt, cminflt, majflt,
+		     cmajflt, utime, stime, cutime, cstime, priority, nice, numThreads, itRealValue,
+		     startTime, vsize, rss;
+	    in >> pid >> command >> state >> ppid >> pgid >> sid >> ttyDeviceNumber >> ttyGroup >> flags
+	       >> minflt >> cminflt >> majflt >> cmajflt >> utime >> stime >> cutime >> cstime >> priority
+	       >> nice >> numThreads >> itRealValue >> startTime >> vsize >> rss;
+	    res.memoryUsage = rss * pageSize;
+	}
+
+	{
+	    std::ifstream in{"/proc/self/io", std::ios::in};
+	    std::string type;
+	    uint32_t val;
+	    // rchar
+	    in >> type >> val;
+	    // wchar
+	    in >> type >> val;
+	    // syscr
+	    in >> type >> val;
+	    res.IOOps = val;
+	    // syscw
+	    in >> type >> val;
+	    res.IOOps += val;
+	    // read bytes
+	    in >> type >> val;
+	    res.readCount = val;
+	    // write bytes
+	    in >> type >> val;
+	    res.writeCount = val;
+            res.activeIOThread = 1;
+	}
 
         return res;
     }
