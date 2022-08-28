@@ -15,6 +15,16 @@ find_package(magic_enum CONFIG REQUIRED)
 find_package(OpenImageDenoise CONFIG REQUIRED)
 find_package(embree CONFIG REQUIRED)
 find_package(openvkl CONFIG REQUIRED)
+
+# dummy libraries for old ocio
+find_package(expat CONFIG REQUIRED)
+find_package(pystring CONFIG REQUIRED)
+find_package(yaml-cpp CONFIG REQUIRED)
+
+add_library(dummy INTERFACE)
+add_library(sampleicc::sampleicc ALIAS dummy)
+add_library(utils::strings ALIAS dummy)
+
 find_package(OpenColorIO CONFIG REQUIRED)
 find_package(simdjson CONFIG REQUIRED)
 find_path(PCG_INCLUDE_DIRS "pcg_extras.hpp")
@@ -151,7 +161,7 @@ target_link_libraries(Piper PRIVATE simdjson::simdjson)
 target_link_libraries(Piper PRIVATE assimp::assimp)
 target_link_libraries(Piper PRIVATE IlmBase::Iex IlmBase::Half IlmBase::Imath IlmBase::IexMath)
 target_link_libraries(Piper PRIVATE OpenEXR::IlmImf OpenEXR::IlmImfUtil OpenEXR::IlmImfConfig)
-#target_link_libraries(Piper PRIVATE OpenImageIO::OpenImageIO OpenImageIO::OpenImageIO_Util)
+target_link_libraries(Piper PRIVATE OpenImageIO::OpenImageIO OpenImageIO::OpenImageIO_Util)
 
 add_executable(PiperCLI ${PIPER_CLI_SRC} $<TARGET_OBJECTS:Piper>) #NOTICE: directly link objects for static factory
 target_include_directories(PiperCLI PRIVATE ${RANG_INCLUDE_DIRS})
