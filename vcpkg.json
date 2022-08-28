@@ -1,0 +1,41 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg/master/scripts/vcpkg.schema.json",
+  "name": "piper0",
+  "version": "0.0.1",
+  "dependencies": [
+    "boost",
+    "glm",
+    "range-v3",
+    "ftxui",
+    "cxxopts",
+    "simdjson",
+    "fmt",
+    "magic-enum",
+    {
+      "name": "openimageio",
+      "features": [
+        "opencolorio"
+      ]
+    },
+    "assimp",
+    "gtest",
+    "pcg"
+  ],
+  "overrides": [
+    {
+      "name": "opencolorio",
+      "version": "2.0.1",
+      "port-version": 1
+    },
+    {
+      "name": "openimageio",
+      "version": "2.3.10.1",
+      "port-version": 4
+    },
+    {
+      "name": "fmt",
+      "version": "8.0.1"
+    }
+  ],
+  "builtin-baseline": "e85b5bb95a14ff7e014601e88a8dc2fea6798e33"
+}

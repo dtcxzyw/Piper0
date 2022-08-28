@@ -70,7 +70,7 @@ namespace ftxui {
         }
 
         using SignalHandler = void(int);
-        std::stack<ScreenInteractive::Callback> onExitFunctions;
+        std::stack<std::function<void()>> onExitFunctions;
 
         void onExit(const int) {
             while(!onExitFunctions.empty()) {
